@@ -26,14 +26,40 @@ def load_previous_session_handle():
     try:
         with open('session_handle.json', 'r') as f:
             data = json.load(f)
-            print(f"Loaded previous session handle: {data.get('previous_session_handle', None)}")
-            return data.get('previous_session_handle', None)
+            handle = data.get('previous_session_handle', None)
+            session_time = data.get('session_time', None)
+            
+            if handle and session_time:
+                # Parse thời gian session
+                session_datetime = datetime.datetime.fromisoformat(session_time)
+                current_time = datetime.datetime.now()
+                time_diff = current_time - session_datetime
+                
+                # Kiểm tra nếu thời gian chênh lệch < 1 phút (60 giây)
+                if time_diff.total_seconds() < 60:
+                    print(f"Loaded previous session handle: {handle} (created {time_diff.total_seconds():.1f}s ago)")
+                    return handle
+                else:
+                    print(f"Previous session handle expired ({time_diff.total_seconds():.1f}s ago, > 60s)")
+                    return None
+            else:
+                print("No valid session handle or time found")
+                return None
     except FileNotFoundError:
+        print("No previous session file found")
+        return None
+    except Exception as e:
+        print(f"Error loading session handle: {e}")
         return None
 
 def save_previous_session_handle(handle):
+    current_time = datetime.datetime.now().isoformat()
     with open('session_handle.json', 'w') as f:
-        json.dump({'previous_session_handle': handle}, f)
+        json.dump({
+            'previous_session_handle': handle,
+            'session_time': current_time
+        }, f)
+    print(f"Saved session handle with timestamp: {current_time}")
 
 previous_session_handle = load_previous_session_handle()
 
@@ -83,11 +109,10 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
                                         )
                                     
                                     elif chunk["mime_type"].startswith("image/"):
-                                        await session.send(input={
-                                            "mime_type": chunk["mime_type"],
-                                            "data": chunk["data"]
-                                        })
-                            
+                                        await session.send_realtime_input(
+                                            media=types.Blob(data=chunk["data"], mime_type=chunk["mime_type"])
+                                        )
+
                             elif "text" in data:
                                 text_content = data["text"]
                                 await session.send_client_content(
@@ -115,9 +140,7 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
 
                                 if response.usage_metadata:
                                     usage = response.usage_metadata
-                                    print(
-                                        f'Used {usage.total_token_count} tokens in total.'
-                                        )
+                                    print(f'Used {usage.total_token_count} tokens in total.')
 
                                 if response.session_resumption_update:
                                     update = response.session_resumption_update
