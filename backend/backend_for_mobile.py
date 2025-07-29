@@ -11,20 +11,17 @@ import websockets.server
 import io
 from pydub import AudioSegment
 import datetime
+from dotenv import load_dotenv
 
+load_dotenv(override=True)  
 
-# Load API key from environment
-os.environ['GOOGLE_API_KEY'] = 'AIzaSyC8s0eS-yIYm_P8Rad9PW1yfzi0TXjqrfI'
-gemini_api_key = os.environ['GOOGLE_API_KEY']
-MODEL = "gemini-live-2.5-flash-preview"  # For multimodal
+gemini_api_key = os.getenv('GOOGLE_API_KEY')
+MODEL = "gemini-live-2.5-flash-preview"  
 
 client = genai.Client(
     api_key=gemini_api_key,
 )
 
-# Load previous session handle from a file
-# You must delete the session_handle.json file to start a new session when last session was 
-# finished for a while.
 def load_previous_session_handle():
     try:
         with open('session_handle.json', 'r') as f:
@@ -34,7 +31,6 @@ def load_previous_session_handle():
     except FileNotFoundError:
         return None
 
-# Save previous session handle to a file
 def save_previous_session_handle(handle):
     with open('session_handle.json', 'w') as f:
         json.dump({'previous_session_handle': handle}, f)
@@ -51,7 +47,6 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
             response_modalities=["AUDIO"],
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
-                    #Puck, Charon, Kore, Fenrir, Aoede, Leda, Orus, and Zephyr.
                     prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Charon")
                 ),
                 language_code='vi-VN',
@@ -73,7 +68,6 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
         )
 
         async with client.aio.live.connect(model=MODEL, config=config) as session:
-            #print(f"Connected to Gemini API with handle: {previous_session_handle}")
 
             async def send_to_gemini():
                 try:
@@ -87,7 +81,6 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
                                         await session.send_realtime_input(
                                             audio=types.Blob(data=chunk["data"], mime_type="audio/pcm;rate=16000")
                                         )
-                                        #print(f"Sent audio to Gemini: {chunk['data'][:32]}...")
                                     
                                     elif chunk["mime_type"].startswith("image/"):
                                         await session.send(input={
@@ -204,16 +197,14 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
         print("Gemini session closed.")
     
 async def main() -> None:
-    # Use explicit IPv4 address and handle deprecation
     server = await websockets.server.serve(
         gemini_session_handler,
-        host="0.0.0.0",  # Explicitly use IPv4 localhost
+        host="0.0.0.0", 
         port=9084,
-        compression=None  # Disable compression to avoid deprecation warning
+        compression=None  
     )
     
     print("Running websocket server on 0.0.0.0:9084...")
-    #print("Long memory tutoring assistant ready to help")
     await asyncio.Future()  # Keep the server running indefinitely
 
 if __name__ == "__main__":
