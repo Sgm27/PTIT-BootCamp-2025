@@ -4,7 +4,7 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 
 object Constants {
-    const val URL = "ws://bootcamp.sonktx.online"
+    const val URL = "ws://backend-bootcamp.sonktx.online/gemini-live"
     const val CAMERA_REQUEST_CODE = 100
     const val AUDIO_REQUEST_CODE = 200
     const val AUDIO_SAMPLE_RATE = 24000

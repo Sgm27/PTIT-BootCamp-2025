@@ -68,6 +68,13 @@
             android:screenOrientation="portrait" />
             
         <activity
+            android:name=".EditProfileActivity"
+            android:exported="false"
+            android:label="Chỉnh sửa thông tin"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <activity
             android:name=".BackgroundServiceActivity"
             android:exported="false"
             android:label="Background Service"

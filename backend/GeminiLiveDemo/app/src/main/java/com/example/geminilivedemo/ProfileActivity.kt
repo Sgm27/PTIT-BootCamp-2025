@@ -30,6 +30,12 @@ class ProfileActivity : AppCompatActivity() {
         setupClickListeners()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Reload user data when returning from EditProfileActivity
+        loadUserData()
+    }
+
     private fun initViews() {
         profileAvatar = findViewById(R.id.profileAvatar)
         userName = findViewById(R.id.userName)
@@ -66,7 +72,9 @@ class ProfileActivity : AppCompatActivity() {
 
         // Edit Profile Information
         findViewById<android.widget.LinearLayout>(R.id.btnEditProfile).setOnClickListener {
-            showEditProfileDialog()
+            // Start EditProfileActivity
+            val intent = Intent(this, EditProfileActivity::class.java)
+            startActivity(intent)
         }
 
         // Notifications Switch
