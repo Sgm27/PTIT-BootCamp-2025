@@ -140,4 +140,34 @@ class WebSocketManager {
         webSocket?.close()
         isConnected = false
     }
+    
+    fun requestNotifications() {
+        if (webSocket?.isOpen == true) {
+            Log.d("WebSocketManager", "Requesting notifications from server")
+            val payload = JSONObject()
+            val notificationRequest = JSONObject()
+            notificationRequest.put("action", "get_notifications")
+            notificationRequest.put("limit", 50)
+            payload.put("notification_request", notificationRequest)
+            webSocket?.send(payload.toString())
+        } else {
+            Log.w("WebSocketManager", "Cannot request notifications - WebSocket not connected")
+        }
+    }
+    
+    fun markNotificationAsRead(notificationId: String) {
+        if (webSocket?.isOpen == true) {
+            Log.d("WebSocketManager", "Marking notification as read: $notificationId")
+            val payload = JSONObject()
+            val notificationRequest = JSONObject()
+            notificationRequest.put("action", "mark_read")
+            notificationRequest.put("notification_id", notificationId)
+            payload.put("notification_request", notificationRequest)
+            webSocket?.send(payload.toString())
+        }
+    }
+    
+    fun sendAudioChunk(base64Audio: String) {
+        sendVoiceMessage(base64Audio, null)
+    }
 }

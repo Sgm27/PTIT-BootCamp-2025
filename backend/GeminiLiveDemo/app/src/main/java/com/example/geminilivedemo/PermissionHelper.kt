@@ -38,14 +38,30 @@ class PermissionHelper(private val activity: Activity) {
     }
     
     fun checkRecordAudioPermission() {
+        val permissions = mutableListOf<String>()
+        
         if (ContextCompat.checkSelfPermission(
                 activity,
                 Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+            permissions.add(Manifest.permission.RECORD_AUDIO)
+        }
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(
+                    activity,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        
+        if (permissions.isNotEmpty()) {
             ActivityCompat.requestPermissions(
                 activity,
-                arrayOf(Manifest.permission.RECORD_AUDIO),
+                permissions.toTypedArray(),
                 Constants.AUDIO_REQUEST_CODE
             )
         } else {
@@ -68,13 +84,56 @@ class PermissionHelper(private val activity: Activity) {
                 }
             }
             Constants.AUDIO_REQUEST_CODE -> {
-                if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                var audioGranted = false
+                var notificationGranted = true // Default to true for older Android versions
+                
+                for (i in permissions.indices) {
+                    when (permissions[i]) {
+                        Manifest.permission.RECORD_AUDIO -> {
+                            audioGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED
+                        }
+                        Manifest.permission.POST_NOTIFICATIONS -> {
+                            notificationGranted = grantResults[i] == PackageManager.PERMISSION_GRANTED
+                        }
+                    }
+                }
+                
+                if (audioGranted) {
                     callback?.onAudioPermissionGranted()
+                    if (!notificationGranted) {
+                        Toast.makeText(activity, "Notification permission denied - some features may not work", Toast.LENGTH_LONG).show()
+                    }
                 } else {
                     callback?.onPermissionDenied("Audio")
                     Toast.makeText(activity, "Audio permission denied", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
+    
+    fun checkAllBackgroundPermissions() {
+        val permissions = mutableListOf<String>()
+        
+        if (ContextCompat.checkSelfPermission(activity, Manifest.permission.RECORD_AUDIO) 
+            != PackageManager.PERMISSION_GRANTED) {
+            permissions.add(Manifest.permission.RECORD_AUDIO)
+        }
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(activity, Manifest.permission.POST_NOTIFICATIONS) 
+                != PackageManager.PERMISSION_GRANTED) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        
+        if (permissions.isNotEmpty()) {
+            ActivityCompat.requestPermissions(
+                activity,
+                permissions.toTypedArray(),
+                Constants.AUDIO_REQUEST_CODE
+            )
+        } else {
+            callback?.onAudioPermissionGranted()
         }
     }
 }

@@ -7,6 +7,31 @@
     android:background="@drawable/gradient_background"
     tools:context=".MainActivity">
 
+    <!-- Profile Button - Top Left -->
+    <FrameLayout
+        android:id="@+id/profileButton"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        android:background="@drawable/enhanced_circle_button_background"
+        android:elevation="4dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?android:attr/selectableItemBackgroundBorderless"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:layout_gravity="center"
+            android:src="@drawable/ic_edit_profile"
+            android:tint="#4A90E2"
+            android:contentDescription="Profile" />
+
+    </FrameLayout>
+
     <!-- Notification Button - Top Right -->
     <FrameLayout
         android:id="@+id/notificationButton"
@@ -80,7 +105,7 @@
         android:layout_marginStart="24dp"
         android:layout_marginEnd="24dp"
         android:layout_marginBottom="16dp"
-        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
+        app:layout_constraintBottom_toTopOf="@id/backgroundServiceControls"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
@@ -191,6 +216,54 @@
                 android:contentDescription="Microphone" />
 
         </FrameLayout>
+
+    </LinearLayout>
+
+    <!-- Background Service Controls -->
+    <LinearLayout
+        android:id="@+id/backgroundServiceControls"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="16dp"
+        android:orientation="horizontal"
+        android:gravity="center"
+        app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <FrameLayout
+            android:id="@+id/backgroundServiceButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_marginEnd="16dp"
+            android:background="@drawable/enhanced_circle_button_background"
+            android:elevation="4dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?android:attr/selectableItemBackgroundBorderless">
+
+            <ImageView
+                android:id="@+id/backgroundServiceIcon"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_mic"
+                android:tint="#4A90E2"
+                android:contentDescription="Background Service" />
+
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/backgroundServiceStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Background Listening: OFF"
+            android:textColor="#FFFFFF"
+            android:textSize="14sp"
+            android:gravity="center_vertical" />
 
     </LinearLayout>
 

@@ -1,28 +1,65 @@
 import asyncio
 import json
 import os
-import uuid
-from google import genai
 import base64
-from google.genai import types
-
-from websockets.server import WebSocketServerProtocol
-import websockets.server
-import io
-from pydub import AudioSegment
 import datetime
+from typing import Optional, Dict, Any
+
+from fastapi import FastAPI, WebSocket, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+
+from google import genai
+from google.genai import types
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
+# Load environment variables
+load_dotenv(override=True)
 
-load_dotenv(override=True)  
-
-gemini_api_key = os.getenv('GOOGLE_API_KEY')
-MODEL = "gemini-live-2.5-flash-preview"  
-
-client = genai.Client(
-    api_key=gemini_api_key,
+# Initialize FastAPI app
+app = FastAPI(
+    title="AI Healthcare Assistant API",
+    description="Backend API for AI Healthcare Assistant with Gemini Live and Medicine Scanner",
+    version="1.0.0"
 )
 
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Initialize clients
+gemini_api_key = os.getenv('GOOGLE_API_KEY')
+openai_api_key = os.getenv('OPENAI_API_KEY')
+MODEL = "gemini-live-2.5-flash-preview"
+
+if not gemini_api_key:
+    raise ValueError("GOOGLE_API_KEY environment variable is required")
+if not openai_api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is required")
+
+gemini_client = genai.Client(api_key=gemini_api_key)
+openai_client = AsyncOpenAI(api_key=openai_api_key)
+
+# Pydantic models
+class MedicineScanRequest(BaseModel):
+    input: str  # Base64 string or URL
+
+class TextExtractRequest(BaseModel):
+    text: str
+
+class HealthResponse(BaseModel):
+    success: bool
+    result: str
+    error: Optional[str] = None
+
+# Session management functions
 def load_previous_session_handle():
     try:
         with open('session_handle.json', 'r') as f:
@@ -31,12 +68,10 @@ def load_previous_session_handle():
             session_time = data.get('session_time', None)
             
             if handle and session_time:
-                # Parse thời gian session
                 session_datetime = datetime.datetime.fromisoformat(session_time)
                 current_time = datetime.datetime.now()
                 time_diff = current_time - session_datetime
                 
-                # Kiểm tra nếu thời gian chênh lệch < 1 phút (60 giây)
                 if time_diff.total_seconds() < 60:
                     print(f"Loaded previous session handle: {handle} (created {time_diff.total_seconds():.1f}s ago)")
                     return handle
@@ -62,12 +97,210 @@ def save_previous_session_handle(handle):
         }, f)
     print(f"Saved session handle with timestamp: {current_time}")
 
-previous_session_handle = load_previous_session_handle()
+# Medicine Scanner Class
+class MedicineScanner:
+    """A class for scanning and identifying medicines from images using OpenAI's vision model."""
+    
+    SYSTEM_PROMPT = """
+    Bạn là một chuyên gia trong việc nhận diện và cung cấp thông tin về thuốc.
+    Bạn sẽ nhận được một hình ảnh hoặc URL của một hình ảnh thuốc và trả về tên thuốc đó
+    Không cần trả lời thêm bất kỳ thông tin nào khác ngoài tên thuốc.
+    """
+    
+    def __init__(self, client: AsyncOpenAI, model: str = "gpt-4o", temperature: float = 0.2):
+        self.client = client
+        self.model = model
+        self.temperature = temperature
+    
+    @staticmethod
+    def encode_image(image_path: str) -> str:
+        """Encodes an image file to a base64 string."""
+        try:
+            with open(image_path, "rb") as image_file:
+                encoded_string = base64.b64encode(image_file.read()).decode("utf-8")
+            return encoded_string
+        except FileNotFoundError:
+            raise FileNotFoundError(f"Image file not found: {image_path}")
+        except Exception as e:
+            raise IOError(f"Error reading image file: {e}")
+    
+    async def _create_completion(self, content_list: list) -> Dict[str, Any]:
+        """Create a completion request to OpenAI."""
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.SYSTEM_PROMPT},
+                    {"role": "user", "content": content_list}
+                ],
+                temperature=self.temperature,
+            )
+            
+            return {
+                "result": response.choices[0].message.content.strip(),
+                "success": True
+            }
+        except Exception as e:
+            return {
+                "result": f"Lỗi khi gọi API: {str(e)}",
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def scan_from_url(self, image_url: str) -> Dict[str, Any]:
+        """Scan medicine from an image URL."""
+        if not image_url:
+            return {
+                "result": "URL hình ảnh không được cung cấp.",
+                "success": False,
+                "error": "Missing image URL"
+            }
+        
+        content_list = [
+            {
+                "type": "image_url",
+                "image_url": {"url": image_url}
+            }
+        ]
+        
+        return await self._create_completion(content_list)
+    
+    async def scan_from_base64(self, base64_string: str) -> Dict[str, Any]:
+        """Scan medicine from a base64 encoded image string."""
+        if not base64_string:
+            return {
+                "result": "Chuỗi base64 không được cung cấp.",
+                "success": False,
+                "error": "Missing base64 string"
+            }
+        
+        try:
+            content_list = [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/jpeg;base64,{base64_string}"
+                    }
+                }
+            ]
+            
+            return await self._create_completion(content_list)
+        except Exception as e:
+            return {
+                "result": f"Lỗi xử lý chuỗi base64: {str(e)}",
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def scan_medicine(self, input_data: str) -> Dict[str, Any]:
+        """Get medicine information from an image URL or base64 string."""
+        if not input_data:
+            raise ValueError("Input must be provided.")
+        
+        if input_data.startswith("http"):
+            return await self.scan_from_url(input_data)
+        else:
+            return await self.scan_from_base64(input_data)
 
-async def gemini_session_handler(websocket: WebSocketServerProtocol):
+# Text Extraction Class
+class TextExtractor:
+    """A class for extracting information from text for memoir purposes."""
+    
+    SYSTEM_PROMPT = """
+    Bạn là chuyên gia trong việc trích xuất thông tin từ văn bản. 
+    Nhiệm vụ của bạn là phân tích văn bản và trích xuất các thông tin quan trọng,
+    bao gồm các sự kiện, nhân vật, địa điểm và các chi tiết liên quan khác.
+    Hãy đảm bảo rằng thông tin được trích xuất rõ ràng và có cấu trúc
+    để dễ dàng sử dụng trong việc viết hồi ký.
+
+    Bạn được cung cấp một đoạn hội thoại với người dùng và AI
+    để trích xuất thông tin từ văn bản.
+    Hãy trả lời bằng cách cung cấp các thông tin đã được trích xuất.
+    Chỉ trả lời văn bản trích xuất, không cần giải thích hay bình luận thêm.
+    """
+    
+    def __init__(self, client: AsyncOpenAI, model: str = "gpt-4o-mini", temperature: float = 0.7):
+        self.client = client
+        self.model = model
+        self.temperature = temperature
+    
+    async def extract_info_for_memoir(self, text: str) -> str:
+        """Extracts information from the provided text for memoir purposes."""
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": self.SYSTEM_PROMPT},
+                    {"role": "user", "content": text}
+                ],
+                temperature=self.temperature,
+                seed=42,
+            )
+            
+            return response.choices[0].message.content.strip() if response.choices else ""
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Error extracting text: {str(e)}")
+
+# Initialize service classes
+medicine_scanner = MedicineScanner(openai_client)
+text_extractor = TextExtractor(openai_client)
+
+# API Routes
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {"message": "AI Healthcare Assistant API", "version": "1.0.0"}
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "timestamp": datetime.datetime.now().isoformat()}
+
+@app.post("/api/scan-medicine", response_model=HealthResponse)
+async def scan_medicine_endpoint(request: MedicineScanRequest):
+    """Scan medicine from image URL or base64 string."""
+    try:
+        result = await medicine_scanner.scan_medicine(request.input)
+        return HealthResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/scan-medicine-file")
+async def scan_medicine_file_endpoint(file: UploadFile = File(...)):
+    """Scan medicine from uploaded image file."""
+    try:
+        # Read file content
+        content = await file.read()
+        
+        # Encode to base64
+        base64_string = base64.b64encode(content).decode("utf-8")
+        
+        # Scan medicine
+        result = await medicine_scanner.scan_from_base64(base64_string)
+        return HealthResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/extract-memoir-info", response_model=HealthResponse)
+async def extract_memoir_info_endpoint(request: TextExtractRequest):
+    """Extract information from text for memoir purposes."""
+    try:
+        result = await text_extractor.extract_info_for_memoir(request.text)
+        return HealthResponse(success=True, result=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# WebSocket endpoint for Gemini Live (keeping the original functionality)
+@app.websocket("/gemini-live")
+async def gemini_live_websocket(websocket: WebSocket):
+    """WebSocket endpoint for Gemini Live chat."""
+    await websocket.accept()
+    
+    previous_session_handle = load_previous_session_handle()
+    
     print(f"Starting Gemini session")
     try:
-        config_message = await websocket.recv()
+        config_message = await websocket.receive_text()
         config_data = json.loads(config_message)
 
         config = types.LiveConnectConfig(
@@ -147,34 +380,29 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
             session_resumption=types.SessionResumptionConfig(
                 handle=previous_session_handle
             ),
-            output_audio_transcription=types.AudioTranscriptionConfig(
-            ),
-            input_audio_transcription=types.AudioTranscriptionConfig(
-            ),
+            output_audio_transcription=types.AudioTranscriptionConfig(),
+            input_audio_transcription=types.AudioTranscriptionConfig(),
             temperature=0.7,
             top_p=0.9,
         )
 
-        async with client.aio.live.connect(model=MODEL, config=config) as session:
+        async with gemini_client.aio.live.connect(model=MODEL, config=config) as session:
 
             async def send_to_gemini():
                 try:
-                    async for message in websocket:
+                    async for message in websocket.iter_text():
                         try:
                             data = json.loads(message)
                         
-                            
                             if "realtime_input" in data:
                                 for chunk in data["realtime_input"]["media_chunks"]:
                                     if chunk["mime_type"] == "audio/pcm":
                                         await session.send_realtime_input(
                                             audio=types.Blob(data=chunk["data"], mime_type="audio/pcm;rate=16000")
                                         )
-                                    
                                     elif chunk["mime_type"].startswith("image/"):
-                                        await session.send_realtime_input(
-                                            media=types.Blob(data=chunk["data"], mime_type=chunk["mime_type"])
-                                        )
+                                        # Handle image input if needed
+                                        pass
 
                             elif "text" in data:
                                 text_content = data["text"]
@@ -196,18 +424,14 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
                     while True:
                         try:
                             async for response in session.receive():
-                                # Xử lý turn detection events
+                                # Handle turn detection events
                                 if hasattr(response, 'turn_detection') and response.turn_detection:
                                     if hasattr(response.turn_detection, 'type'):
-                                        await websocket.send(json.dumps({
-                                            "turn_detection": {
-                                                "type": response.turn_detection.type
-                                            }
-                                        }))
+                                        pass
                                 
                                 if response.server_content and hasattr(response.server_content, 'interrupted') and response.server_content.interrupted is not None:
                                     print(f"[{datetime.datetime.now()}] Generation interrupted")
-                                    await websocket.send(json.dumps({"interrupted": "True"}))
+                                    await websocket.send_text(json.dumps({"interrupted": "True"}))
                                     continue
 
                                 if response.usage_metadata:
@@ -217,39 +441,31 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
                                 if response.session_resumption_update:
                                     update = response.session_resumption_update
                                     if update.resumable and update.new_handle:
-                                        # The handle should be retained and linked to the session.
-                                        previous_session_handle = update.new_handle
-                                        save_previous_session_handle(previous_session_handle)
-                                        print(f"Resumed session update with handle: {previous_session_handle}")
+                                        save_previous_session_handle(update.new_handle)
 
                                 if response.server_content and hasattr(response.server_content, 'output_transcription') and response.server_content.output_transcription is not None:
                                     transcription_text = response.server_content.output_transcription.text
                                     is_finished = response.server_content.output_transcription.finished
                                     
-                                    # Hiển thị transcription vào terminal
                                     if transcription_text:
                                         print(f"🤖 Gemini: {transcription_text}")
-                                        if is_finished:
-                                            print("   [Hoàn thành]")
                                     
-                                    await websocket.send(json.dumps({
+                                    await websocket.send_text(json.dumps({
                                         "transcription": {
                                             "text": transcription_text,
                                             "sender": "Gemini",
                                             "finished": is_finished
                                         }
                                     }))
+
                                 if response.server_content and hasattr(response.server_content, 'input_transcription') and response.server_content.input_transcription is not None:
                                     user_transcription_text = response.server_content.input_transcription.text
                                     is_user_finished = response.server_content.input_transcription.finished
                                     
-                                    # Hiển thị transcription của user vào terminal
                                     if user_transcription_text:
                                         print(f"👤 User: {user_transcription_text}")
-                                        if is_user_finished:
-                                            print("   [Hoàn thành]")
                                     
-                                    await websocket.send(json.dumps({
+                                    await websocket.send_text(json.dumps({
                                         "transcription": {
                                             "text": user_transcription_text,
                                             "sender": "User",
@@ -263,24 +479,14 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
                                 model_turn = response.server_content.model_turn
                                 if model_turn:
                                     for part in model_turn.parts:
-                                        if hasattr(part, 'text') and part.text is not None:
-                                            await websocket.send(json.dumps({"text": part.text}))
-                                        
-                                        elif hasattr(part, 'inline_data') and part.inline_data is not None:
-                                            try:
-                                                audio_data = part.inline_data.data
-                                                base64_audio = base64.b64encode(audio_data).decode('utf-8')
-                                                await websocket.send(json.dumps({
-                                                    "audio": base64_audio,
-                                                }))
-                                                #print(f"Sent assistant audio to client: {base64_audio[:32]}...")
-                                            except Exception as e:
-                                                print(f"Error processing assistant audio: {e}")
+                                        if hasattr(part, 'inline_data'):
+                                            audio_data = part.inline_data.data
+                                            await websocket.send_bytes(audio_data)
 
                                 if response.server_content and response.server_content.turn_complete:
                                     print('\n<Turn complete>')
-                                    print("="*50)  # Thêm dòng phân cách rõ ràng hơn
-                                    await websocket.send(json.dumps({
+                                    print("="*50)
+                                    await websocket.send_text(json.dumps({
                                         "transcription": {
                                             "text": "",
                                             "sender": "Gemini",
@@ -288,9 +494,6 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
                                         }
                                     }))
                                     
-                        except websockets.exceptions.ConnectionClosedOK:
-                            print("Client connection closed normally (receive)")
-                            break
                         except Exception as e:
                             print(f"Error receiving from Gemini: {e}")
                             break
@@ -309,17 +512,13 @@ async def gemini_session_handler(websocket: WebSocketServerProtocol):
         print(f"Error in Gemini session: {e}")
     finally:
         print("Gemini session closed.")
-    
-async def main() -> None:
-    server = await websockets.server.serve(
-        gemini_session_handler,
-        host="0.0.0.0", 
-        port=9084,
-        compression=None  
-    )
-    
-    print("Running websocket server on 0.0.0.0:9084...")
-    await asyncio.Future()  # Keep the server running indefinitely
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import uvicorn
+    uvicorn.run(
+        "backend:app", 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,
+        log_level="info"
+    )

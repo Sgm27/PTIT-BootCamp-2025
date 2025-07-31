@@ -13,10 +13,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cameraManager: CameraManager
     private lateinit var permissionHelper: PermissionHelper
     private lateinit var uiManager: UIManager
+    private lateinit var serviceManager: ServiceManager
     
     // State variables
     private var currentFrameB64: String? = null
     private var lastImageSendTime: Long = 0
+    private var isBackgroundServiceRunning = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,6 +29,11 @@ class MainActivity : AppCompatActivity() {
         
         uiManager.initializeViews()
         webSocketManager.connect()
+        
+        // Start background listening service
+        serviceManager.startListeningService()
+        isBackgroundServiceRunning = true
+        uiManager.setBackgroundServiceRunning(isBackgroundServiceRunning)
     }
     
     private fun initializeManagers() {
@@ -35,6 +42,7 @@ class MainActivity : AppCompatActivity() {
         cameraManager = CameraManager(this)
         permissionHelper = PermissionHelper(this)
         uiManager = UIManager(this)
+        serviceManager = ServiceManager(this)
     }
     
     private fun setupCallbacks() {
@@ -140,6 +148,21 @@ class MainActivity : AppCompatActivity() {
             override fun onScannerButtonClicked() {
                 // This is handled directly in UIManager now
             }
+            
+            override fun onNotificationButtonClicked() {
+                openNotificationActivity()
+            }
+            
+            override fun onProfileButtonClicked() {
+                openProfileActivity()
+            }
+            
+            override fun onBackgroundServiceToggled() {
+                serviceManager.toggleListeningService()
+                // Toggle the background service status
+                isBackgroundServiceRunning = !isBackgroundServiceRunning
+                uiManager.setBackgroundServiceRunning(isBackgroundServiceRunning)
+            }
         })
     }
     override fun onRequestPermissionsResult(
@@ -197,6 +220,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    private fun openNotificationActivity() {
+        val intent = Intent(this, NotificationActivity::class.java)
+        startActivity(intent)
+    }
+    
+    private fun openProfileActivity() {
+        val intent = Intent(this, ProfileActivity::class.java)
+        startActivity(intent)
+    }
+    
     private fun sendVoiceMessage(b64PCM: String?, imageB64: String? = null) {
         val imageToSend = imageB64 ?: currentFrameB64
         Log.d("MainActivity", "sendVoiceMessage called - Audio: ${b64PCM != null}, Image: ${imageToSend != null}")
@@ -218,5 +251,18 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         audioManager.cleanup()
         webSocketManager.disconnect()
+        // Note: We don't stop the background service here because 
+        // we want it to continue running even when the app is closed
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        // The app is going to background, but service continues running
+    }
+    
+    override fun onResume() {
+        super.onResume()
+        // Update UI to reflect current service status when returning to app
+        // In a real implementation, you might query the actual service status
     }
 }

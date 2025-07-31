@@ -18,6 +18,9 @@ class UIManager(private val activity: AppCompatActivity) {
         fun onStartButtonClicked()
         fun onStopButtonClicked()
         fun onScannerButtonClicked()
+        fun onNotificationButtonClicked()
+        fun onProfileButtonClicked()
+        fun onBackgroundServiceToggled()
     }
     
     private var callback: UICallback? = null
@@ -31,12 +34,18 @@ class UIManager(private val activity: AppCompatActivity) {
     private lateinit var statusIndicator: ImageView
     private lateinit var micButton: FrameLayout
     private lateinit var homeButton: FrameLayout
+    private lateinit var notificationButton: FrameLayout
+    private lateinit var profileButton: FrameLayout
     private lateinit var micIcon: ImageView
     private lateinit var chatLogContainer: ScrollView
+    private lateinit var backgroundServiceButton: FrameLayout
+    private lateinit var backgroundServiceStatus: TextView
+    private lateinit var backgroundServiceIcon: ImageView
     
     // Status variables
     private var isConnected = false
     private var isSpeaking = false
+    private var isBackgroundServiceRunning = false
     
     fun setCallback(callback: UICallback) {
         this.callback = callback
@@ -51,11 +60,17 @@ class UIManager(private val activity: AppCompatActivity) {
         statusIndicator = activity.findViewById(R.id.statusIndicator)
         micButton = activity.findViewById(R.id.micButton)
         homeButton = activity.findViewById(R.id.homeButton)
+        notificationButton = activity.findViewById(R.id.notificationButton)
+        profileButton = activity.findViewById(R.id.profileButton)
         micIcon = activity.findViewById(R.id.micIcon)
         chatLogContainer = activity.findViewById(R.id.chatLogContainer)
+        backgroundServiceButton = activity.findViewById(R.id.backgroundServiceButton)
+        backgroundServiceStatus = activity.findViewById(R.id.backgroundServiceStatus)
+        backgroundServiceIcon = activity.findViewById(R.id.backgroundServiceIcon)
         
         setupClickListeners()
         updateStatusIndicator()
+        updateBackgroundServiceStatus()
     }
     
     private fun setupClickListeners() {
@@ -70,6 +85,18 @@ class UIManager(private val activity: AppCompatActivity) {
         
         homeButton.setOnClickListener {
             callback?.onHomeButtonClicked()
+        }
+
+        notificationButton.setOnClickListener {
+            callback?.onNotificationButtonClicked()
+        }
+        
+        profileButton.setOnClickListener {
+            callback?.onProfileButtonClicked()
+        }
+        
+        backgroundServiceButton.setOnClickListener {
+            callback?.onBackgroundServiceToggled()
         }
 
         // Keep old button listeners for backward compatibility
@@ -162,6 +189,29 @@ class UIManager(private val activity: AppCompatActivity) {
                 }
             }
         }
+    }
+    
+    fun updateBackgroundServiceStatus() {
+        activity.runOnUiThread {
+            val statusText = if (isBackgroundServiceRunning) {
+                "Background Listening: ON"
+            } else {
+                "Background Listening: OFF"
+            }
+            backgroundServiceStatus.text = statusText
+            
+            val iconColor = if (isBackgroundServiceRunning) {
+                android.graphics.Color.GREEN
+            } else {
+                android.graphics.Color.GRAY
+            }
+            backgroundServiceIcon.setColorFilter(iconColor)
+        }
+    }
+    
+    fun setBackgroundServiceRunning(running: Boolean) {
+        isBackgroundServiceRunning = running
+        updateBackgroundServiceStatus()
     }
     
     fun getImageView(): ImageView = imageView

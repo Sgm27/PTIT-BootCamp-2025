@@ -15,4 +15,7 @@ object Constants {
     const val MAX_IMAGE_DIMENSION = 1024
     const val JPEG_QUALITY = 70
     const val IMAGE_SEND_INTERVAL: Long = 5000 // 5 seconds
+    
+    // Audio playback volume (0.0 to 1.0)
+    const val AUDIO_PLAYBACK_VOLUME = 0.8f // Tăng âm lượng lên 80%
 }

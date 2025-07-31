@@ -144,6 +144,8 @@ class AudioManager {
                 Constants.AUDIO_BUFFER_SIZE,
                 AudioTrack.MODE_STREAM
             )
+            // Thiết lập âm lượng cao hơn cho chatbot
+            audioTrack?.setStereoVolume(Constants.AUDIO_PLAYBACK_VOLUME, Constants.AUDIO_PLAYBACK_VOLUME)
         }
 
         audioTrack?.write(byteArray, 0, byteArray.size)
@@ -180,6 +182,13 @@ class AudioManager {
     }
     
     fun isCurrentlyRecording(): Boolean = isRecording
+    
+    // Phương thức để điều chỉnh âm lượng phát
+    fun setPlaybackVolume(volume: Float) {
+        val clampedVolume = volume.coerceIn(0.0f, 1.0f)
+        audioTrack?.setStereoVolume(clampedVolume, clampedVolume)
+        Log.d("AudioManager", "Playback volume set to: $clampedVolume")
+    }
     
     fun cleanup() {
         stopAudioInput()
