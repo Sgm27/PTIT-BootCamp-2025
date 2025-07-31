@@ -45,6 +45,7 @@ class UIManager(private val activity: AppCompatActivity) {
     // Status variables
     private var isConnected = false
     private var isSpeaking = false
+    private var isAIPlaying = false
     private var isBackgroundServiceRunning = false
     
     fun setCallback(callback: UICallback) {
@@ -172,12 +173,36 @@ class UIManager(private val activity: AppCompatActivity) {
         updateStatusIndicator()
     }
     
+    fun setAIPlayingStatus(playing: Boolean) {
+        isAIPlaying = playing
+        updateStatusIndicator()
+        updateMicButtonState()
+    }
+    
+    private fun updateMicButtonState() {
+        activity.runOnUiThread {
+            if (isAIPlaying) {
+                // Vô hiệu hóa nút mic khi AI đang phát âm thanh
+                micButton.alpha = 0.5f
+                micButton.isClickable = false
+            } else {
+                // Kích hoạt lại nút mic khi AI ngừng phát âm thanh
+                micButton.alpha = 1.0f
+                micButton.isClickable = true
+            }
+        }
+    }
+    
     private fun updateStatusIndicator() {
         activity.runOnUiThread {
             when {
                 !isConnected -> {
                     statusIndicator.setImageResource(R.drawable.baseline_error_24)
                     statusIndicator.setColorFilter(android.graphics.Color.RED)
+                }
+                isAIPlaying -> {
+                    statusIndicator.setImageResource(R.drawable.baseline_equalizer_24)
+                    statusIndicator.setColorFilter(android.graphics.Color.BLUE) // Màu xanh dương khi AI đang phát âm thanh
                 }
                 !isSpeaking -> {
                     statusIndicator.setImageResource(R.drawable.baseline_equalizer_24)

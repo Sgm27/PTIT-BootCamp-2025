@@ -144,7 +144,7 @@ class GeminiService:
             config = self._create_live_config(previous_session_handle)
             
             async with self.client.aio.live.connect(model=self.model, config=config) as session:
-                # Create and run sender/receiver tasks
+                # Create and run sender/receiver tasks - logic y hệt main.py
                 send_task = asyncio.create_task(self._send_to_gemini(websocket, session))
                 receive_task = asyncio.create_task(self._receive_from_gemini(websocket, session))
                 await asyncio.gather(send_task, receive_task)
@@ -155,7 +155,7 @@ class GeminiService:
             print("Gemini session closed.")
     
     async def _send_to_gemini(self, websocket: WebSocket, session):
-        """Handle sending messages from WebSocket to Gemini.
+        """Handle sending messages from WebSocket to Gemini - logic y hệt main.py.
         
         Args:
             websocket: FastAPI WebSocket instance.
@@ -196,7 +196,7 @@ class GeminiService:
             print("send_to_gemini closed")
     
     async def _receive_from_gemini(self, websocket: WebSocket, session):
-        """Handle receiving messages from Gemini and sending to WebSocket.
+        """Handle receiving messages from Gemini and sending to WebSocket - logic y hệt main.py.
         
         Args:
             websocket: FastAPI WebSocket instance.
@@ -206,8 +206,97 @@ class GeminiService:
             while True:
                 try:
                     async for response in session.receive():
-                        await self._process_gemini_response(websocket, response)
+                        # Xử lý turn detection events
+                        if hasattr(response, 'turn_detection') and response.turn_detection:
+                            if hasattr(response.turn_detection, 'type'):
+                                await websocket.send_text(json.dumps({
+                                    "turn_detection": {
+                                        "type": response.turn_detection.type
+                                    }
+                                }))
                         
+                        if response.server_content and hasattr(response.server_content, 'interrupted') and response.server_content.interrupted is not None:
+                            print(f"[{datetime.datetime.now()}] Generation interrupted")
+                            await websocket.send_text(json.dumps({"interrupted": "True"}))
+                            continue
+
+                        if response.usage_metadata:
+                            usage = response.usage_metadata
+                            print(f'Used {usage.total_token_count} tokens in total.')
+
+                        if response.session_resumption_update:
+                            update = response.session_resumption_update
+                            if update.resumable and update.new_handle:
+                                # The handle should be retained and linked to the session.
+                                self.session_service.save_previous_session_handle(update.new_handle)
+                                print(f"Resumed session update with handle: {update.new_handle}")
+
+                        if response.server_content and hasattr(response.server_content, 'output_transcription') and response.server_content.output_transcription is not None:
+                            transcription_text = response.server_content.output_transcription.text
+                            is_finished = response.server_content.output_transcription.finished
+                            
+                            # Hiển thị transcription vào terminal
+                            if transcription_text:
+                                print(f"🤖 Gemini: {transcription_text}")
+                                if is_finished:
+                                    print("   [Hoàn thành]")
+                            
+                            await websocket.send_text(json.dumps({
+                                "transcription": {
+                                    "text": transcription_text,
+                                    "sender": "Gemini",
+                                    "finished": is_finished
+                                }
+                            }))
+                        if response.server_content and hasattr(response.server_content, 'input_transcription') and response.server_content.input_transcription is not None:
+                            user_transcription_text = response.server_content.input_transcription.text
+                            is_user_finished = response.server_content.input_transcription.finished
+                            
+                            # Hiển thị transcription của user vào terminal
+                            if user_transcription_text:
+                                print(f"👤 User: {user_transcription_text}")
+                                if is_user_finished:
+                                    print("   [Hoàn thành]")
+                            
+                            await websocket.send_text(json.dumps({
+                                "transcription": {
+                                    "text": user_transcription_text,
+                                    "sender": "User",
+                                    "finished": is_user_finished
+                                }
+                            }))
+
+                        if response.server_content is None:
+                            continue
+                            
+                        model_turn = response.server_content.model_turn
+                        if model_turn:
+                            for part in model_turn.parts:
+                                if hasattr(part, 'text') and part.text is not None:
+                                    await websocket.send_text(json.dumps({"text": part.text}))
+                                
+                                elif hasattr(part, 'inline_data') and part.inline_data is not None:
+                                    try:
+                                        audio_data = part.inline_data.data
+                                        base64_audio = base64.b64encode(audio_data).decode('utf-8')
+                                        await websocket.send_text(json.dumps({
+                                            "audio": base64_audio,
+                                        }))
+                                        #print(f"Sent assistant audio to client: {base64_audio[:32]}...")
+                                    except Exception as e:
+                                        print(f"Error processing assistant audio: {e}")
+
+                        if response.server_content and response.server_content.turn_complete:
+                            print('\n<Turn complete>')
+                            print("="*50)  # Thêm dòng phân cách rõ ràng hơn
+                            await websocket.send_text(json.dumps({
+                                "transcription": {
+                                    "text": "",
+                                    "sender": "Gemini",
+                                    "finished": True
+                                }
+                            }))
+                            
                 except Exception as e:
                     print(f"Error receiving from Gemini: {e}")
                     break
@@ -216,130 +305,3 @@ class GeminiService:
             print(f"Error receiving from Gemini: {e}")
         finally:
             print("Gemini connection closed (receive)")
-    
-    async def _process_gemini_response(self, websocket: WebSocket, response):
-        """Process individual Gemini response.
-        
-        Args:
-            websocket: FastAPI WebSocket instance.
-            response: Gemini response object.
-        """
-        # Handle turn detection events
-        if hasattr(response, 'turn_detection') and response.turn_detection:
-            if hasattr(response.turn_detection, 'type'):
-                await websocket.send_text(json.dumps({
-                    "turn_detection": {
-                        "type": response.turn_detection.type
-                    }
-                }))
-        
-        # Handle interruptions
-        if response.server_content and hasattr(response.server_content, 'interrupted') and response.server_content.interrupted is not None:
-            print(f"[{datetime.datetime.now()}] Generation interrupted")
-            await websocket.send_text(json.dumps({"interrupted": "True"}))
-            return
-
-        # Handle usage metadata
-        if response.usage_metadata:
-            usage = response.usage_metadata
-            print(f'Used {usage.total_token_count} tokens in total.')
-
-        # Handle session resumption updates
-        if response.session_resumption_update:
-            update = response.session_resumption_update
-            if update.resumable and update.new_handle:
-                self.session_service.save_previous_session_handle(update.new_handle)
-                print(f"Resumed session update with handle: {update.new_handle}")
-
-        # Handle transcriptions
-        await self._handle_transcriptions(websocket, response)
-        
-        # Skip if no server content
-        if response.server_content is None:
-            return
-        
-        # Handle server content
-        await self._handle_server_content(websocket, response)
-    
-    async def _handle_transcriptions(self, websocket: WebSocket, response):
-        """Handle transcription responses.
-        
-        Args:
-            websocket: FastAPI WebSocket instance.
-            response: Gemini response object.
-        """
-        # Output transcription (Gemini speaking) - xử lý như main.py
-        if response.server_content and hasattr(response.server_content, 'output_transcription') and response.server_content.output_transcription is not None:
-            transcription_text = response.server_content.output_transcription.text
-            is_finished = response.server_content.output_transcription.finished
-            
-            # Hiển thị transcription vào terminal
-            if transcription_text:
-                print(f"🤖 Gemini: {transcription_text}")
-                if is_finished:
-                    print("   [Hoàn thành]")
-            
-            await websocket.send_text(json.dumps({
-                "transcription": {
-                    "text": transcription_text,
-                    "sender": "Gemini",
-                    "finished": is_finished
-                }
-            }))
-
-        # Input transcription (User speaking) - xử lý như main.py
-        if response.server_content and hasattr(response.server_content, 'input_transcription') and response.server_content.input_transcription is not None:
-            user_transcription_text = response.server_content.input_transcription.text
-            is_user_finished = response.server_content.input_transcription.finished
-            
-            # Hiển thị transcription của user vào terminal
-            if user_transcription_text:
-                print(f"👤 User: {user_transcription_text}")
-                if is_user_finished:
-                    print("   [Hoàn thành]")
-            
-            await websocket.send_text(json.dumps({
-                "transcription": {
-                    "text": user_transcription_text,
-                    "sender": "User",
-                    "finished": is_user_finished
-                }
-            }))
-    
-    async def _handle_server_content(self, websocket: WebSocket, response):
-        """Handle server content responses.
-        
-        Args:
-            websocket: FastAPI WebSocket instance.
-            response: Gemini response object.
-        """
-        model_turn = response.server_content.model_turn
-        if model_turn:
-            for part in model_turn.parts:
-                # Handle text responses
-                if hasattr(part, 'text') and part.text is not None:
-                    await websocket.send_text(json.dumps({"text": part.text}))
-                
-                # Handle audio responses
-                elif hasattr(part, 'inline_data') and part.inline_data is not None:
-                    try:
-                        audio_data = part.inline_data.data
-                        base64_audio = base64.b64encode(audio_data).decode('utf-8')
-                        await websocket.send_text(json.dumps({
-                            "audio": base64_audio,
-                        }))
-                        #print(f"Sent assistant audio to client: {base64_audio[:32]}...")
-                    except Exception as e:
-                        print(f"Error processing assistant audio: {e}")
-
-        # Handle turn completion
-        if response.server_content and response.server_content.turn_complete:
-            print('\n<Turn complete>')
-            print("="*50)  # Thêm dòng phân cách rõ ràng hơn
-            await websocket.send_text(json.dumps({
-                "transcription": {
-                    "text": "",
-                    "sender": "Gemini",
-                    "finished": True
-                }
-            }))

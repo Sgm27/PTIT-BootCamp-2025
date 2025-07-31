@@ -16,6 +16,8 @@ class AudioManager {
         fun onAudioChunkReady(base64Audio: String)
         fun onAudioRecordingStarted()
         fun onAudioRecordingStopped()
+        fun onAudioPlaybackStarted()
+        fun onAudioPlaybackStopped()
     }
     
     private var callback: AudioManagerCallback? = null
@@ -34,6 +36,13 @@ class AudioManager {
     
     fun startAudioInput() {
         if (isRecording) return
+        
+        // Kiểm tra xem AI có đang phát âm thanh không
+        if (isPlaying) {
+            Log.d("AudioManager", "Cannot start recording while AI is playing audio")
+            return
+        }
+        
         isRecording = true
         
         callback?.onAudioRecordingStarted()
@@ -56,6 +65,13 @@ class AudioManager {
         
         recordInterval = GlobalScope.launch(Dispatchers.IO) {
             while (isRecording) {
+                // Kiểm tra xem AI có đang phát âm thanh không
+                if (isPlaying) {
+                    // Tạm dừng ghi âm khi AI đang phát âm thanh
+                    delay(Constants.AUDIO_PLAYING_CHECK_INTERVAL)
+                    continue
+                }
+                
                 val buffer = ShortArray(Constants.AUDIO_BUFFER_SIZE)
                 val readSize = audioRecord?.read(buffer, 0, buffer.size)
                 if (readSize != null && readSize > 0) {
@@ -121,10 +137,14 @@ class AudioManager {
                     if (audioQueue.isNotEmpty()) audioQueue.removeAt(0) else null
                 } ?: break
 
-                isPlaying = true
+                if (!isPlaying) {
+                    isPlaying = true
+                    callback?.onAudioPlaybackStarted()
+                }
                 playAudio(chunk)
             }
             isPlaying = false
+            callback?.onAudioPlaybackStopped()
 
             synchronized(audioQueue) {
                 if (audioQueue.isNotEmpty()) {
@@ -182,6 +202,9 @@ class AudioManager {
     }
     
     fun isCurrentlyRecording(): Boolean = isRecording
+    
+    // Phương thức để kiểm tra AI có đang phát âm thanh không
+    fun isCurrentlyPlaying(): Boolean = isPlaying
     
     // Phương thức để điều chỉnh âm lượng phát
     fun setPlaybackVolume(volume: Float) {

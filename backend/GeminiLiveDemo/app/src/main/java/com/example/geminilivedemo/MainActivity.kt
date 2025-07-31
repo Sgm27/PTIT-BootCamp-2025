@@ -2,10 +2,16 @@ package com.example.geminilivedemo
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        var isAppInForeground = false
+    }
 
     // Managers
     private lateinit var audioManager: AudioManager
@@ -19,6 +25,7 @@ class MainActivity : AppCompatActivity() {
     private var currentFrameB64: String? = null
     private var lastImageSendTime: Long = 0
     private var isBackgroundServiceRunning = false
+    private val handler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +68,14 @@ class MainActivity : AppCompatActivity() {
                 uiManager.updateMicIcon(false)
                 uiManager.setSpeakingStatus(false)
                 webSocketManager.sendEndOfStreamMessage()
+            }
+            
+            override fun onAudioPlaybackStarted() {
+                uiManager.setAIPlayingStatus(true)
+            }
+            
+            override fun onAudioPlaybackStopped() {
+                uiManager.setAIPlayingStatus(false)
             }
         })
         
@@ -126,6 +141,11 @@ class MainActivity : AppCompatActivity() {
             }
             
             override fun onMicButtonClicked() {
+                // Kiểm tra xem AI có đang phát âm thanh không
+                if (audioManager.isCurrentlyPlaying()) {
+                    return
+                }
+                
                 if (audioManager.isCurrentlyRecording()) {
                     audioManager.stopAudioInput()
                 } else {
@@ -255,14 +275,28 @@ class MainActivity : AppCompatActivity() {
         // we want it to continue running even when the app is closed
     }
     
-    override fun onPause() {
-        super.onPause()
-        // The app is going to background, but service continues running
-    }
-    
     override fun onResume() {
         super.onResume()
+        isAppInForeground = true
+        
+        // Đợi một chút để Service có thời gian ngắt kết nối trước khi MainActivity kết nối lại
+        handler.postDelayed({
+            if (!webSocketManager.isConnected()) {
+                webSocketManager.connect()
+            }
+        }, 500)
+        
         // Update UI to reflect current service status when returning to app
         // In a real implementation, you might query the actual service status
+    }
+    
+    override fun onPause() {
+        super.onPause()
+        isAppInForeground = false
+        
+        // Ngắt kết nối WebSocket khi app vào background để tránh trùng lặp
+        webSocketManager.disconnect()
+        
+        // The app is going to background, but service continues running
     }
 }

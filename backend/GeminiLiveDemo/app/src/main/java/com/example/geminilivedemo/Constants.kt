@@ -16,6 +16,9 @@ object Constants {
     const val JPEG_QUALITY = 70
     const val IMAGE_SEND_INTERVAL: Long = 5000 // 5 seconds
     
+    // Audio check interval when AI is playing (in milliseconds)
+    const val AUDIO_PLAYING_CHECK_INTERVAL: Long = 100
+    
     // Audio playback volume (0.0 to 1.0)
     const val AUDIO_PLAYBACK_VOLUME = 0.8f // Tăng âm lượng lên 80%
 }
