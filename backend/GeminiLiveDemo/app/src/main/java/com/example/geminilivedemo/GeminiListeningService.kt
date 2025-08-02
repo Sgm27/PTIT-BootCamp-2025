@@ -33,6 +33,7 @@ class GeminiListeningService : Service() {
     private var webSocketManager: WebSocketManager? = null
     private var notificationManager: NotificationManager? = null
     private var audioManager: AudioManager? = null
+    private var voiceNotificationWebSocketManager: VoiceNotificationWebSocketManager? = null
     
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
@@ -117,6 +118,24 @@ class GeminiListeningService : Service() {
     private fun initializeWebSocket() {
         Log.d("GeminiService", "Initializing WebSocket connection...")
         webSocketManager = WebSocketManager()
+        
+        // Initialize voice notification manager
+        voiceNotificationWebSocketManager = VoiceNotificationWebSocketManager(webSocketManager!!)
+        
+        // Setup voice notification callbacks
+        voiceNotificationWebSocketManager?.setCallback(object : VoiceNotificationWebSocketManager.VoiceNotificationWebSocketCallback {
+            override fun onVoiceNotificationReceived(voiceData: VoiceNotificationData) {
+                Log.d("GeminiService", "Voice notification received in background service")
+                voiceData.audioBase64?.let { audioBase64 ->
+                    audioManager?.ingestAudioChunkToPlay(audioBase64)
+                }
+            }
+            
+            override fun onVoiceNotificationError(error: String) {
+                Log.e("GeminiService", "Voice notification error in background service: $error")
+            }
+        })
+        
         webSocketManager?.setCallback(object : WebSocketManager.WebSocketCallback {
             override fun onConnected() {
                 Log.d("GeminiService", "WebSocket connected successfully - ready for audio")
@@ -149,6 +168,11 @@ class GeminiListeningService : Service() {
                     Log.d("GeminiService", "AI audio response received, playing audio")
                     // Actually play the audio using AudioManager
                     audioManager?.ingestAudioChunkToPlay(audioData)
+                }
+                
+                // Handle voice notification responses
+                response.voiceNotificationData?.let { voiceData ->
+                    voiceNotificationWebSocketManager?.handleVoiceNotificationResponse(response)
                 }
             }
         })

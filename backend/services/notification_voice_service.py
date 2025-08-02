@@ -184,13 +184,11 @@ class NotificationVoiceService:
         return {
             "success": True,
             "message": "Voice notification generated successfully",
-            "data": {
-                "notification_text": notification_text,
-                "audio_base64": audio_base64,
-                "audio_format": "audio/pcm",
-                "timestamp": datetime.datetime.now().isoformat(),
-                "service": "notification_voice_service"
-            }
+            "notificationText": notification_text,
+            "audioBase64": audio_base64,
+            "audioFormat": "audio/pcm",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "service": "notification_voice_service"
         }
     
     def create_error_response(self, error_message: str, notification_text: str = "") -> dict:

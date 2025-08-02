@@ -17,6 +17,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var permissionHelper: PermissionHelper
     private lateinit var uiManager: UIManager
     private lateinit var serviceManager: ServiceManager
+    private lateinit var voiceNotificationManager: VoiceNotificationManager
+    private lateinit var voiceNotificationWebSocketManager: VoiceNotificationWebSocketManager
     
     // State variables
     private var currentFrameB64: String? = null
@@ -51,6 +53,8 @@ class MainActivity : AppCompatActivity() {
         permissionHelper = PermissionHelper(this)
         uiManager = UIManager(this)
         serviceManager = ServiceManager(this)
+        voiceNotificationManager = VoiceNotificationManager(this)
+        voiceNotificationWebSocketManager = VoiceNotificationWebSocketManager(webSocketManager)
     }
     
     private fun setupCallbacks() {
@@ -107,6 +111,25 @@ class MainActivity : AppCompatActivity() {
                 response.audioData?.let { audioData ->
                     audioManager.ingestAudioChunkToPlay(audioData)
                 }
+                
+                // Handle voice notification responses and broadcasts
+                response.voiceNotificationData?.let { voiceData ->
+                    Log.d("MainActivity", "Received voice notification: ${voiceData.notificationText}")
+                    
+                    // Play the voice notification audio
+                    voiceData.audioBase64?.let { audioBase64 ->
+                        Log.d("MainActivity", "Playing voice notification audio")
+                        audioManager.ingestAudioChunkToPlay(audioBase64)
+                        
+                        // Show notification text on UI
+                        uiManager.displayMessage("🔊 VOICE NOTIFICATION: ${voiceData.notificationText}")
+                        
+                        // Show toast for broadcast notifications
+                        if (response.voiceNotificationData?.service?.contains("broadcast") == true) {
+                            uiManager.showToast("Voice notification received!")
+                        }
+                    }
+                }
             }
         })
         
@@ -135,6 +158,38 @@ class MainActivity : AppCompatActivity() {
             
             override fun onPermissionDenied(permission: String) {
                 Log.w("MainActivity", "$permission permission denied")
+            }
+        })
+        
+        // Setup VoiceNotificationManager callbacks
+        voiceNotificationManager.setCallback(object : VoiceNotificationManager.VoiceNotificationCallback {
+            override fun onVoiceNotificationGenerated(voiceData: VoiceNotificationData) {
+                Log.d("MainActivity", "Voice notification generated via HTTP API")
+                voiceData.audioBase64?.let { audioBase64 ->
+                    audioManager.ingestAudioChunkToPlay(audioBase64)
+                }
+                uiManager.displayMessage("SYSTEM: Voice notification - ${voiceData.notificationText}")
+            }
+            
+            override fun onVoiceNotificationError(error: String) {
+                Log.e("MainActivity", "Voice notification error via HTTP API: $error")
+                uiManager.displayMessage("ERROR: Voice notification failed - $error")
+            }
+        })
+        
+        // Setup VoiceNotificationWebSocketManager callbacks
+        voiceNotificationWebSocketManager.setCallback(object : VoiceNotificationWebSocketManager.VoiceNotificationWebSocketCallback {
+            override fun onVoiceNotificationReceived(voiceData: VoiceNotificationData) {
+                Log.d("MainActivity", "Voice notification received via WebSocket")
+                voiceData.audioBase64?.let { audioBase64 ->
+                    audioManager.ingestAudioChunkToPlay(audioBase64)
+                }
+                uiManager.displayMessage("SYSTEM: Voice notification - ${voiceData.notificationText}")
+            }
+            
+            override fun onVoiceNotificationError(error: String) {
+                Log.e("MainActivity", "Voice notification error via WebSocket: $error")
+                uiManager.displayMessage("ERROR: Voice notification failed - $error")
             }
         })
         
@@ -277,6 +332,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         audioManager.cleanup()
         webSocketManager.disconnect()
+        voiceNotificationManager.cleanup()
         // Resume background service when app is completely closed
         if (isBackgroundServiceRunning) {
             serviceManager.resumeListeningService()

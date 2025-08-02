@@ -1,0 +1,75 @@
+package com.example.geminilivedemo
+
+import android.util.Log
+import org.json.JSONObject
+
+/**
+ * Manager for handling voice notification requests through WebSocket
+ */
+class VoiceNotificationWebSocketManager(private val webSocketManager: WebSocketManager) {
+    
+    interface VoiceNotificationWebSocketCallback {
+        fun onVoiceNotificationReceived(voiceData: VoiceNotificationData)
+        fun onVoiceNotificationError(error: String)
+    }
+    
+    private var callback: VoiceNotificationWebSocketCallback? = null
+    
+    fun setCallback(callback: VoiceNotificationWebSocketCallback) {
+        this.callback = callback
+    }
+    
+    /**
+     * Request voice notification generation through WebSocket
+     */
+    fun requestVoiceNotification(text: String, type: String = "info") {
+        if (!webSocketManager.isConnected()) {
+            Log.w("VoiceNotificationWebSocket", "WebSocket not connected, cannot request voice notification")
+            callback?.onVoiceNotificationError("WebSocket not connected")
+            return
+        }
+        
+        try {
+            Log.d("VoiceNotificationWebSocket", "Requesting voice notification for: $text")
+            
+            val payload = JSONObject()
+            val voiceNotificationRequest = JSONObject()
+            voiceNotificationRequest.put("action", "generate_voice_notification")
+            voiceNotificationRequest.put("text", text)
+            voiceNotificationRequest.put("type", type)
+            
+            payload.put("voice_notification_request", voiceNotificationRequest)
+            
+            // Send through existing WebSocket connection
+            webSocketManager.sendRawMessage(payload.toString())
+            
+        } catch (e: Exception) {
+            Log.e("VoiceNotificationWebSocket", "Error sending voice notification request: ${e.message}")
+            callback?.onVoiceNotificationError("Error sending request: ${e.message}")
+        }
+    }
+    
+    /**
+     * Request emergency voice notification
+     */
+    fun requestEmergencyVoiceNotification(text: String) {
+        requestVoiceNotification(text, "emergency")
+    }
+    
+    /**
+     * Handle voice notification response from WebSocket
+     */
+    fun handleVoiceNotificationResponse(response: Response) {
+        response.voiceNotificationData?.let { voiceData ->
+            Log.d("VoiceNotificationWebSocket", "Received voice notification response")
+            
+            if (voiceData.success && voiceData.audioBase64 != null) {
+                Log.d("VoiceNotificationWebSocket", "Voice notification generated successfully")
+                callback?.onVoiceNotificationReceived(voiceData)
+            } else {
+                Log.e("VoiceNotificationWebSocket", "Voice notification failed: ${voiceData.message}")
+                callback?.onVoiceNotificationError("Voice notification failed: ${voiceData.message}")
+            }
+        }
+    }
+}

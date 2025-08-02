@@ -98,6 +98,9 @@ class GeminiService:
         self.client = client or genai.Client(api_key=settings.GOOGLE_API_KEY)
         self.model = model or settings.GEMINI_MODEL
         self.session_service = SessionService()
+        # Initialize notification voice service
+        from services.notification_voice_service import NotificationVoiceService
+        self.notification_voice_service = NotificationVoiceService(self.client, self.model)
     
     def _create_live_config(self, previous_session_handle: Optional[str] = None) -> types.LiveConnectConfig:
         """Create live connection configuration.
@@ -299,6 +302,10 @@ class GeminiService:
                         await session.send_client_content(
                             turns={"role": "user", "parts": [{"text": text_content}]}, turn_complete=True
                         )
+                    
+                    # Handle voice notification requests
+                    elif "voice_notification_request" in data:
+                        await self._handle_voice_notification_request(websocket, data["voice_notification_request"])
                 
                 except asyncio.TimeoutError:
                     logger.warning("Timeout waiting for message from client")
@@ -457,3 +464,67 @@ class GeminiService:
         except Exception as e:
             logger.error(f"Error sending data to WebSocket: {e}")
             raise  # Re-raise to let calling function handle
+
+    async def _handle_voice_notification_request(self, websocket: WebSocket, request_data: dict):
+        """Handle voice notification generation request.
+        
+        Args:
+            websocket: FastAPI WebSocket instance.
+            request_data: Voice notification request data.
+        """
+        try:
+            notification_text = request_data.get("text", "")
+            notification_type = request_data.get("type", "info")
+            request_id = request_data.get("request_id", "")
+            
+            logger.info(f"Generating voice notification: {notification_text} (type: {notification_type})")
+            
+            if not notification_text:
+                await self._send_safely(websocket, {
+                    "type": "voice_notification_response",
+                    "success": False,
+                    "error": "Notification text is required",
+                    "request_id": request_id
+                })
+                return
+            
+            # Generate voice notification
+            if notification_type == "emergency":
+                audio_base64 = await self.notification_voice_service.generate_voice_notification_base64(
+                    f"THÔNG BÁO KHẨN CẤP: {notification_text}"
+                )
+            else:
+                audio_base64 = await self.notification_voice_service.generate_voice_notification_base64(notification_text)
+            
+            if audio_base64:
+                response_data = {
+                    "type": "voice_notification_response",
+                    "success": True,
+                    "data": {
+                        "notification_text": notification_text,
+                        "audio_base64": audio_base64,
+                        "audio_format": "audio/pcm",
+                        "notification_type": notification_type,
+                        "timestamp": datetime.datetime.now().isoformat(),
+                    },
+                    "request_id": request_id
+                }
+                await self._send_safely(websocket, response_data)
+                logger.info(f"Voice notification generated successfully for: {notification_text}")
+            else:
+                await self._send_safely(websocket, {
+                    "type": "voice_notification_response",
+                    "success": False,
+                    "error": "Failed to generate voice notification",
+                    "request_id": request_id
+                })
+                logger.error(f"Failed to generate voice notification for: {notification_text}")
+                
+        except Exception as e:
+            logger.error(f"Error handling voice notification request: {e}")
+            await self._send_safely(websocket, {
+                "type": "voice_notification_response",
+                "success": False,
+                "error": str(e),
+                "request_id": request_data.get("request_id", "")
+            })

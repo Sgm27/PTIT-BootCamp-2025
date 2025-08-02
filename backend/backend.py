@@ -24,6 +24,8 @@ from models.api_models import MedicineScanRequest, TextExtractRequest, HealthRes
 from services.medicine_service import MedicineService
 from services.text_extraction_service import TextExtractionService
 from services.gemini_service import GeminiService
+from services.notification_voice_service import NotificationVoiceService
+from services.websocket_manager import websocket_manager
 
 
 # Initialize FastAPI app
@@ -50,6 +52,7 @@ gemini_client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 medicine_service = MedicineService(openai_client)
 text_extraction_service = TextExtractionService(openai_client)
 gemini_service = GeminiService(gemini_client)
+notification_voice_service = NotificationVoiceService(gemini_client)
 
 
 # API Routes
@@ -72,7 +75,8 @@ async def health_check():
         "services": {
             "medicine_service": "active",
             "text_extraction_service": "active",
-            "gemini_service": "active"
+            "gemini_service": "active",
+            "notification_voice_service": "active"
         }
     }
 
@@ -141,6 +145,124 @@ async def extract_memoir_info_endpoint(request: TextExtractRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/generate-voice-notification")
+async def generate_voice_notification_endpoint(request: dict):
+    """Generate voice notification from text and broadcast to connected clients.
+    
+    Args:
+        request: Request containing notification text and type.
+        
+    Returns:
+        Response with voice notification data.
+        
+    Raises:
+        HTTPException: If generation fails.
+    """
+    try:
+        notification_text = request.get("text", "")
+        notification_type = request.get("type", "info")
+        
+        if not notification_text:
+            raise HTTPException(status_code=400, detail="Notification text is required")
+        
+        # Generate voice notification
+        if notification_type == "emergency":
+            audio_base64 = await notification_voice_service.generate_voice_notification_base64(
+                f"THÔNG BÁO KHẨN CẤP: {notification_text}"
+            )
+        else:
+            audio_base64 = await notification_voice_service.generate_voice_notification_base64(notification_text)
+        
+        if audio_base64:
+            response = notification_voice_service.create_notification_response(audio_base64, notification_text)
+            
+            # Try to broadcast to all connected WebSocket clients
+            try:
+                notification_data = {
+                    "message": response["message"],
+                    "notificationText": response["notificationText"],
+                    "audioBase64": response["audioBase64"],
+                    "audioFormat": response["audioFormat"],
+                    "timestamp": response["timestamp"],
+                    "service": response["service"]
+                }
+                
+                await websocket_manager.broadcast_voice_notification(notification_data)
+                logger.info(f"Voice notification broadcasted to {websocket_manager.get_connection_count()} clients")
+            except Exception as broadcast_error:
+                logger.error(f"Broadcast failed: {broadcast_error}")
+                # Continue anyway - API should still return the response
+            
+            return response
+        else:
+            error_response = notification_voice_service.create_error_response(
+                "Failed to generate voice notification", notification_text
+            )
+            raise HTTPException(status_code=500, detail=error_response["message"])
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/broadcast-voice-notification")
+async def broadcast_voice_notification_endpoint(request: dict):
+    """Endpoint để test broadcast voice notification từ Python script.
+    
+    Args:
+        request: Request containing notification text and type.
+        
+    Returns:
+        Response with broadcast status.
+    """
+    try:
+        notification_text = request.get("text", "")
+        notification_type = request.get("type", "info")
+        
+        if not notification_text:
+            raise HTTPException(status_code=400, detail="Notification text is required")
+        
+        # Generate voice notification
+        if notification_type == "emergency":
+            audio_base64 = await notification_voice_service.generate_voice_notification_base64(
+                f"THÔNG BÁO KHẨN CẤP: {notification_text}"
+            )
+        else:
+            audio_base64 = await notification_voice_service.generate_voice_notification_base64(notification_text)
+        
+        if audio_base64:
+            response = notification_voice_service.create_notification_response(audio_base64, notification_text)
+            
+            # Broadcast to all connected WebSocket clients
+            notification_data = {
+                "message": response["message"],
+                "notificationText": response["notificationText"],
+                "audioBase64": response["audioBase64"],
+                "audioFormat": response["audioFormat"],
+                "timestamp": response["timestamp"],
+                "service": response["service"]
+            }
+            
+            connection_count = websocket_manager.get_connection_count()
+            await websocket_manager.broadcast_voice_notification(notification_data)
+            
+            return {
+                "success": True,
+                "message": f"Voice notification broadcasted successfully",
+                "connectionCount": connection_count,
+                "notificationText": notification_text,
+                "timestamp": response["timestamp"]
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to generate voice notification")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/services/status")
 async def get_services_status():
     """Get status of all services.
@@ -164,6 +286,10 @@ async def get_services_status():
             "gemini_service": {
                 "status": "active",
                 "model": gemini_service.model
+            },
+            "notification_voice_service": {
+                "status": "active",
+                "model": notification_voice_service.model
             }
         },
         "configuration": {
@@ -199,13 +325,19 @@ async def websocket_health_check():
 # WebSocket endpoint for Gemini Live
 @app.websocket("/gemini-live")
 async def gemini_live_websocket(websocket: WebSocket):
-    """WebSocket endpoint for Gemini Live chat with improved error handling.
+    """WebSocket endpoint for Gemini Live chat with voice notification support.
     
     Args:
         websocket: WebSocket connection.
     """
     try:
+        # Add connection to manager for voice notification broadcasting
+        websocket_manager.add_connection(websocket)
+        logger.info("WebSocket connection added to manager")
+        
+        # Handle Gemini Live websocket
         await gemini_service.handle_websocket_connection(websocket)
+        
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected normally")
     except Exception as e:
@@ -214,6 +346,10 @@ async def gemini_live_websocket(websocket: WebSocket):
             await websocket.close(code=4002, reason="Internal server error")
         except Exception:
             pass  # WebSocket might already be closed
+    finally:
+        # Remove connection from manager
+        websocket_manager.remove_connection(websocket)
+        logger.info("WebSocket connection removed from manager")
 
 
 # Error handlers

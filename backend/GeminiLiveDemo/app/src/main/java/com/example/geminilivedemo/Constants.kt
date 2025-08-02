@@ -5,6 +5,7 @@ import android.media.AudioRecord
 
 object Constants {
     const val URL = "ws://backend-bootcamp.sonktx.online/gemini-live"
+    const val VOICE_NOTIFICATION_API = "https://backend-bootcamp.sonktx.online/api/generate-voice-notification"
     const val CAMERA_REQUEST_CODE = 100
     const val AUDIO_REQUEST_CODE = 200
     

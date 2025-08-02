@@ -163,9 +163,70 @@ class WebSocketManager {
     private fun receiveMessage(message: String?) {
         if (message == null) return
 
-        val messageData = JSONObject(message)
-        val response = Response(messageData)
-        callback?.onMessageReceived(response)
+        try {
+            val messageData = JSONObject(message)
+            
+            // Check if this is a voice notification broadcast
+            val messageType = messageData.optString("type", "")
+            if (messageType == "voice_notification_response") {
+                Log.d("WebSocketManager", "Received voice notification broadcast")
+                handleVoiceNotificationBroadcast(messageData)
+                return
+            }
+            
+            // Handle regular Gemini Live messages
+            val response = Response(messageData)
+            callback?.onMessageReceived(response)
+            
+        } catch (e: Exception) {
+            Log.e("WebSocketManager", "Error parsing message: ${e.message}", e)
+        }
+    }
+    
+    private fun handleVoiceNotificationBroadcast(messageData: JSONObject) {
+        try {
+            val success = messageData.optBoolean("success", false)
+            val data = messageData.optJSONObject("data")
+            val isBroadcast = messageData.optBoolean("broadcast", false)
+            
+            if (success && data != null && isBroadcast) {
+                Log.d("WebSocketManager", "Processing voice notification broadcast")
+                
+                // Extract voice notification data
+                val notificationText = data.optString("notificationText", "")
+                val audioBase64 = data.optString("audioBase64", "")
+                val audioFormat = data.optString("audioFormat", "")
+                val timestamp = data.optString("timestamp", "")
+                val service = data.optString("service", "")
+                
+                Log.d("WebSocketManager", "Voice notification details:")
+                Log.d("WebSocketManager", "  - Text: $notificationText")
+                Log.d("WebSocketManager", "  - Format: $audioFormat")
+                Log.d("WebSocketManager", "  - Service: $service")
+                Log.d("WebSocketManager", "  - Timestamp: $timestamp")
+                
+                // Create a Response object for voice notification
+                val voiceNotificationData = JSONObject()
+                voiceNotificationData.put("type", "voice_notification")
+                voiceNotificationData.put("notificationText", notificationText)
+                voiceNotificationData.put("audioBase64", audioBase64)
+                voiceNotificationData.put("audioFormat", audioFormat)
+                voiceNotificationData.put("timestamp", timestamp)
+                voiceNotificationData.put("service", service)
+                voiceNotificationData.put("broadcast", true)
+                
+                val response = Response(voiceNotificationData)
+                callback?.onMessageReceived(response)
+                
+                Log.d("WebSocketManager", "Voice notification broadcast handled successfully")
+                
+            } else {
+                Log.w("WebSocketManager", "Invalid voice notification broadcast data")
+            }
+            
+        } catch (e: Exception) {
+            Log.e("WebSocketManager", "Error handling voice notification broadcast: ${e.message}", e)
+        }
     }
     
     fun isWebSocketConnected(): Boolean = isConnected
@@ -205,5 +266,14 @@ class WebSocketManager {
     
     fun sendAudioChunk(base64Audio: String) {
         sendVoiceMessage(base64Audio, null)
+    }
+    
+    fun sendRawMessage(message: String) {
+        if (webSocket?.isOpen == true) {
+            Log.d("WebSocketManager", "Sending raw message: ${message.take(100)}...")
+            webSocket?.send(message)
+        } else {
+            Log.w("WebSocketManager", "Cannot send raw message - WebSocket not connected")
+        }
     }
 }
