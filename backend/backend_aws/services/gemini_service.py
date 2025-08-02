@@ -5,19 +5,14 @@ import asyncio
 import json
 import base64
 import datetime
-import logging
 from typing import Optional
 
-from fastapi import WebSocket, WebSocketDisconnect
+from fastapi import WebSocket
 from google import genai
 from google.genai import types
 
 from config.settings import settings
 from services.session_service import SessionService
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 
 class GeminiService:
@@ -129,7 +124,7 @@ class GeminiService:
         )
     
     async def handle_websocket_connection(self, websocket: WebSocket):
-        """Handle WebSocket connection for Gemini Live with proper error handling.
+        """Handle WebSocket connection for Gemini Live.
         
         Args:
             websocket: FastAPI WebSocket instance.
@@ -139,128 +134,28 @@ class GeminiService:
         # Load previous session if available
         previous_session_handle = self.session_service.load_previous_session_handle()
         
-        logger.info("Starting Gemini session")
-        
-        # Initialize tasks list for proper cleanup
-        send_task = None
-        receive_task = None
-        ping_task = None
-        
+        print(f"Starting Gemini session")
         try:
-            # Wait for initial config message with timeout
-            try:
-                config_message = await asyncio.wait_for(
-                    websocket.receive_text(), 
-                    timeout=30.0  # 30 second timeout for config
-                )
-                config_data = json.loads(config_message)
-                logger.info(f"Received config: {config_data}")
-            except asyncio.TimeoutError:
-                logger.error("Timeout waiting for config message")
-                await self._close_websocket_safely(websocket, 4000, "Config timeout")
-                return
-            except json.JSONDecodeError:
-                logger.error("Invalid JSON in config message")
-                await self._close_websocket_safely(websocket, 4001, "Invalid config")
-                return
+            # Wait for initial config message
+            config_message = await websocket.receive_text()
+            config_data = json.loads(config_message)
             
             # Create live connection config
             config = self._create_live_config(previous_session_handle)
             
             async with self.client.aio.live.connect(model=self.model, config=config) as session:
-                # Create tasks
+                # Create and run sender/receiver tasks - logic y hệt main.py
                 send_task = asyncio.create_task(self._send_to_gemini(websocket, session))
                 receive_task = asyncio.create_task(self._receive_from_gemini(websocket, session))
-                ping_task = asyncio.create_task(self._ping_websocket(websocket))
+                await asyncio.gather(send_task, receive_task)
                 
-                # Wait for any task to complete or fail
-                done, pending = await asyncio.wait(
-                    [send_task, receive_task, ping_task],
-                    return_when=asyncio.FIRST_COMPLETED
-                )
-                
-                # Cancel remaining tasks
-                for task in pending:
-                    task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
-                    except Exception as e:
-                        logger.error(f"Error cancelling task: {e}")
-                
-                # Check for exceptions in completed tasks
-                for task in done:
-                    try:
-                        await task
-                    except Exception as e:
-                        logger.error(f"Task completed with error: {e}")
-                
-        except WebSocketDisconnect:
-            logger.info("WebSocket disconnected by client")
         except Exception as e:
-            logger.error(f"Error in Gemini session: {e}")
-            await self._close_websocket_safely(websocket, 4002, "Internal error")
+            print(f"Error in Gemini session: {e}")
         finally:
-            # Ensure all tasks are cancelled
-            for task in [send_task, receive_task, ping_task]:
-                if task and not task.done():
-                    task.cancel()
-                    try:
-                        await task
-                    except asyncio.CancelledError:
-                        pass
-                    except Exception:
-                        pass
-            
-            logger.info("Gemini session closed")
-    
-    async def _ping_websocket(self, websocket: WebSocket):
-        """Send periodic keepalive messages to maintain WebSocket connection.
-        
-        Args:
-            websocket: FastAPI WebSocket instance.
-            
-        Note: FastAPI WebSocket doesn't have ping() method, so we send keepalive messages instead.
-        """
-        try:
-            while True:
-                await asyncio.sleep(settings.WEBSOCKET_PING_INTERVAL)
-                try:
-                    # Check if WebSocket is still connected
-                    if websocket.client_state.name == 'CONNECTED':
-                        # Send a keepalive message instead of ping
-                        await websocket.send_text(json.dumps({"type": "keepalive", "timestamp": datetime.datetime.now().isoformat()}))
-                        logger.debug("Sent WebSocket keepalive")
-                    else:
-                        logger.warning("WebSocket not connected, stopping keepalive")
-                        break
-                except Exception as e:
-                    logger.error(f"Error sending keepalive: {e}")
-                    break
-        except asyncio.CancelledError:
-            logger.debug("Keepalive task cancelled")
-        except Exception as e:
-            logger.error(f"Error in keepalive task: {e}")
-    
-    async def _close_websocket_safely(self, websocket: WebSocket, code: int = 1000, reason: str = ""):
-        """Safely close WebSocket connection.
-        
-        Args:
-            websocket: FastAPI WebSocket instance.
-            code: Close code.
-            reason: Close reason.
-        """
-        try:
-            await asyncio.wait_for(
-                websocket.close(code=code, reason=reason),
-                timeout=settings.WEBSOCKET_CLOSE_TIMEOUT
-            )
-        except Exception as e:
-            logger.error(f"Error closing WebSocket: {e}")
+            print("Gemini session closed.")
     
     async def _send_to_gemini(self, websocket: WebSocket, session):
-        """Handle sending messages from WebSocket to Gemini with improved error handling.
+        """Handle sending messages from WebSocket to Gemini - logic y hệt main.py.
         
         Args:
             websocket: FastAPI WebSocket instance.
@@ -269,17 +164,8 @@ class GeminiService:
         try:
             while True:
                 try:
-                    # Add timeout for receiving messages
-                    message = await asyncio.wait_for(
-                        websocket.receive_text(),
-                        timeout=120.0  # 2 minute timeout
-                    )
+                    message = await websocket.receive_text()
                     data = json.loads(message)
-                
-                    # Handle keepalive messages
-                    if data.get("type") == "keepalive":
-                        logger.debug("Received keepalive from client")
-                        continue
                 
                     if "realtime_input" in data:
                         for chunk in data["realtime_input"]["media_chunks"]:
@@ -295,33 +181,22 @@ class GeminiService:
 
                     elif "text" in data:
                         text_content = data["text"]
-                        logger.info(f"Sending text: {text_content}")
+                        print(f"📤 Sending text: {text_content}")
                         await session.send_client_content(
                             turns={"role": "user", "parts": [{"text": text_content}]}, turn_complete=True
                         )
-                
-                except asyncio.TimeoutError:
-                    logger.warning("Timeout waiting for message from client")
-                    break
-                except WebSocketDisconnect:
-                    logger.info("Client disconnected")
-                    break
-                except json.JSONDecodeError as e:
-                    logger.error(f"Invalid JSON from client: {e}")
-                    continue
+                        
                 except Exception as e:
-                    logger.error(f"Error sending to Gemini: {e}")
+                    print(f"Error sending to Gemini: {e}")
                     break
-                    
-        except asyncio.CancelledError:
-            logger.info("Send task cancelled")
+            print("Client connection closed (send)")
         except Exception as e:
-            logger.error(f"Error in send_to_gemini: {e}")
+            print(f"Error sending to Gemini: {e}")
         finally:
-            logger.info("send_to_gemini closed")
+            print("send_to_gemini closed")
     
     async def _receive_from_gemini(self, websocket: WebSocket, session):
-        """Handle receiving messages from Gemini and sending to WebSocket with improved error handling.
+        """Handle receiving messages from Gemini and sending to WebSocket - logic y hệt main.py.
         
         Args:
             websocket: FastAPI WebSocket instance.
@@ -331,35 +206,30 @@ class GeminiService:
             while True:
                 try:
                     async for response in session.receive():
-                        # Check if WebSocket is still connected before sending
-                        if websocket.client_state.name != 'CONNECTED':
-                            logger.warning("WebSocket not connected, stopping receive")
-                            break
-                            
                         # Xử lý turn detection events
                         if hasattr(response, 'turn_detection') and response.turn_detection:
                             if hasattr(response.turn_detection, 'type'):
-                                await self._send_safely(websocket, {
+                                await websocket.send_text(json.dumps({
                                     "turn_detection": {
                                         "type": response.turn_detection.type
                                     }
-                                })
+                                }))
                         
                         if response.server_content and hasattr(response.server_content, 'interrupted') and response.server_content.interrupted is not None:
-                            logger.info(f"[{datetime.datetime.now()}] Generation interrupted")
-                            await self._send_safely(websocket, {"interrupted": "True"})
+                            print(f"[{datetime.datetime.now()}] Generation interrupted")
+                            await websocket.send_text(json.dumps({"interrupted": "True"}))
                             continue
 
                         if response.usage_metadata:
                             usage = response.usage_metadata
-                            logger.info(f'Used {usage.total_token_count} tokens in total.')
+                            print(f'Used {usage.total_token_count} tokens in total.')
 
                         if response.session_resumption_update:
                             update = response.session_resumption_update
                             if update.resumable and update.new_handle:
                                 # The handle should be retained and linked to the session.
                                 self.session_service.save_previous_session_handle(update.new_handle)
-                                logger.info(f"Resumed session update with handle: {update.new_handle}")
+                                print(f"Resumed session update with handle: {update.new_handle}")
 
                         if response.server_content and hasattr(response.server_content, 'output_transcription') and response.server_content.output_transcription is not None:
                             transcription_text = response.server_content.output_transcription.text
@@ -367,35 +237,34 @@ class GeminiService:
                             
                             # Hiển thị transcription vào terminal
                             if transcription_text:
-                                logger.info(f"Gemini: {transcription_text}")
+                                print(f"🤖 Gemini: {transcription_text}")
                                 if is_finished:
-                                    logger.info("   [Hoàn thành]")
+                                    print("   [Hoàn thành]")
                             
-                            await self._send_safely(websocket, {
+                            await websocket.send_text(json.dumps({
                                 "transcription": {
                                     "text": transcription_text,
                                     "sender": "Gemini",
                                     "finished": is_finished
                                 }
-                            })
-                            
+                            }))
                         if response.server_content and hasattr(response.server_content, 'input_transcription') and response.server_content.input_transcription is not None:
                             user_transcription_text = response.server_content.input_transcription.text
                             is_user_finished = response.server_content.input_transcription.finished
                             
                             # Hiển thị transcription của user vào terminal
                             if user_transcription_text:
-                                logger.info(f"User: {user_transcription_text}")
+                                print(f"👤 User: {user_transcription_text}")
                                 if is_user_finished:
-                                    logger.info("   [Hoàn thành]")
+                                    print("   [Hoàn thành]")
                             
-                            await self._send_safely(websocket, {
+                            await websocket.send_text(json.dumps({
                                 "transcription": {
                                     "text": user_transcription_text,
                                     "sender": "User",
                                     "finished": is_user_finished
                                 }
-                            })
+                            }))
 
                         if response.server_content is None:
                             continue
@@ -404,56 +273,35 @@ class GeminiService:
                         if model_turn:
                             for part in model_turn.parts:
                                 if hasattr(part, 'text') and part.text is not None:
-                                    await self._send_safely(websocket, {"text": part.text})
+                                    await websocket.send_text(json.dumps({"text": part.text}))
                                 
                                 elif hasattr(part, 'inline_data') and part.inline_data is not None:
                                     try:
                                         audio_data = part.inline_data.data
                                         base64_audio = base64.b64encode(audio_data).decode('utf-8')
-                                        await self._send_safely(websocket, {
+                                        await websocket.send_text(json.dumps({
                                             "audio": base64_audio,
-                                        })
-                                        #logger.debug(f"Sent assistant audio to client: {base64_audio[:32]}...")
+                                        }))
+                                        #print(f"Sent assistant audio to client: {base64_audio[:32]}...")
                                     except Exception as e:
-                                        logger.error(f"Error processing assistant audio: {e}")
+                                        print(f"Error processing assistant audio: {e}")
 
                         if response.server_content and response.server_content.turn_complete:
-                            logger.info('\n<Turn complete>')
-                            logger.info("="*50)  # Thêm dòng phân cách rõ ràng hơn
-                            await self._send_safely(websocket, {
+                            print('\n<Turn complete>')
+                            print("="*50)  # Thêm dòng phân cách rõ ràng hơn
+                            await websocket.send_text(json.dumps({
                                 "transcription": {
                                     "text": "",
                                     "sender": "Gemini",
                                     "finished": True
                                 }
-                            })
+                            }))
                             
-                except WebSocketDisconnect:
-                    logger.info("WebSocket disconnected during receive")
-                    break
                 except Exception as e:
-                    logger.error(f"Error receiving from Gemini: {e}")
+                    print(f"Error receiving from Gemini: {e}")
                     break
 
-        except asyncio.CancelledError:
-            logger.info("Receive task cancelled")
         except Exception as e:
-            logger.error(f"Error in receive_from_gemini: {e}")
+            print(f"Error receiving from Gemini: {e}")
         finally:
-            logger.info("Gemini connection closed (receive)")
-    
-    async def _send_safely(self, websocket: WebSocket, data: dict):
-        """Safely send data to WebSocket with error handling.
-        
-        Args:
-            websocket: FastAPI WebSocket instance.
-            data: Data to send.
-        """
-        try:
-            if websocket.client_state.name == 'CONNECTED':
-                await websocket.send_text(json.dumps(data))
-            else:
-                logger.warning("Attempted to send data to disconnected WebSocket")
-        except Exception as e:
-            logger.error(f"Error sending data to WebSocket: {e}")
-            raise  # Re-raise to let calling function handle
+            print("Gemini connection closed (receive)")

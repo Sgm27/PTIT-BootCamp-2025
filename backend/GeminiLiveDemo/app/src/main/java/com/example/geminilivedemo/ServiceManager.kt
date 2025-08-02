@@ -32,6 +32,20 @@ class ServiceManager(private val context: Context) {
         context.startService(intent)
     }
     
+    fun pauseListeningService() {
+        val intent = Intent(context, GeminiListeningService::class.java).apply {
+            action = GeminiListeningService.ACTION_PAUSE_LISTENING
+        }
+        context.startService(intent)
+    }
+    
+    fun resumeListeningService() {
+        val intent = Intent(context, GeminiListeningService::class.java).apply {
+            action = GeminiListeningService.ACTION_RESUME_LISTENING
+        }
+        context.startService(intent)
+    }
+    
     fun stopService() {
         val intent = Intent(context, GeminiListeningService::class.java)
         context.stopService(intent)

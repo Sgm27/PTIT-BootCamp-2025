@@ -7,9 +7,6 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.media.AudioFormat
-import android.media.AudioRecord
-import android.media.MediaRecorder
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
@@ -25,16 +22,17 @@ class GeminiListeningService : Service() {
         const val ACTION_START_LISTENING = "START_LISTENING"
         const val ACTION_STOP_LISTENING = "STOP_LISTENING"
         const val ACTION_TOGGLE_LISTENING = "TOGGLE_LISTENING"
+        const val ACTION_PAUSE_LISTENING = "PAUSE_LISTENING"
+        const val ACTION_RESUME_LISTENING = "RESUME_LISTENING"
     }
     
-    private var audioRecord: AudioRecord? = null
     private var isListening = false
+    private var isPaused = false  // New flag for pause state
+    private var isPlayingResponse = false  // Keep for simple pause logic
     private var wakeLock: PowerManager.WakeLock? = null
     private var webSocketManager: WebSocketManager? = null
     private var notificationManager: NotificationManager? = null
     private var audioManager: AudioManager? = null
-    private var isAIPlaying = false
-    private var appStateCheckJob: Job? = null
     
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     
@@ -44,65 +42,13 @@ class GeminiListeningService : Service() {
         
         createNotificationChannel()
         
-        // Initialize WebSocket connection
-        webSocketManager = WebSocketManager()
-        setupWebSocketCallbacks()
-        // Chỉ kết nối WebSocket khi app ở background
-        if (!MainActivity.isAppInForeground) {
-            webSocketManager?.connect()
-        }
-        
-        // Initialize AudioManager for handling AI playback state
-        audioManager = AudioManager()
-        setupAudioManagerCallbacks()
-        
-        // Acquire wake lock to prevent CPU sleep
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.PARTIAL_WAKE_LOCK,
-            "GeminiDemo:ListeningWakeLock"
-        )
-        wakeLock?.acquire()
-        
-        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        
-        // Start monitoring app state
-        startAppStateMonitoring()
-    }
-    
-    private fun setupWebSocketCallbacks() {
-        webSocketManager?.setCallback(object : WebSocketManager.WebSocketCallback {
-            override fun onConnected() {
-                Log.d("GeminiService", "WebSocket connected")
-            }
-            
-            override fun onDisconnected() {
-                Log.d("GeminiService", "WebSocket disconnected")
-            }
-            
-            override fun onError(exception: Exception?) {
-                Log.e("GeminiService", "WebSocket error: ${exception?.message}")
-            }
-            
-            override fun onMessageReceived(response: Response) {
-                // Handle audio response from AI - chỉ phát khi app không ở foreground
-                response.audioData?.let { audioData ->
-                    if (!MainActivity.isAppInForeground) {
-                        audioManager?.ingestAudioChunkToPlay(audioData)
-                        Log.d("GeminiService", "Playing audio in background service")
-                    } else {
-                        Log.d("GeminiService", "App in foreground, skipping audio playback in service")
-                    }
-                }
-            }
-        })
-    }
-    
-    private fun setupAudioManagerCallbacks() {
+        // Initialize AudioManager
+        audioManager = AudioManager(this)
         audioManager?.setCallback(object : AudioManager.AudioManagerCallback {
             override fun onAudioChunkReady(base64Audio: String) {
-                // Send audio chunk through WebSocket when ready
+                // Send audio chunks via WebSocket
                 webSocketManager?.sendAudioChunk(base64Audio)
+                Log.d("GeminiService", "Sending audio chunk via WebSocket")
             }
             
             override fun onAudioRecordingStarted() {
@@ -114,15 +60,30 @@ class GeminiListeningService : Service() {
             }
             
             override fun onAudioPlaybackStarted() {
-                isAIPlaying = true
-                Log.d("GeminiService", "AI started playing audio - pausing recording")
+                Log.d("GeminiService", "AI audio playback started")
+                isPlayingResponse = true
             }
             
             override fun onAudioPlaybackStopped() {
-                isAIPlaying = false
-                Log.d("GeminiService", "AI stopped playing audio - resuming recording")
+                Log.d("GeminiService", "AI audio playback stopped")
+                isPlayingResponse = false
             }
         })
+        
+        // Initialize WebSocket connection only if not paused
+        if (!isPaused) {
+            initializeWebSocket()
+        }
+        
+        // Acquire wake lock to prevent CPU sleep
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        wakeLock = powerManager.newWakeLock(
+            PowerManager.PARTIAL_WAKE_LOCK,
+            "GeminiDemo:ListeningWakeLock"
+        )
+        wakeLock?.acquire()
+        
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     }
     
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -130,9 +91,11 @@ class GeminiListeningService : Service() {
             ACTION_START_LISTENING -> startListening()
             ACTION_STOP_LISTENING -> stopListening()
             ACTION_TOGGLE_LISTENING -> toggleListening()
+            ACTION_PAUSE_LISTENING -> pauseListening()
+            ACTION_RESUME_LISTENING -> resumeListening()
         }
         
-        val notification = createNotification(isListening)
+        val notification = createNotification(isListening && !isPaused)
         startForeground(NOTIFICATION_ID, notification)
         
         return START_STICKY // Service will be restarted if killed
@@ -148,8 +111,48 @@ class GeminiListeningService : Service() {
         wakeLock?.release()
         webSocketManager?.disconnect()
         audioManager?.cleanup()
-        appStateCheckJob?.cancel()
         serviceScope.cancel()
+    }
+    
+    private fun initializeWebSocket() {
+        Log.d("GeminiService", "Initializing WebSocket connection...")
+        webSocketManager = WebSocketManager()
+        webSocketManager?.setCallback(object : WebSocketManager.WebSocketCallback {
+            override fun onConnected() {
+                Log.d("GeminiService", "WebSocket connected successfully - ready for audio")
+            }
+            
+            override fun onDisconnected() {
+                Log.d("GeminiService", "WebSocket disconnected")
+            }
+            
+            override fun onError(exception: Exception?) {
+                Log.e("GeminiService", "WebSocket error: ${exception?.message}")
+                // Auto-retry connection on error
+                if (!isPaused) {
+                    Log.d("GeminiService", "Retrying WebSocket connection in 2 seconds...")
+                    serviceScope.launch {
+                        delay(2000)
+                        if (!isPaused) {
+                            initializeWebSocket()
+                        }
+                    }
+                }
+            }
+            
+            override fun onMessageReceived(response: Response) {
+                Log.d("GeminiService", "AI response received")
+                response.text?.let { text ->
+                    Log.d("GeminiService", "AI text response: $text")
+                }
+                response.audioData?.let { audioData ->
+                    Log.d("GeminiService", "AI audio response received, playing audio")
+                    // Actually play the audio using AudioManager
+                    audioManager?.ingestAudioChunkToPlay(audioData)
+                }
+            }
+        })
+        webSocketManager?.connect()
     }
     
     private fun createNotificationChannel() {
@@ -195,9 +198,12 @@ class GeminiListeningService : Service() {
         val statusText = if (listening) "🎤 Đang lắng nghe..." else "⏸️ Đã tạm dừng"
         val toggleText = if (listening) "Tạm dừng" else "Bắt đầu"
         
+        // Show different status if paused by app
+        val finalStatusText = if (isPaused) "📱 App đang hoạt động" else statusText
+        
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Gemini AI Assistant")
-            .setContentText(statusText)
+            .setContentText(finalStatusText)
             .setSmallIcon(R.drawable.ic_mic)
             .setContentIntent(pendingIntent)
             .setOngoing(true)
@@ -216,26 +222,19 @@ class GeminiListeningService : Service() {
     }
     
     private fun startListening() {
-        if (isListening) return
+        if (isListening || isPaused) return
         
-        Log.d("GeminiService", "Starting listening")
+        Log.d("GeminiService", "Starting listening with AudioManager")
         
         try {
-            // Chỉ bắt đầu ghi âm khi app không ở foreground
-            if (!MainActivity.isAppInForeground) {
-                audioManager?.startAudioInput()
-                Log.d("GeminiService", "Started audio input in background service")
-            } else {
-                Log.d("GeminiService", "App in foreground, not starting audio input in service")
-            }
-            
+            // Use AudioManager instead of direct AudioRecord
+            audioManager?.startAudioInput()
             isListening = true
+            
             updateNotification()
-            Log.d("GeminiService", "Listening started successfully")
-        } catch (e: SecurityException) {
-            Log.e("GeminiService", "Permission denied for audio recording", e)
+            Log.d("GeminiService", "Listening started successfully with AudioManager")
         } catch (e: Exception) {
-            Log.e("GeminiService", "Error starting listening", e)
+            Log.e("GeminiService", "Error starting listening with AudioManager", e)
         }
     }
     
@@ -246,7 +245,7 @@ class GeminiListeningService : Service() {
         
         isListening = false
         
-        // Use AudioManager to stop recording
+        // Use AudioManager to stop
         audioManager?.stopAudioInput()
         
         updateNotification()
@@ -254,6 +253,11 @@ class GeminiListeningService : Service() {
     }
     
     private fun toggleListening() {
+        if (isPaused) {
+            Log.d("GeminiService", "Service is paused by app, cannot toggle")
+            return
+        }
+        
         if (isListening) {
             stopListening()
         } else {
@@ -261,49 +265,48 @@ class GeminiListeningService : Service() {
         }
     }
     
-    private fun updateNotification() {
-        val notification = createNotification(isListening)
-        notificationManager?.notify(NOTIFICATION_ID, notification)
+    private fun pauseListening() {
+        Log.d("GeminiService", "Pausing service listening (app in foreground)")
+        isPaused = true
+        
+        // Stop current listening immediately
+        if (isListening) {
+            Log.d("GeminiService", "Stopping current listening...")
+            stopListening()
+        }
+        
+        // Disconnect WebSocket to avoid dual connections
+        Log.d("GeminiService", "Disconnecting WebSocket...")
+        webSocketManager?.disconnect()
+        webSocketManager = null
+        
+        Log.d("GeminiService", "Service paused successfully")
+        updateNotification()
     }
     
-    private fun startAppStateMonitoring() {
-        appStateCheckJob = serviceScope.launch {
-            var wasAppInBackground = !MainActivity.isAppInForeground
-            
-            while (true) {
-                val isAppCurrentlyInForeground = MainActivity.isAppInForeground
-                
-                // App switched from foreground to background
-                if (!isAppCurrentlyInForeground && !wasAppInBackground) {
-                    Log.d("GeminiService", "App went to background, starting service WebSocket and audio input")
-                    
-                    // Đợi một chút để MainActivity ngắt kết nối trước
-                    delay(1000)
-                    
-                    // Kết nối WebSocket cho service
-                    if (webSocketManager?.isConnected() != true) {
-                        webSocketManager?.connect()
-                    }
-                    
-                    // Bắt đầu ghi âm
-                    if (isListening && audioManager?.isCurrentlyRecording() != true) {
-                        audioManager?.startAudioInput()
-                    }
-                }
-                // App switched from background to foreground
-                else if (isAppCurrentlyInForeground && wasAppInBackground) {
-                    Log.d("GeminiService", "App came to foreground, stopping service WebSocket and audio input")
-                    
-                    // Ngắt kết nối WebSocket của service
-                    webSocketManager?.disconnect()
-                    
-                    // Dừng ghi âm
-                    audioManager?.stopAudioInput()
-                }
-                
-                wasAppInBackground = !isAppCurrentlyInForeground
-                delay(1000) // Check every second
+    private fun resumeListening() {
+        Log.d("GeminiService", "Resuming service listening (app in background)")
+        isPaused = false
+        
+        // Start listening immediately, WebSocket will connect in parallel
+        updateNotification()
+        
+        // Initialize WebSocket connection
+        Log.d("GeminiService", "Initializing WebSocket...")
+        initializeWebSocket()
+        
+        // Start audio input immediately - it can handle the case where WebSocket isn't ready yet
+        serviceScope.launch {
+            delay(800) // Reduced delay for faster response
+            if (!isPaused && !isListening) {
+                Log.d("GeminiService", "Starting audio input...")
+                startListening()
             }
         }
+    }
+    
+    private fun updateNotification() {
+        val notification = createNotification(isListening && !isPaused)
+        notificationManager?.notify(NOTIFICATION_ID, notification)
     }
 }

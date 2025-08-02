@@ -1,0 +1,22 @@
+# FastAPI and ASGI server
+fastapi
+uvicorn
+
+# AI/ML libraries
+openai
+google-genai
+
+# Data processing
+pydantic
+
+# Environment management
+python-dotenv
+
+# HTTP client
+httpx
+
+# WebSocket support (included with FastAPI but explicit for clarity)
+websockets
+
+# Additional dependencies for file handling and encoding
+python-multipart==0.0.12

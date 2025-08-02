@@ -4,15 +4,10 @@ Main FastAPI application with separated services
 """
 import datetime
 import base64
-import logging
-from fastapi import FastAPI, WebSocket, HTTPException, UploadFile, File, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from openai import AsyncOpenAI
 from google import genai
-
-# Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Import configurations
 from config.settings import settings
@@ -170,50 +165,19 @@ async def get_services_status():
             "openai_model_vision": settings.OPENAI_VISION_MODEL,
             "openai_model_text": settings.OPENAI_TEXT_MODEL,
             "gemini_model": settings.GEMINI_MODEL
-        },
-        "websocket_settings": {
-            "ping_interval": settings.WEBSOCKET_PING_INTERVAL,
-            "ping_timeout": settings.WEBSOCKET_PING_TIMEOUT,
-            "close_timeout": settings.WEBSOCKET_CLOSE_TIMEOUT,
-            "session_timeout": settings.SESSION_TIMEOUT_SECONDS
         }
-    }
-
-
-@app.get("/api/websocket/health")
-async def websocket_health_check():
-    """WebSocket health check endpoint.
-    
-    Returns:
-        WebSocket configuration and status.
-    """
-    return {
-        "status": "healthy",
-        "websocket_endpoint": "/gemini-live",
-        "ping_interval_seconds": settings.WEBSOCKET_PING_INTERVAL,
-        "session_timeout_seconds": settings.SESSION_TIMEOUT_SECONDS,
-        "timestamp": datetime.datetime.now().isoformat()
     }
 
 
 # WebSocket endpoint for Gemini Live
 @app.websocket("/gemini-live")
 async def gemini_live_websocket(websocket: WebSocket):
-    """WebSocket endpoint for Gemini Live chat with improved error handling.
+    """WebSocket endpoint for Gemini Live chat.
     
     Args:
         websocket: WebSocket connection.
     """
-    try:
-        await gemini_service.handle_websocket_connection(websocket)
-    except WebSocketDisconnect:
-        logger.info("WebSocket disconnected normally")
-    except Exception as e:
-        logger.error(f"WebSocket error: {e}")
-        try:
-            await websocket.close(code=4002, reason="Internal server error")
-        except Exception:
-            pass  # WebSocket might already be closed
+    await gemini_service.handle_websocket_connection(websocket)
 
 
 # Error handlers

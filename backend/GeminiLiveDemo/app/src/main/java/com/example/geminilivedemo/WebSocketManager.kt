@@ -19,6 +19,9 @@ class WebSocketManager {
     private var callback: WebSocketCallback? = null
     private var webSocket: WebSocketClient? = null
     private var isConnected = false
+    private var shouldReconnect = true
+    private val maxReconnectAttempts = 5
+    private var reconnectAttempts = 0
     
     fun setCallback(callback: WebSocketCallback) {
         this.callback = callback
@@ -30,32 +33,63 @@ class WebSocketManager {
     
     fun connect() {
         Log.d("WebSocketManager", "Connecting to: ${Constants.URL}")
-        webSocket = object : WebSocketClient(URI(Constants.URL)) {
-            override fun onOpen(handshakedata: ServerHandshake?) {
-                Log.d("WebSocketManager", "Connected")
-                isConnected = true
-                callback?.onConnected()
-                sendInitialSetupMessage()
-            }
+        shouldReconnect = true
+        reconnectAttempts = 0
+        connectWebSocket()
+    }
+    
+    private fun connectWebSocket() {
+        try {
+            webSocket?.close()
+            webSocket = object : WebSocketClient(URI(Constants.URL)) {
+                override fun onOpen(handshakedata: ServerHandshake?) {
+                    Log.d("WebSocketManager", "Connected - Instance: ${this@WebSocketManager.hashCode()}")
+                    isConnected = true
+                    reconnectAttempts = 0
+                    callback?.onConnected()
+                    sendInitialSetupMessage()
+                }
 
-            override fun onMessage(message: String?) {
-                Log.d("WebSocketManager", "Message Received: $message")
-                receiveMessage(message)
-            }
+                override fun onMessage(message: String?) {
+                    Log.d("WebSocketManager", "Message Received: $message")
+                    receiveMessage(message)
+                }
 
-            override fun onClose(code: Int, reason: String?, remote: Boolean) {
-                Log.d("WebSocketManager", "Connection Closed: $reason")
-                isConnected = false
-                callback?.onDisconnected()
-            }
+                override fun onClose(code: Int, reason: String?, remote: Boolean) {
+                    Log.d("WebSocketManager", "Connection Closed: code=$code, reason=$reason, remote=$remote")
+                    isConnected = false
+                    callback?.onDisconnected()
+                    
+                    // Only auto-reconnect if shouldReconnect is true, within retry limit, and not a normal close
+                    if (shouldReconnect && reconnectAttempts < maxReconnectAttempts && code != 1000) {
+                        reconnectAttempts++
+                        Log.d("WebSocketManager", "Attempting reconnection $reconnectAttempts/$maxReconnectAttempts (code: $code)")
+                        
+                        // Wait a bit before reconnecting
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            if (shouldReconnect) {
+                                connectWebSocket()
+                            }
+                        }, 2000) // 2 second delay
+                    } else {
+                        if (code == 1000) {
+                            Log.d("WebSocketManager", "Normal connection close, no reconnection needed")
+                        } else {
+                            Log.w("WebSocketManager", "Max reconnection attempts reached or reconnection disabled")
+                        }
+                    }
+                }
 
-            override fun onError(ex: Exception?) {
-                Log.e("WebSocketManager", "Error: ${ex?.message}")
-                isConnected = false
-                callback?.onError(ex)
+                override fun onError(ex: Exception?) {
+                    Log.e("WebSocketManager", "Error: ${ex?.message}", ex)
+                    isConnected = false
+                    callback?.onError(ex)
+                }
             }
+            webSocket?.connect()
+        } catch (e: Exception) {
+            Log.e("WebSocketManager", "Failed to create WebSocket connection", e)
         }
-        webSocket?.connect()
     }
     
     private fun sendInitialSetupMessage() {
@@ -137,6 +171,8 @@ class WebSocketManager {
     fun isWebSocketConnected(): Boolean = isConnected
     
     fun disconnect() {
+        Log.d("WebSocketManager", "Disconnecting - Instance: ${this.hashCode()}")
+        shouldReconnect = false // Disable auto-reconnect
         webSocket?.close()
         isConnected = false
     }

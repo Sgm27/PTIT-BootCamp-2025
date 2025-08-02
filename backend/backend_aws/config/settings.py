@@ -33,12 +33,7 @@ class Settings:
     
     # Session settings
     SESSION_FILE: str = "session_handle.json"
-    SESSION_TIMEOUT_SECONDS: int = 360  # 6 minutes
-    
-    # WebSocket settings
-    WEBSOCKET_PING_INTERVAL: int = 30  # Send ping every 30 seconds
-    WEBSOCKET_PING_TIMEOUT: int = 10   # Wait 10 seconds for pong
-    WEBSOCKET_CLOSE_TIMEOUT: int = 10  # Wait 10 seconds for close
+    SESSION_TIMEOUT_SECONDS: int = 60
     
     def __init__(self):
         """Validate required environment variables."""
