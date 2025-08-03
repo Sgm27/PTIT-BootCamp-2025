@@ -112,23 +112,10 @@ class MainActivity : AppCompatActivity() {
                     audioManager.ingestAudioChunkToPlay(audioData)
                 }
                 
-                // Handle voice notification responses and broadcasts
+                // Handle voice notification responses through VoiceNotificationWebSocketManager
                 response.voiceNotificationData?.let { voiceData ->
-                    Log.d("MainActivity", "Received voice notification: ${voiceData.notificationText}")
-                    
-                    // Play the voice notification audio
-                    voiceData.audioBase64?.let { audioBase64 ->
-                        Log.d("MainActivity", "Playing voice notification audio")
-                        audioManager.ingestAudioChunkToPlay(audioBase64)
-                        
-                        // Show notification text on UI
-                        uiManager.displayMessage("🔊 VOICE NOTIFICATION: ${voiceData.notificationText}")
-                        
-                        // Show toast for broadcast notifications
-                        if (response.voiceNotificationData?.service?.contains("broadcast") == true) {
-                            uiManager.showToast("Voice notification received!")
-                        }
-                    }
+                    Log.d("MainActivity", "Received voice notification, delegating to VoiceNotificationWebSocketManager")
+                    voiceNotificationWebSocketManager.handleVoiceNotificationResponse(response)
                 }
             }
         })
@@ -174,22 +161,63 @@ class MainActivity : AppCompatActivity() {
             override fun onVoiceNotificationError(error: String) {
                 Log.e("MainActivity", "Voice notification error via HTTP API: $error")
                 uiManager.displayMessage("ERROR: Voice notification failed - $error")
+                // Resume recording in case of error
+                audioManager.resumeRecordingAfterVoiceNotification()
+            }
+            
+            override fun onVoiceNotificationStarted() {
+                Log.d("MainActivity", "Voice notification started - pausing recording")
+                audioManager.pauseRecordingForVoiceNotification()
+            }
+            
+            override fun onVoiceNotificationFinished() {
+                Log.d("MainActivity", "Voice notification finished - resuming recording")
+                audioManager.resumeRecordingAfterVoiceNotification()
             }
         })
         
         // Setup VoiceNotificationWebSocketManager callbacks
         voiceNotificationWebSocketManager.setCallback(object : VoiceNotificationWebSocketManager.VoiceNotificationWebSocketCallback {
             override fun onVoiceNotificationReceived(voiceData: VoiceNotificationData) {
-                Log.d("MainActivity", "Voice notification received via WebSocket")
+                Log.d("MainActivity", "Voice notification received via WebSocket: ${voiceData.notificationText}")
+                
+                // Pause recording to prevent feedback
+                Log.d("MainActivity", "Pausing recording for voice notification")
+                audioManager.pauseRecordingForVoiceNotification()
+                
                 voiceData.audioBase64?.let { audioBase64 ->
+                    Log.d("MainActivity", "Playing voice notification audio")
                     audioManager.ingestAudioChunkToPlay(audioBase64)
+                    
+                    // Calculate estimated playback duration based on audio data length
+                    val estimatedDurationMs = (audioBase64.length / 1000L + 2) * 1000L
+                    val duration = estimatedDurationMs.coerceAtLeast(3000L).coerceAtMost(10000L)
+                    
+                    Log.d("MainActivity", "Estimated voice notification duration: ${duration}ms")
+                    
+                    // Resume recording after estimated playback time
+                    GlobalScope.launch {
+                        delay(duration)
+                        Log.d("MainActivity", "Resuming recording after voice notification")
+                        audioManager.resumeRecordingAfterVoiceNotification()
+                    }
                 }
-                uiManager.displayMessage("SYSTEM: Voice notification - ${voiceData.notificationText}")
+                
+                // Show notification text on UI
+                uiManager.displayMessage("🔊 VOICE NOTIFICATION: ${voiceData.notificationText}")
+                
+                // Show toast for broadcast notifications
+                if (voiceData.service?.contains("broadcast") == true) {
+                    uiManager.showToast("Voice notification received!")
+                }
             }
             
             override fun onVoiceNotificationError(error: String) {
                 Log.e("MainActivity", "Voice notification error via WebSocket: $error")
                 uiManager.displayMessage("ERROR: Voice notification failed - $error")
+                // Resume recording in case of error
+                Log.d("MainActivity", "Resuming recording due to voice notification error")
+                audioManager.resumeRecordingAfterVoiceNotification()
             }
         })
         

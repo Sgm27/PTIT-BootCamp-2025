@@ -125,14 +125,36 @@ class GeminiListeningService : Service() {
         // Setup voice notification callbacks
         voiceNotificationWebSocketManager?.setCallback(object : VoiceNotificationWebSocketManager.VoiceNotificationWebSocketCallback {
             override fun onVoiceNotificationReceived(voiceData: VoiceNotificationData) {
-                Log.d("GeminiService", "Voice notification received in background service")
+                Log.d("GeminiService", "Voice notification received in background service: ${voiceData.notificationText}")
+                
+                // Pause recording to prevent feedback
+                Log.d("GeminiService", "Pausing recording for voice notification")
+                audioManager?.pauseRecordingForVoiceNotification()
+                
                 voiceData.audioBase64?.let { audioBase64 ->
+                    Log.d("GeminiService", "Playing voice notification audio")
                     audioManager?.ingestAudioChunkToPlay(audioBase64)
+                    
+                    // Calculate estimated playback duration based on audio data length
+                    val estimatedDurationMs = (audioBase64.length / 1000L + 2) * 1000L
+                    val duration = estimatedDurationMs.coerceAtLeast(3000L).coerceAtMost(10000L)
+                    
+                    Log.d("GeminiService", "Estimated voice notification duration: ${duration}ms")
+                    
+                    // Resume recording after estimated playback time
+                    serviceScope.launch {
+                        delay(duration)
+                        Log.d("GeminiService", "Resuming recording after voice notification")
+                        audioManager?.resumeRecordingAfterVoiceNotification()
+                    }
                 }
             }
             
             override fun onVoiceNotificationError(error: String) {
                 Log.e("GeminiService", "Voice notification error in background service: $error")
+                // Resume recording in case of error
+                Log.d("GeminiService", "Resuming recording due to voice notification error")
+                audioManager?.resumeRecordingAfterVoiceNotification()
             }
         })
         
@@ -170,8 +192,9 @@ class GeminiListeningService : Service() {
                     audioManager?.ingestAudioChunkToPlay(audioData)
                 }
                 
-                // Handle voice notification responses
+                // Handle voice notification responses through VoiceNotificationWebSocketManager
                 response.voiceNotificationData?.let { voiceData ->
+                    Log.d("GeminiService", "Received voice notification, delegating to VoiceNotificationWebSocketManager")
                     voiceNotificationWebSocketManager?.handleVoiceNotificationResponse(response)
                 }
             }

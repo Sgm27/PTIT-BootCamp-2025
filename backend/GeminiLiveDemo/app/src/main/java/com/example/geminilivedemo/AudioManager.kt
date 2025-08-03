@@ -27,6 +27,8 @@ class AudioManager(private val context: Context) {
     private var callback: AudioManagerCallback? = null
     private var isRecording = false
     private var isPlayingAudio = false  // Renamed for clarity
+    private var isPausedForVoiceNotification = false  // New flag for voice notification pause
+    private var voiceNotificationTimeoutJob: Job? = null  // Timeout job for voice notification
     private var audioRecord: AudioRecord? = null
     private var pcmData = mutableListOf<Short>()
     private var recordInterval: Job? = null
@@ -89,8 +91,14 @@ class AudioManager(private val context: Context) {
         
         recordInterval = GlobalScope.launch(Dispatchers.IO) {
             while (isRecording) {
-                // Simple pause if AI is playing
-                if (isPlayingAudio) {
+                // Pause recording if AI is playing or if voice notification is active
+                if (isPlayingAudio || isPausedForVoiceNotification) {
+                    if (isPausedForVoiceNotification) {
+                        Log.d("AudioManager", "Recording paused for voice notification")
+                    }
+                    if (isPlayingAudio) {
+                        Log.d("AudioManager", "Recording paused for AI audio playback")
+                    }
                     delay(100)
                     continue
                 }
@@ -287,8 +295,43 @@ class AudioManager(private val context: Context) {
         Log.d("AudioManager", "Playback volume set to: $clampedVolume")
     }
     
+    // Phương thức để tạm dừng ghi âm khi voice notification bắt đầu
+    fun pauseRecordingForVoiceNotification() {
+        Log.d("AudioManager", "Pausing recording for voice notification")
+        
+        // Cancel any existing timeout job
+        voiceNotificationTimeoutJob?.cancel()
+        
+        isPausedForVoiceNotification = true
+        
+        // Set a maximum timeout to resume recording (safety mechanism)
+        voiceNotificationTimeoutJob = GlobalScope.launch {
+            delay(15000) // Maximum 15 seconds timeout
+            if (isPausedForVoiceNotification) {
+                Log.w("AudioManager", "Voice notification timeout reached, force resuming recording")
+                isPausedForVoiceNotification = false
+            }
+        }
+    }
+    
+    // Phương thức để tiếp tục ghi âm sau khi voice notification kết thúc
+    fun resumeRecordingAfterVoiceNotification() {
+        if (isPausedForVoiceNotification) {
+            Log.d("AudioManager", "Resuming recording after voice notification")
+            isPausedForVoiceNotification = false
+        }
+        voiceNotificationTimeoutJob?.cancel()
+        voiceNotificationTimeoutJob = null
+    }
+    
+    // Phương thức để kiểm tra trạng thái pause cho voice notification
+    fun isPausedForVoiceNotificationStatus(): Boolean = isPausedForVoiceNotification
+    
     fun cleanup() {
         stopAudioInput()
+        isPausedForVoiceNotification = false
+        voiceNotificationTimeoutJob?.cancel()
+        voiceNotificationTimeoutJob = null
         audioTrack?.release()
         audioTrack = null
     }

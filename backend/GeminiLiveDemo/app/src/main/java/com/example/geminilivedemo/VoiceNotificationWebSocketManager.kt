@@ -14,6 +14,8 @@ class VoiceNotificationWebSocketManager(private val webSocketManager: WebSocketM
     }
     
     private var callback: VoiceNotificationWebSocketCallback? = null
+    private var lastRequestTime = 0L
+    private val requestCooldownMs = 1000L // 1 second cooldown between requests
     
     fun setCallback(callback: VoiceNotificationWebSocketCallback) {
         this.callback = callback
@@ -23,6 +25,14 @@ class VoiceNotificationWebSocketManager(private val webSocketManager: WebSocketM
      * Request voice notification generation through WebSocket
      */
     fun requestVoiceNotification(text: String, type: String = "info") {
+        // Check cooldown to prevent duplicate requests
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastRequestTime < requestCooldownMs) {
+            Log.w("VoiceNotificationWebSocket", "Request cooldown active, ignoring duplicate request")
+            return
+        }
+        lastRequestTime = currentTime
+        
         if (!webSocketManager.isConnected()) {
             Log.w("VoiceNotificationWebSocket", "WebSocket not connected, cannot request voice notification")
             callback?.onVoiceNotificationError("WebSocket not connected")
@@ -61,10 +71,10 @@ class VoiceNotificationWebSocketManager(private val webSocketManager: WebSocketM
      */
     fun handleVoiceNotificationResponse(response: Response) {
         response.voiceNotificationData?.let { voiceData ->
-            Log.d("VoiceNotificationWebSocket", "Received voice notification response")
+            Log.d("VoiceNotificationWebSocket", "Received voice notification response: ${voiceData.notificationText}")
             
             if (voiceData.success && voiceData.audioBase64 != null) {
-                Log.d("VoiceNotificationWebSocket", "Voice notification generated successfully")
+                Log.d("VoiceNotificationWebSocket", "Voice notification generated successfully, calling callback")
                 callback?.onVoiceNotificationReceived(voiceData)
             } else {
                 Log.e("VoiceNotificationWebSocket", "Voice notification failed: ${voiceData.message}")

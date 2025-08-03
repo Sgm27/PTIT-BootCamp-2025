@@ -18,6 +18,8 @@ class VoiceNotificationManager(private val context: Context) {
     interface VoiceNotificationCallback {
         fun onVoiceNotificationGenerated(voiceData: VoiceNotificationData)
         fun onVoiceNotificationError(error: String)
+        fun onVoiceNotificationStarted()
+        fun onVoiceNotificationFinished()
     }
     
     private val client = OkHttpClient()
@@ -60,7 +62,17 @@ class VoiceNotificationManager(private val context: Context) {
                                 if (voiceData != null && voiceData.success && voiceData.audioBase64 != null) {
                                     Log.d("VoiceNotificationManager", "Voice notification generated successfully")
                                     withContext(Dispatchers.Main) {
+                                        callback?.onVoiceNotificationStarted()
                                         callback?.onVoiceNotificationGenerated(voiceData)
+                                        // Calculate estimated playback duration based on audio data length
+                                        // Rough estimation: base64 length / 1000 + 2 seconds buffer
+                                        val estimatedDurationMs = (voiceData.audioBase64.length / 1000L + 2) * 1000L
+                                        val duration = estimatedDurationMs.coerceAtLeast(3000L).coerceAtMost(10000L)
+                                        
+                                        launch {
+                                            delay(duration)
+                                            callback?.onVoiceNotificationFinished()
+                                        }
                                     }
                                 } else {
                                     val errorMsg = voiceData?.message ?: "Unknown error"
