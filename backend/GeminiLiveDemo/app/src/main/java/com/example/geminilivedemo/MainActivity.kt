@@ -42,8 +42,11 @@ class MainActivity : AppCompatActivity() {
         // Pause service listening since app is in foreground
         serviceManager.pauseListeningService()
         
-        // Connect app's WebSocket
-        webSocketManager.connect()
+        // Delay WebSocket connection to allow UI to fully initialize
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            Log.d("MainActivity", "Initiating WebSocket connection after UI setup")
+            webSocketManager.connect()
+        }, 1000) // 1 second delay
     }
     
     private fun initializeManagers() {
@@ -77,13 +80,19 @@ class MainActivity : AppCompatActivity() {
             }
             
             override fun onAudioPlaybackStarted() {
-                // Handle audio playback started
+                // Audio playback started -> AI is speaking
                 Log.d("MainActivity", "Audio playback started")
+                uiManager.setAIPlayingStatus(true)
+                // Hiển thị tín hiệu màu tím khi AI đang phát âm thanh
+                uiManager.setAIRespondingStatus(true)
             }
             
             override fun onAudioPlaybackStopped() {
-                // Handle audio playback stopped
+                // Audio playback stopped -> AI finished speaking
                 Log.d("MainActivity", "Audio playback stopped")
+                uiManager.setAIPlayingStatus(false)
+                // Tắt hiển thị tín hiệu màu tím
+                uiManager.setAIRespondingStatus(false)
             }
         })
         
@@ -99,11 +108,17 @@ class MainActivity : AppCompatActivity() {
             }
             
             override fun onError(exception: Exception?) {
-                uiManager.setConnectionStatus(false)
                 Log.e("MainActivity", "WebSocket Error: ${exception?.message}")
+                // Update UI only if the WebSocket is no longer open
+                if (!webSocketManager.isWebSocketConnected()) {
+                    uiManager.setConnectionStatus(false)
+                }
             }
             
             override fun onMessageReceived(response: Response) {
+                // Set AI responding status when receiving any response from AI
+                uiManager.setAIRespondingStatus(true)
+                
                 response.text?.let { text ->
                     uiManager.displayMessage("GEMINI: $text")
                 }
@@ -111,6 +126,13 @@ class MainActivity : AppCompatActivity() {
                 response.audioData?.let { audioData ->
                     audioManager.ingestAudioChunkToPlay(audioData)
                 }
+                
+                // Clear AI responding status after a short delay nếu AI không còn phát âm thanh
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    if (!audioManager.isCurrentlyPlaying()) {
+                        uiManager.setAIRespondingStatus(false)
+                    }
+                }, 1500) // 1.5 seconds safety delay
                 
                 // Handle voice notification responses through VoiceNotificationWebSocketManager
                 response.voiceNotificationData?.let { voiceData ->
@@ -391,13 +413,20 @@ class MainActivity : AppCompatActivity() {
         if (isBackgroundServiceRunning) {
             serviceManager.pauseListeningService()
             // Give service a moment to pause and disconnect before we reconnect
-            Handler(Looper.getMainLooper()).postDelayed({
-                webSocketManager.connect()
-                Log.d("MainActivity", "App WebSocket reconnected after service pause")
-            }, 500) // 0.5 second delay - shorter than onPause
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                if (!webSocketManager.isConnected()) {
+                    Log.d("MainActivity", "Reconnecting WebSocket after service pause")
+                    webSocketManager.connect()
+                } else {
+                    Log.d("MainActivity", "WebSocket already connected")
+                }
+            }, 800) // Slightly longer delay for stability
         } else {
-            // No background service, connect immediately
-            webSocketManager.connect()
+            // No background service, connect if not already connected
+            if (!webSocketManager.isConnected()) {
+                Log.d("MainActivity", "Connecting WebSocket (no background service)")
+                webSocketManager.connect()
+            }
         }
         // Update UI to reflect current service status when returning to app
         uiManager.setBackgroundServiceRunning(isBackgroundServiceRunning)

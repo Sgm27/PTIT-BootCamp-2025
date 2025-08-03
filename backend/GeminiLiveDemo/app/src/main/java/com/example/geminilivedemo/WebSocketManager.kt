@@ -6,6 +6,8 @@ import org.java_websocket.client.WebSocketClient
 import org.java_websocket.handshake.ServerHandshake
 import org.json.JSONObject
 import java.net.URI
+import android.os.Handler
+import android.os.Looper
 
 class WebSocketManager {
     
@@ -13,15 +15,35 @@ class WebSocketManager {
         fun onConnected()
         fun onDisconnected()
         fun onError(exception: Exception?)
-                fun onMessageReceived(response: Response)
+        fun onMessageReceived(response: Response)
     }
     
     private var callback: WebSocketCallback? = null
     private var webSocket: WebSocketClient? = null
     private var isConnected = false
     private var shouldReconnect = true
-    private val maxReconnectAttempts = 5
+    private val maxReconnectAttempts = 8
     private var reconnectAttempts = 0
+    private var isConnecting = false
+    private val baseRetryDelay = 1000L // 1 second base delay
+
+    // Heartbeat/keep-alive configuration
+    private val heartbeatInterval = 5000L // 5 seconds
+    private val heartbeatHandler = Handler(Looper.getMainLooper())
+    private val heartbeatRunnable = object : Runnable {
+        override fun run() {
+            if (isConnected && webSocket?.isOpen == true) {
+                try {
+                    val pingPayload = JSONObject().put("type", "ping")
+                    webSocket?.send(pingPayload.toString())
+                } catch (e: Exception) {
+                    Log.e("WebSocketManager", "Heartbeat ping failed: "+e.message)
+                }
+                // Schedule next heartbeat
+                heartbeatHandler.postDelayed(this, heartbeatInterval)
+            }
+        }
+    }
     
     fun setCallback(callback: WebSocketCallback) {
         this.callback = callback
@@ -35,19 +57,31 @@ class WebSocketManager {
         Log.d("WebSocketManager", "Connecting to: ${Constants.URL}")
         shouldReconnect = true
         reconnectAttempts = 0
+        isConnecting = false
         connectWebSocket()
     }
     
     private fun connectWebSocket() {
+        if (isConnecting) {
+            Log.d("WebSocketManager", "Already attempting to connect, skipping")
+            return
+        }
+        
         try {
+            isConnecting = true
+            Log.d("WebSocketManager", "Attempt ${reconnectAttempts + 1}/$maxReconnectAttempts - Creating WebSocket connection")
+            
             webSocket?.close()
             webSocket = object : WebSocketClient(URI(Constants.URL)) {
                 override fun onOpen(handshakedata: ServerHandshake?) {
-                    Log.d("WebSocketManager", "Connected - Instance: ${this@WebSocketManager.hashCode()}")
+                    Log.d("WebSocketManager", "Connected successfully - Instance: ${this@WebSocketManager.hashCode()}")
                     isConnected = true
+                    isConnecting = false
                     reconnectAttempts = 0
                     callback?.onConnected()
                     sendInitialSetupMessage()
+                    // Start heartbeat to keep connection alive
+                    startHeartbeat()
                 }
 
                 override fun onMessage(message: String?) {
@@ -58,19 +92,29 @@ class WebSocketManager {
                 override fun onClose(code: Int, reason: String?, remote: Boolean) {
                     Log.d("WebSocketManager", "Connection Closed: code=$code, reason=$reason, remote=$remote")
                     isConnected = false
+                    isConnecting = false
                     callback?.onDisconnected()
                     
+                    // Stop heartbeat when connection closes
+                    stopHeartbeat()
+
                     // Only auto-reconnect if shouldReconnect is true, within retry limit, and not a normal close
                     if (shouldReconnect && reconnectAttempts < maxReconnectAttempts && code != 1000) {
                         reconnectAttempts++
-                        Log.d("WebSocketManager", "Attempting reconnection $reconnectAttempts/$maxReconnectAttempts (code: $code)")
                         
-                        // Wait a bit before reconnecting
+                        // Exponential backoff with jitter to avoid thundering herd
+                        val delay = baseRetryDelay * (1L shl (reconnectAttempts - 1)) + (Math.random() * 1000).toLong()
+                        val maxDelay = 30000L // Maximum 30 seconds
+                        val actualDelay = minOf(delay, maxDelay)
+                        
+                        Log.d("WebSocketManager", "Attempting reconnection $reconnectAttempts/$maxReconnectAttempts in ${actualDelay}ms (code: $code)")
+                        
+                        // Wait before reconnecting with exponential backoff
                         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            if (shouldReconnect) {
+                            if (shouldReconnect && !isConnecting) {
                                 connectWebSocket()
                             }
-                        }, 2000) // 2 second delay
+                        }, actualDelay)
                     } else {
                         if (code == 1000) {
                             Log.d("WebSocketManager", "Normal connection close, no reconnection needed")
@@ -81,15 +125,31 @@ class WebSocketManager {
                 }
 
                 override fun onError(ex: Exception?) {
-                    Log.e("WebSocketManager", "Error: ${ex?.message}", ex)
+                    Log.e("WebSocketManager", "WebSocket Error: ${ex?.message}", ex)
                     isConnected = false
+                    isConnecting = false
                     callback?.onError(ex)
                 }
             }
+            
+            // Set connection timeout
+            webSocket?.connectionLostTimeout = 60 // 60 seconds timeout to reduce false disconnects
             webSocket?.connect()
+            
         } catch (e: Exception) {
             Log.e("WebSocketManager", "Failed to create WebSocket connection", e)
+            isConnecting = false
+            callback?.onError(e)
         }
+    }
+    
+    private fun startHeartbeat() {
+        heartbeatHandler.removeCallbacksAndMessages(null)
+        heartbeatHandler.postDelayed(heartbeatRunnable, heartbeatInterval)
+    }
+
+    private fun stopHeartbeat() {
+        heartbeatHandler.removeCallbacksAndMessages(null)
     }
     
     private fun sendInitialSetupMessage() {
@@ -234,7 +294,14 @@ class WebSocketManager {
     fun disconnect() {
         Log.d("WebSocketManager", "Disconnecting - Instance: ${this.hashCode()}")
         shouldReconnect = false // Disable auto-reconnect
-        webSocket?.close()
+        isConnecting = false // Cancel any pending connection attempts
+        
+        try {
+            webSocket?.close(1000, "Client requested disconnect")
+        } catch (e: Exception) {
+            Log.e("WebSocketManager", "Error during disconnect: ${e.message}")
+        }
+        
         isConnected = false
     }
     
@@ -266,6 +333,15 @@ class WebSocketManager {
     
     fun sendAudioChunk(base64Audio: String) {
         sendVoiceMessage(base64Audio, null)
+    }
+    
+    // Add method to manually retry connection
+    fun retryConnection() {
+        Log.d("WebSocketManager", "Manual retry connection requested")
+        if (!isConnected && !isConnecting) {
+            reconnectAttempts = 0 // Reset attempts for manual retry
+            connect()
+        }
     }
     
     fun sendRawMessage(message: String) {

@@ -6,7 +6,6 @@ import android.Manifest
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioTrack
-import android.media.MediaRecorder
 import android.util.Base64
 import android.util.Log
 import androidx.core.app.ActivityCompat
@@ -74,7 +73,7 @@ class AudioManager(private val context: Context) {
             return
         }
         audioRecord = AudioRecord(
-            MediaRecorder.AudioSource.VOICE_COMMUNICATION,
+            Constants.AUDIO_SOURCE,
             Constants.AUDIO_SAMPLE_RATE,
             Constants.AUDIO_CHANNEL_CONFIG,
             Constants.AUDIO_ENCODING,
@@ -93,6 +92,10 @@ class AudioManager(private val context: Context) {
             while (isRecording) {
                 // Pause recording if AI is playing or if voice notification is active
                 if (isPlayingAudio || isPausedForVoiceNotification) {
+                    // Clear any buffered audio to avoid sending stale data
+                    if (pcmData.isNotEmpty()) {
+                        pcmData.clear()
+                    }
                     if (isPausedForVoiceNotification) {
                         Log.d("AudioManager", "Recording paused for voice notification")
                     }

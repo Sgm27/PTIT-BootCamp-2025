@@ -18,7 +18,7 @@ class Settings:
     # Models
     GEMINI_MODEL: str = "gemini-live-2.5-flash-preview"
     OPENAI_VISION_MODEL: str = "gpt-4o"
-    OPENAI_TEXT_MODEL: str = "gpt-4o-mini"
+    OPENAI_TEXT_MODEL: str = "gpt-4.1-nano"
     
     # App settings
     APP_TITLE: str = "AI Healthcare Assistant API"

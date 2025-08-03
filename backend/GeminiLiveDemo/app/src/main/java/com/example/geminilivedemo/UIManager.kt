@@ -46,6 +46,7 @@ class UIManager(private val activity: AppCompatActivity) {
     private var isConnected = false
     private var isSpeaking = false
     private var isAIPlaying = false
+    private var isAIResponding = false
     private var isBackgroundServiceRunning = false
     
     fun setCallback(callback: UICallback) {
@@ -179,6 +180,11 @@ class UIManager(private val activity: AppCompatActivity) {
         updateMicButtonState()
     }
     
+    fun setAIRespondingStatus(responding: Boolean) {
+        isAIResponding = responding
+        updateStatusIndicator()
+    }
+    
     private fun updateMicButtonState() {
         activity.runOnUiThread {
             if (isAIPlaying) {
@@ -199,6 +205,11 @@ class UIManager(private val activity: AppCompatActivity) {
                 !isConnected -> {
                     statusIndicator.setImageResource(R.drawable.baseline_error_24)
                     statusIndicator.setColorFilter(android.graphics.Color.RED)
+                }
+                isAIResponding -> {
+                    // Show AI responding status with equalizer icon in purple color
+                    statusIndicator.setImageResource(R.drawable.baseline_equalizer_24)
+                    statusIndicator.setColorFilter(android.graphics.Color.parseColor("#9C27B0")) // Purple/Violet
                 }
                 isAIPlaying -> {
                     statusIndicator.setImageResource(R.drawable.baseline_equalizer_24)

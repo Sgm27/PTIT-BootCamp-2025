@@ -6,6 +6,8 @@ import json
 import base64
 import datetime
 import logging
+import os
+import json as json_lib
 from typing import Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
@@ -98,9 +100,41 @@ class GeminiService:
         self.client = client or genai.Client(api_key=settings.GOOGLE_API_KEY)
         self.model = model or settings.GEMINI_MODEL
         self.session_service = SessionService()
+        # Conversation history tracking
+        self.conversation_history = []  # List of {role, text, timestamp}
+        # File to persist conversation history
+        self.conversation_history_file = getattr(settings, "CONVERSATION_HISTORY_FILE", "conversation_history.json")
+        # Temporary buffers for the current turn's texts
+        self._current_user_input = ""
+        self._current_assistant_output = ""
+
+        # Ensure conversation history file exists
+        try:
+            if not os.path.isfile(self.conversation_history_file):
+                # Ensure directory exists
+                os.makedirs(os.path.dirname(self.conversation_history_file) or ".", exist_ok=True)
+                with open(self.conversation_history_file, "w", encoding="utf-8") as f:
+                    json_lib.dump([], f, ensure_ascii=False)
+        except Exception as e:
+            logger.error(f"Failed to prepare conversation history file: {e}")
         # Initialize notification voice service
         from services.notification_voice_service import NotificationVoiceService
         self.notification_voice_service = NotificationVoiceService(self.client, self.model)
+        
+        # Initialize memoir extraction service
+        try:
+            from services.memoir_extraction_service import MemoirExtractionService
+            from openai import AsyncOpenAI
+            if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
+                openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+                self.memoir_extraction_service = MemoirExtractionService(openai_client)
+                logger.info("Memoir extraction service initialized successfully")
+            else:
+                logger.warning("OpenAI API key not found, memoir extraction disabled")
+                self.memoir_extraction_service = None
+        except Exception as e:
+            logger.error(f"Failed to initialize memoir extraction service: {e}")
+            self.memoir_extraction_service = None
     
     def _create_live_config(self, previous_session_handle: Optional[str] = None) -> types.LiveConnectConfig:
         """Create live connection configuration.
@@ -302,6 +336,8 @@ class GeminiService:
                         await session.send_client_content(
                             turns={"role": "user", "parts": [{"text": text_content}]}, turn_complete=True
                         )
+                        # Persist immediately for text input
+                        self._append_to_conversation_history("user", text_content)
                     
                     # Handle voice notification requests
                     elif "voice_notification_request" in data:
@@ -385,7 +421,15 @@ class GeminiService:
                                     "finished": is_finished
                                 }
                             })
-                            
+                            # Accumulate assistant transcription
+                            if transcription_text:
+                                self._current_assistant_output += transcription_text
+
+                            # When assistant transcription finished, store to history
+                            if is_finished and self._current_assistant_output.strip():
+                                self._append_to_conversation_history("assistant", self._current_assistant_output.strip())
+                                self._current_assistant_output = ""
+
                         if response.server_content and hasattr(response.server_content, 'input_transcription') and response.server_content.input_transcription is not None:
                             user_transcription_text = response.server_content.input_transcription.text
                             is_user_finished = response.server_content.input_transcription.finished
@@ -395,6 +439,9 @@ class GeminiService:
                                 logger.info(f"User: {user_transcription_text}")
                                 if is_user_finished:
                                     logger.info("   [Hoàn thành]")
+                            # Accumulate user transcription
+                            if user_transcription_text:
+                                self._current_user_input += user_transcription_text
                             
                             await self._send_safely(websocket, {
                                 "transcription": {
@@ -403,6 +450,11 @@ class GeminiService:
                                     "finished": is_user_finished
                                 }
                             })
+
+                            # When user transcription finished, store to history
+                            if is_user_finished and self._current_user_input.strip():
+                                self._append_to_conversation_history("user", self._current_user_input.strip())
+                                self._current_user_input = ""
 
                         if response.server_content is None:
                             continue
@@ -423,7 +475,7 @@ class GeminiService:
                                         #logger.debug(f"Sent assistant audio to client: {base64_audio[:32]}...")
                                     except Exception as e:
                                         logger.error(f"Error processing assistant audio: {e}")
-
+                        
                         if response.server_content and response.server_content.turn_complete:
                             logger.info('\n<Turn complete>')
                             logger.info("="*50)  # Thêm dòng phân cách rõ ràng hơn
@@ -434,6 +486,15 @@ class GeminiService:
                                     "finished": True
                                 }
                             })
+
+                            # Persist any remaining buffered texts at end of turn
+                            if self._current_user_input.strip():
+                                self._append_to_conversation_history("user", self._current_user_input.strip())
+                                self._current_user_input = ""
+
+                            if self._current_assistant_output.strip():
+                                self._append_to_conversation_history("assistant", self._current_assistant_output.strip())
+                                self._current_assistant_output = ""
                             
                 except WebSocketDisconnect:
                     logger.info("WebSocket disconnected during receive")
@@ -464,6 +525,72 @@ class GeminiService:
         except Exception as e:
             logger.error(f"Error sending data to WebSocket: {e}")
             raise  # Re-raise to let calling function handle
+
+    def _append_to_conversation_history(self, role: str, text: str):
+        """Append a new message to the conversation history and persist it.
+
+        Args:
+            role: "user" or "assistant".
+            text: Message content.
+        """
+        entry = {
+            "role": role,
+            "text": text,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        self.conversation_history.append(entry)
+        # Persist to file
+        try:
+            # Ensure directory exists
+            os.makedirs(os.path.dirname(self.conversation_history_file) or ".", exist_ok=True)
+            with open(self.conversation_history_file, "w", encoding="utf-8") as f:
+                json_lib.dump(self.conversation_history, f, ensure_ascii=False, indent=2)
+                
+            # Trigger memoir extraction in background (non-blocking)
+            asyncio.create_task(self._trigger_memoir_extraction_if_needed(entry))
+            
+        except Exception as e:
+            logger.error(f"Failed to save conversation history: {e}")
+    
+    async def _trigger_memoir_extraction_if_needed(self, new_entry: dict):
+        """Trigger memoir extraction if auto threshold is met or important content detected.
+        
+        Args:
+            new_entry: The new conversation entry that was just added.
+        """
+        try:
+            # Skip if memoir service is not available
+            if not self.memoir_extraction_service:
+                return
+                
+            # Smart check - considers both content and thresholds
+            should_extract = await self.memoir_extraction_service.smart_extraction_check(new_entry)
+            
+            if should_extract:
+                # Check if important content was detected
+                if new_entry.get("role") == "user":
+                    has_important = await self.memoir_extraction_service.has_important_content(
+                        new_entry.get("text", "")
+                    )
+                    if has_important:
+                        logger.info("🎯 Important content detected - triggering memoir extraction...")
+                    else:
+                        logger.info("📝 Auto-triggering memoir extraction (threshold/time)...")
+                else:
+                    logger.info("📝 Auto-triggering memoir extraction...")
+                
+                # Start background extraction without waiting for completion
+                self.memoir_extraction_service.start_background_extraction()
+                
+                # Update the processed count to track
+                current_count = len(self.conversation_history)
+                self.memoir_extraction_service._last_processed_count = current_count
+                
+                logger.info(f"Memoir extraction triggered for {current_count} messages")
+                
+        except Exception as e:
+            logger.error(f"Error in memoir extraction trigger: {e}")
+            # Don't let memoir extraction errors affect the main conversation flow
 
     async def _handle_voice_notification_request(self, websocket: WebSocket, request_data: dict):
         """Handle voice notification generation request.

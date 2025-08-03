@@ -2,6 +2,7 @@ package com.example.geminilivedemo
 
 import android.media.AudioFormat
 import android.media.AudioRecord
+import android.media.MediaRecorder
 
 object Constants {
     const val URL = "ws://backend-bootcamp.sonktx.online/gemini-live"
@@ -10,6 +11,7 @@ object Constants {
     const val AUDIO_REQUEST_CODE = 200
     
     // Audio settings optimized for smooth performance and backend compatibility
+    const val AUDIO_SOURCE = MediaRecorder.AudioSource.VOICE_RECOGNITION  // Use speech recognition source for better sensitivity in background
     const val AUDIO_SAMPLE_RATE = 16000  // Recording sample rate - must be 16000 for backend
     const val AUDIO_PLAYBACK_SAMPLE_RATE = 24000  // Playback sample rate - backend sends 24000
     const val AUDIO_CHANNEL_CONFIG = AudioFormat.CHANNEL_IN_MONO
