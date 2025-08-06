@@ -415,7 +415,7 @@ async def get_memoir_auto_settings():
         return {
             "success": True,
             "auto_settings": settings_info,
-            "timestamp": datetime.datetime.now().isoformat()
+            "timest4amp": datetime.datetime.now().isoformat()
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get auto settings: {str(e)}")

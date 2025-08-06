@@ -36,10 +36,10 @@ def run_server():
         logger.info("WebSocket endpoint: /gemini-live")
         logger.info("Health check: /health")
         logger.info("API documentation: /docs")
-        logger.info("🎭 Memoir extraction: INTEGRATED & AUTO-ENABLED")
-        logger.info("   - Auto threshold: 3 messages OR 5 minutes")
-        logger.info("   - Smart content detection: ENABLED")
-        logger.info("   - Background processing: ENABLED")
+        logger.info("🎭 Memoir extraction: INTEGRATED & ON-DISCONNECT")
+        logger.info("   - Auto extraction: DISABLED")
+        logger.info("   - Trigger: ON CLIENT DISCONNECT ONLY")
+        logger.info("   - Mode: Full conversation processing")
         logger.info("   - Output file: my_life_stories.txt")
         
         uvicorn.run(

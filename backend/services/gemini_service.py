@@ -250,6 +250,12 @@ class GeminiService:
                     except Exception:
                         pass
             
+            # Extract memoir from entire conversation when session ends
+            try:
+                await self.extract_memoir_on_disconnect()
+            except Exception as e:
+                logger.error(f"Error during final memoir extraction: {e}")
+            
             logger.info("Gemini session closed")
     
     async def _ping_websocket(self, websocket: WebSocket):
@@ -546,50 +552,45 @@ class GeminiService:
             with open(self.conversation_history_file, "w", encoding="utf-8") as f:
                 json_lib.dump(self.conversation_history, f, ensure_ascii=False, indent=2)
                 
-            # Trigger memoir extraction in background (non-blocking)
-            asyncio.create_task(self._trigger_memoir_extraction_if_needed(entry))
+            # Auto extraction disabled - will extract only on disconnect
             
         except Exception as e:
             logger.error(f"Failed to save conversation history: {e}")
     
-    async def _trigger_memoir_extraction_if_needed(self, new_entry: dict):
-        """Trigger memoir extraction if auto threshold is met or important content detected.
+    async def extract_memoir_on_disconnect(self):
+        """Extract memoir from entire conversation history when client disconnects.
         
-        Args:
-            new_entry: The new conversation entry that was just added.
+        This method is called once when the WebSocket connection ends to process
+        the complete conversation and extract important memoir information.
         """
         try:
             # Skip if memoir service is not available
             if not self.memoir_extraction_service:
+                logger.info("Memoir extraction service not available")
                 return
                 
-            # Smart check - considers both content and thresholds
-            should_extract = await self.memoir_extraction_service.smart_extraction_check(new_entry)
+            # Check if we have any conversation to process
+            if not self.conversation_history or len(self.conversation_history) == 0:
+                logger.info("No conversation history to process for memoir extraction")
+                return
+                
+            logger.info(f"🎭 Starting final memoir extraction for {len(self.conversation_history)} messages...")
             
-            if should_extract:
-                # Check if important content was detected
-                if new_entry.get("role") == "user":
-                    has_important = await self.memoir_extraction_service.has_important_content(
-                        new_entry.get("text", "")
-                    )
-                    if has_important:
-                        logger.info("🎯 Important content detected - triggering memoir extraction...")
-                    else:
-                        logger.info("📝 Auto-triggering memoir extraction (threshold/time)...")
+            # Process the entire conversation history at once
+            result = await self.memoir_extraction_service.process_conversation_history_background()
+            
+            if result.get("success"):
+                if result.get("extracted_info"):
+                    logger.info("✅ Memoir extraction completed successfully")
+                    logger.info(f"   - Processed {result.get('conversation_length', 0)} messages")
+                    logger.info(f"   - Generated memoir: {len(result.get('extracted_info', ''))} characters")
                 else:
-                    logger.info("📝 Auto-triggering memoir extraction...")
-                
-                # Start background extraction without waiting for completion
-                self.memoir_extraction_service.start_background_extraction()
-                
-                # Update the processed count to track
-                current_count = len(self.conversation_history)
-                self.memoir_extraction_service._last_processed_count = current_count
-                
-                logger.info(f"Memoir extraction triggered for {current_count} messages")
+                    logger.info("✅ Memoir extraction completed - no significant stories found")
+            else:
+                logger.warning(f"❌ Memoir extraction failed: {result.get('message', 'Unknown error')}")
                 
         except Exception as e:
-            logger.error(f"Error in memoir extraction trigger: {e}")
+            logger.error(f"Error in final memoir extraction: {e}")
             # Don't let memoir extraction errors affect the main conversation flow
 
     async def _handle_voice_notification_request(self, websocket: WebSocket, request_data: dict):

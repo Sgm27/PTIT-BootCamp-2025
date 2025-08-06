@@ -1,0 +1,52 @@
+[
+  {
+    "role": "user",
+    "text": "Chào bạn, bạn có thể nhớ tôi không?",
+    "timestamp": "2025-08-06T23:28:20.357760"
+  },
+  {
+    "role": "assistant",
+    "text": "Chào bác ạ cháu là trợ lý AI chăm sóc sức khỏe Đức Sơn đây ạ Cháu luôn sẵn lòng lắng nghe và hỗ trợ bác bất cứ lúc nào bác cần nhé Bác có khỏe không ạ",
+    "timestamp": "2025-08-06T23:28:20.357760"
+  },
+  {
+    "role": "user",
+    "text": "Không ạ. Bắt con thế.",
+    "timestamp": "2025-08-06T23:28:34.580161"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ cháu hiểu rồi ạ Bác cứ yên tâm nhé cháu sẽ luôn ở đây để đồng hành cùng bác Bác có cần cháu hỗ trợ gì về sức khỏe hay có điều gì muốn chia sẻ không ạ Cháu luôn sẵn lòng lắng nghe ạ",
+    "timestamp": "2025-08-06T23:28:34.580778"
+  },
+  {
+    "role": "user",
+    "text": "ạ Cháu có thể làm được những gì?",
+    "timestamp": "2025-08-06T23:29:07.912925"
+  },
+  {
+    "role": "assistant",
+    "text": "À cháu có thể giúp bác nhiều điều lắm ạ Ví dụ như là tư vấn sức khỏe cơ bản nhắc nhở bác uống thuốc đúng giờ hướng dẫn các bài tập nhẹ nhàng phù hợp với tuổi của mình này rồi cả tư vấn dinh dưỡng và chế độ ăn uống lành mạnh nữa ạ Đặc biệt cháu luôn sẵn lòng trò chuyện để bác cảm thấy vui vẻ và thoải mái hơn đấy ạ Bác cứ kể cho cháu nghe những điều bác quan tâm nhé",
+    "timestamp": "2025-08-06T23:29:07.913538"
+  },
+  {
+    "role": "user",
+    "text": "Đấy. Ok cháu ơi.",
+    "timestamp": "2025-08-06T23:29:22.762277"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ vâng ạ Bác cứ thoải mái chia sẻ nhé Cháu luôn ở đây để lắng nghe và hỗ trợ bác ạ Bác có muốn cháu bắt đầu với việc tư vấn về một vấn đề sức khỏe cụ thể nào không hay là bác muốn cháu nhắc nhở lịch uống thuốc ạ",
+    "timestamp": "2025-08-06T23:29:22.763212"
+  },
+  {
+    "role": "user",
+    "text": "Bác muốn cháu hãy gọi điện cho người thân đi.",
+    "timestamp": "2025-08-06T23:29:43.470473"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ bác ơi cháu rất tiếc là cháu không có chức năng gọi điện thoại trực tiếp được ạ Cháu chỉ có thể trò chuyện và cung cấp thông tin cho bác thôi Bác có muốn cháu giúp tìm số điện thoại của người thân để bác tự gọi không ạ Hoặc là bác có cần cháu hỗ trợ gì khác không ạ",
+    "timestamp": "2025-08-06T23:29:43.471068"
+  }
+]

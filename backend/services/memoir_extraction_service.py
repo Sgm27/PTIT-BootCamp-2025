@@ -1,8 +1,7 @@
 """
 Memoir extraction service for important conversation history information
-Optimized for performance and only extracting truly important details
+Simplified for one-time extraction on conversation end
 """
-import asyncio
 import json
 import os
 from datetime import datetime
@@ -15,7 +14,13 @@ from config.settings import settings
 
 
 class MemoirExtractionService:
-    """Service for extracting important information from conversation history for memoir purposes."""
+    """Service for extracting important information from conversation history for memoir purposes.
+    
+    Features:
+    - One-time extraction on conversation end
+    - Daily memoir consolidation (one story per date)
+    - Automatic story combination for same-day conversations
+    """
     
     MEMOIR_WRITING_PROMPT = """
     Bạn là một nhà văn memoir chuyên nghiệp, chuyên viết hồi ký cho người cao tuổi.
@@ -67,24 +72,19 @@ class MemoirExtractionService:
     "Khi cháu gọi điện và nói 'Alo có nghe bác không', tôi trả lời rằng..."
     """
     
-    def __init__(self, client: AsyncOpenAI = None, model: str = None, temperature: float = 0.3):
+    def __init__(self, client: AsyncOpenAI = None, model: str = None, temperature: float = 0.7):
         """Initialize memoir extraction service.
         
         Args:
             client: OpenAI client instance. Creates new if None.
             model: Model to use for text processing. Uses default from settings if None.
-            temperature: Lower temperature for more focused extraction.
+            temperature: Temperature for creative writing.
         """
         self.client = client or AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
         self.model = model or settings.OPENAI_TEXT_MODEL
         self.temperature = temperature
         self.conversation_file = Path("conversation_history.json")
         self.memoir_file = Path("my_life_stories.txt")
-        self._background_task = None
-        self._last_processed_count = 0  # Track processed message count
-        self._auto_extraction_threshold = 3  # Auto extract after 3 new messages (more frequent)
-        self._last_extraction_time = None  # Track last extraction time
-        self._time_threshold_minutes = 5  # Also extract every 5 minutes regardless of message count
         
     async def load_conversation_history(self) -> List[Dict]:
         """Load conversation history from JSON file.
@@ -120,7 +120,7 @@ class MemoirExtractionService:
                     {"role": "system", "content": self.MEMOIR_WRITING_PROMPT},
                     {"role": "user", "content": f"Dựa vào cuộc trò chuyện này, hãy viết thành một bài memoir có cảm xúc thật:\n\n{conversation_text}"}
                 ],
-                temperature=0.7,  # Higher temperature for more creative writing
+                temperature=self.temperature,
                 max_tokens=1500,  # More tokens for complete memoir stories
             )
             
@@ -165,7 +165,7 @@ class MemoirExtractionService:
         return "\n".join(formatted_parts)
     
     async def append_to_memoir_file(self, memoir_story: str) -> bool:
-        """Append memoir story to memoir file.
+        """Append memoir story to memoir file, grouping by date.
         
         Args:
             memoir_story: Written memoir story to save.
@@ -177,19 +177,52 @@ class MemoirExtractionService:
             return False
         
         try:
+            today = datetime.now().strftime("%Y-%m-%d")
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
-            # Create file if it doesn't exist
-            if not self.memoir_file.exists():
-                with open(self.memoir_file, 'w', encoding='utf-8') as f:
-                    f.write("CÂU CHUYỆN HỒI KÝ\n")
-                    f.write("Những câu chuyện đời được viết lại từ trái tim\n\n")
+            # Read existing content if file exists
+            existing_content = ""
+            existing_stories = {}  # date -> story content
             
-            # Append new memoir story
-            with open(self.memoir_file, 'a', encoding='utf-8') as f:
-                f.write(f"[{timestamp}]\n\n")
-                f.write(f"{memoir_story}\n\n")
-                f.write("-" * 50 + "\n\n")
+            if self.memoir_file.exists():
+                with open(self.memoir_file, 'r', encoding='utf-8') as f:
+                    content = f.read()
+                
+                # Parse existing stories by date
+                parts = content.split("--------------------------------------------------")
+                for part in parts:
+                    part = part.strip()
+                    if part and "[" in part and "]" in part:
+                        # Extract date from timestamp [YYYY-MM-DD HH:MM:SS]
+                        start_bracket = part.find("[")
+                        end_bracket = part.find("]")
+                        if start_bracket != -1 and end_bracket != -1:
+                            timestamp_str = part[start_bracket+1:end_bracket]
+                            if len(timestamp_str) >= 10:  # At least YYYY-MM-DD
+                                date_part = timestamp_str[:10]
+                                story_content = part[end_bracket+1:].strip()
+                                if story_content:
+                                    existing_stories[date_part] = story_content
+            
+            # Check if we already have a story for today
+            if today in existing_stories:
+                # Combine existing story with new story using AI
+                combined_story = await self.combine_stories_for_date(existing_stories[today], memoir_story)
+                existing_stories[today] = combined_story
+            else:
+                # New story for today
+                existing_stories[today] = memoir_story
+            
+            # Rebuild the entire file with consolidated stories
+            with open(self.memoir_file, 'w', encoding='utf-8') as f:
+                f.write("CÂU CHUYỆN HỒI KÝ\n")
+                f.write("Những câu chuyện đời được viết lại từ trái tim\n\n")
+                
+                # Write stories sorted by date
+                for date in sorted(existing_stories.keys()):
+                    f.write(f"[{date}]\n\n")
+                    f.write(f"{existing_stories[date]}\n\n")
+                    f.write("-" * 50 + "\n\n")
             
             return True
             
@@ -197,8 +230,58 @@ class MemoirExtractionService:
             print(f"Error saving memoir story: {e}")
             return False
     
+    async def combine_stories_for_date(self, existing_story: str, new_story: str) -> str:
+        """Combine existing memoir story with new story for the same date.
+        
+        Args:
+            existing_story: The existing memoir story for the date.
+            new_story: The new memoir story to combine.
+            
+        Returns:
+            Combined memoir story.
+        """
+        try:
+            combine_prompt = f"""
+            Bạn là một nhà văn memoir chuyên nghiệp. Nhiệm vụ của bạn là gộp hai đoạn memoir về cùng một ngày thành một câu chuyện hoàn chỉnh, liền mạch.
+            
+            NGUYÊN TẮC GỘP:
+            - Tạo ra MỘT đoạn văn duy nhất, liền mạch
+            - Loại bỏ thông tin trùng lặp
+            - Giữ nguyên phong cách memoir ngôi thứ nhất
+            - Sắp xếp nội dung theo trình tự logic, cảm xúc
+            - Đảm bảo câu chuyện có đầu, giữa, cuối tự nhiên
+            - Không để lộ việc gộp từ hai đoạn riêng biệt
+            
+            ĐOẠN MEMOIR CŨ:
+            {existing_story}
+            
+            ĐOẠN MEMOIR MỚI:
+            {new_story}
+            
+            Hãy viết lại thành một câu chuyện memoir hoàn chỉnh, tự nhiên:
+            """
+            
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": combine_prompt}
+                ],
+                temperature=0.5,  # Lower temperature for more consistent combining
+                max_tokens=2000,  # More tokens for longer combined stories
+            )
+            
+            combined_result = response.choices[0].message.content.strip() if response.choices else ""
+            
+            # Return combined story or fallback to new story if combination fails
+            return combined_result if combined_result else new_story
+            
+        except Exception as e:
+            print(f"Error combining stories: {e}")
+            # Fallback: return new story if combination fails
+            return new_story
+    
     async def process_conversation_history_background(self) -> Dict:
-        """Process conversation history in background to extract important info.
+        """Process conversation history to extract memoir information.
         
         Returns:
             Dictionary with processing results.
@@ -224,10 +307,6 @@ class MemoirExtractionService:
                 saved = await self.append_to_memoir_file(memoir_story)
                 
                 if saved:
-                    # Update extraction time tracking
-                    from datetime import datetime
-                    self._last_extraction_time = datetime.now()
-                    
                     return {
                         "success": True,
                         "message": "Memoir story written and saved",
@@ -238,10 +317,6 @@ class MemoirExtractionService:
                 else:
                     return {"success": False, "message": "Failed to save extracted information"}
             else:
-                # Update extraction time even if no info found
-                from datetime import datetime
-                self._last_extraction_time = datetime.now()
-                
                 return {
                     "success": True,
                     "message": "No memoir-worthy stories found in current conversation",
@@ -249,234 +324,4 @@ class MemoirExtractionService:
                 }
                 
         except Exception as e:
-            return {"success": False, "message": f"Error processing conversation: {str(e)}"}
-    
-    def start_background_extraction(self):
-        """Start background task for memoir extraction."""
-        if self._background_task and not self._background_task.done():
-            return {"message": "Background extraction already running"}
-        
-        self._background_task = asyncio.create_task(
-            self.process_conversation_history_background()
-        )
-        return {"message": "Background extraction started"}
-    
-    async def get_background_task_status(self) -> Dict:
-        """Get status of background extraction task.
-        
-        Returns:
-            Dictionary with task status and results if completed.
-        """
-        if not self._background_task:
-            return {"status": "not_started", "message": "No background task"}
-        
-        if self._background_task.done():
-            try:
-                result = await self._background_task
-                return {"status": "completed", "result": result}
-            except Exception as e:
-                return {"status": "failed", "error": str(e)}
-        else:
-            return {"status": "running", "message": "Background extraction in progress"}
-    
-    async def get_memoir_file_info(self) -> Dict:
-        """Get information about the memoir file.
-        
-        Returns:
-            Dictionary with memoir file statistics.
-        """
-        try:
-            if self.memoir_file.exists():
-                with open(self.memoir_file, 'r', encoding='utf-8') as f:
-                    content = f.read()
-                
-                return {
-                    "exists": True,
-                    "file_size": len(content),
-                    "line_count": len(content.split('\n')),
-                    "last_modified": datetime.fromtimestamp(
-                        self.memoir_file.stat().st_mtime
-                    ).isoformat(),
-                    "file_path": str(self.memoir_file)
-                }
-            else:
-                return {
-                    "exists": False,
-                    "message": "Memoir file not yet created"
-                }
-        except Exception as e:
-             return {"error": f"Error reading memoir file: {str(e)}"}
-    
-    async def should_auto_extract(self) -> bool:
-        """Check if automatic extraction should be triggered.
-        
-        Returns:
-            True if auto extraction should run, False otherwise.
-        """
-        try:
-            messages = await self.load_conversation_history()
-            current_count = len(messages)
-            
-            # Check message-based threshold (more frequent)
-            if current_count - self._last_processed_count >= self._auto_extraction_threshold:
-                return True
-            
-            # Check time-based threshold (extract every 5 minutes)
-            if self._last_extraction_time:
-                from datetime import datetime, timedelta
-                current_time = datetime.now()
-                time_diff = current_time - self._last_extraction_time
-                if time_diff >= timedelta(minutes=self._time_threshold_minutes):
-                    return True
-            else:
-                # First time - trigger if we have any messages
-                if current_count > 0:
-                    return True
-            
-            return False
-        except Exception:
-            return False
-    
-    async def update_conversation_and_extract(self, new_message: Dict) -> Dict:
-        """Update conversation history and potentially trigger extraction.
-        
-        Args:
-            new_message: New conversation message to add.
-            
-        Returns:
-            Dictionary with update and extraction status.
-        """
-        try:
-            # Load existing conversation
-            messages = await self.load_conversation_history()
-            
-            # Add new message
-            messages.append(new_message)
-            
-            # Save updated conversation
-            with open(self.conversation_file, 'w', encoding='utf-8') as f:
-                json.dump(messages, f, ensure_ascii=False, indent=2)
-            
-            # Check if auto extraction should trigger
-            should_extract = await self.should_auto_extract()
-            
-            result = {
-                "success": True,
-                "message": "Conversation updated",
-                "total_messages": len(messages),
-                "auto_extract_triggered": False
-            }
-            
-            # Trigger auto extraction if threshold met
-            if should_extract:
-                self.start_background_extraction()
-                self._last_processed_count = len(messages)
-                result["auto_extract_triggered"] = True
-                result["message"] = "Conversation updated and auto extraction triggered"
-            
-            return result
-            
-        except Exception as e:
-            return {"success": False, "error": f"Failed to update conversation: {str(e)}"}
-    
-    def get_auto_extraction_settings(self) -> Dict:
-        """Get current auto extraction settings.
-        
-        Returns:
-            Dictionary with auto extraction configuration.
-        """
-        return {
-            "auto_extraction_threshold": self._auto_extraction_threshold,
-            "time_threshold_minutes": self._time_threshold_minutes,
-            "last_processed_count": self._last_processed_count,
-            "last_extraction_time": self._last_extraction_time.isoformat() if self._last_extraction_time else None,
-            "enabled": True
-        }
-    
-    def update_auto_extraction_threshold(self, threshold: int) -> Dict:
-        """Update auto extraction message threshold.
-        
-        Args:
-            threshold: New message threshold for auto extraction.
-            
-        Returns:
-            Dictionary with update status.
-        """
-        if threshold < 1:
-            return {"success": False, "error": "Threshold must be at least 1"}
-        
-        self._auto_extraction_threshold = threshold
-        return {
-            "success": True,
-            "message": f"Auto extraction threshold updated to {threshold}",
-            "new_threshold": threshold
-        }
-    
-    async def has_important_content(self, message_text: str) -> bool:
-        """Quick check if a message might contain important information.
-        
-        Args:
-            message_text: The message text to analyze.
-            
-        Returns:
-            True if message might contain important info, False otherwise.
-        """
-        if not message_text or len(message_text.strip()) < 20:
-            return False
-        
-        # Keywords that suggest important memoir content
-        important_keywords = [
-            # Historical events
-            "năm", "ngày", "tháng", "thời", "lúc đó", "khi", "hồi",
-            # Family and relationships  
-            "ông", "bà", "ba", "má", "anh", "chị", "em", "con", "cháu", "gia đình",
-            # Places
-            "làng", "thành phố", "tỉnh", "quê", "nhà",
-            # Important life events
-            "sinh", "cưới", "chết", "mất", "học", "làm việc", "nghề",
-            # Emotions and memories
-            "nhớ", "quên", "cảm xúc", "vui", "buồn", "khóc", "cười",
-            # War and historical periods
-            "chiến tranh", "kháng chiến", "giải phóng", "độc lập", "cách mạng"
-        ]
-        
-        text_lower = message_text.lower()
-        
-        # Check for important keywords
-        keyword_count = sum(1 for keyword in important_keywords if keyword in text_lower)
-        
-        # Check for specific patterns that suggest memoir content
-        memoir_patterns = [
-            "tôi nhớ", "hồi đó", "ngày xưa", "thời", "năm", "khi tôi",
-            "ông bà", "ba má", "gia đình tôi", "quê tôi", "làng tôi"
-        ]
-        
-        pattern_matches = sum(1 for pattern in memoir_patterns if pattern in text_lower)
-        
-        # If message has multiple keywords or memoir patterns, likely important
-        return keyword_count >= 2 or pattern_matches >= 1
-    
-    async def smart_extraction_check(self, new_message: Dict) -> bool:
-        """Smart check if extraction should be triggered based on message content.
-        
-        Args:
-            new_message: The new message to analyze.
-            
-        Returns:
-            True if extraction should be triggered, False otherwise.
-        """
-        try:
-            message_text = new_message.get("text", "")
-            
-            # Only check user messages for important content
-            if new_message.get("role") == "user":
-                if await self.has_important_content(message_text):
-                    return True
-            
-            # Also check normal thresholds
-            return await self.should_auto_extract()
-            
-        except Exception as e:
-            print(f"Error in smart extraction check: {e}")
-            # Fallback to normal threshold check
-            return await self.should_auto_extract() 
+            return {"success": False, "message": f"Error processing conversation: {str(e)}"} 
