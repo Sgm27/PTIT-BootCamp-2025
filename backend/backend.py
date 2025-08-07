@@ -28,6 +28,13 @@ from services.notification_voice_service import NotificationVoiceService
 from services.memoir_extraction_service import MemoirExtractionService
 from services.websocket_manager import websocket_manager
 
+# Import authentication endpoints
+try:
+    from api_services.auth_service import add_auth_endpoints
+    AUTH_ENDPOINTS_AVAILABLE = True
+except ImportError:
+    AUTH_ENDPOINTS_AVAILABLE = False
+
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -56,6 +63,10 @@ gemini_service = GeminiService(gemini_client)
 notification_voice_service = NotificationVoiceService(gemini_client)
 memoir_extraction_service = MemoirExtractionService(openai_client)
 
+# Add authentication endpoints
+if AUTH_ENDPOINTS_AVAILABLE:
+    add_auth_endpoints(app)
+    logger.info("Authentication endpoints loaded")
 
 # API Routes
 @app.get("/")

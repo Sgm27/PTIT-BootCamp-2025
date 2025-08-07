@@ -1,5 +1,5 @@
 """
-Enhanced server startup script with better logging and error handling
+Enhanced server startup script with database integration and better logging
 """
 import uvicorn
 import logging
@@ -29,18 +29,82 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Import database components
+try:
+    from db.db_config import init_database, check_database_connection
+    from db.db_services import (
+        UserService, ConversationService, HealthService,
+        MedicineDBService, NotificationDBService, MemoirDBService,
+        SessionDBService
+    )
+    DATABASE_AVAILABLE = True
+    logger.info("Database modules loaded successfully")
+except ImportError as e:
+    DATABASE_AVAILABLE = False
+    logger.warning(f"Database modules not available: {e}")
+    logger.warning("Server will run in file-based mode")
+
+def initialize_database():
+    """Initialize database connection and create tables"""
+    if not DATABASE_AVAILABLE:
+        logger.info("Database not available - skipping database initialization")
+        return False
+    
+    try:
+        logger.info("Initializing database connection...")
+        
+        # Check database connection
+        if not check_database_connection():
+            logger.error("Failed to connect to database")
+            return False
+        
+        logger.info("Database connection successful")
+        
+        # Initialize database tables
+        logger.info("Creating database tables...")
+        init_database()
+        logger.info("Database tables created successfully")
+        
+        return True
+        
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        return False
+
 def run_server():
     """Run the server with enhanced configuration."""
     try:
-        logger.info("Starting AI Healthcare Assistant API server...")
-        logger.info("WebSocket endpoint: /gemini-live")
-        logger.info("Health check: /health")
-        logger.info("API documentation: /docs")
-        logger.info("🎭 Memoir extraction: INTEGRATED & ON-DISCONNECT")
-        logger.info("   - Auto extraction: DISABLED")
-        logger.info("   - Trigger: ON CLIENT DISCONNECT ONLY")
-        logger.info("   - Mode: Full conversation processing")
-        logger.info("   - Output file: my_life_stories.txt")
+        logger.info("=== AI Healthcare Assistant API Server ===")
+        logger.info("Starting server initialization...")
+        
+        # Initialize database
+        db_status = initialize_database()
+        
+        logger.info("Server Configuration:")
+        logger.info("  🌐 WebSocket endpoint: /gemini-live")
+        logger.info("  ❤️ Health check: /health")
+        logger.info("  📚 API documentation: /docs")
+        logger.info("  🗄️ Database: " + ("✅ Connected" if db_status else "❌ File-based mode"))
+        logger.info("  🎭 Memoir extraction: INTEGRATED & ON-DISCONNECT")
+        logger.info("     - Auto extraction: DISABLED")
+        logger.info("     - Trigger: ON CLIENT DISCONNECT ONLY")
+        logger.info("     - Mode: Full conversation processing")
+        logger.info("     - Storage: " + ("Database" if db_status else "File (my_life_stories.txt)"))
+        
+        if DATABASE_AVAILABLE and db_status:
+            logger.info("🎯 Features enabled:")
+            logger.info("  ✅ User Management (Elderly + Family)")
+            logger.info("  ✅ Conversation History (Database)")
+            logger.info("  ✅ Health Records & Vital Signs")
+            logger.info("  ✅ Medicine Management & Scanning")
+            logger.info("  ✅ Smart Notifications & Reminders")
+            logger.info("  ✅ Life Memoir Extraction & Storage")
+            logger.info("  ✅ Session Management")
+            logger.info("  ✅ Family Relationship Management")
+        else:
+            logger.warning("⚠️ Running in limited mode - some features disabled")
+        
+        logger.info("Starting server...")
         
         uvicorn.run(
             "backend:app",

@@ -53,6 +53,13 @@ dependencies {
     // Network
     implementation("org.java-websocket:Java-WebSocket:1.5.3")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.google.code.gson:gson:2.10.1")
+    
+    // SharedPreferences for user session
+    implementation("androidx.preference:preference-ktx:1.2.1")
     
     // CameraX dependencies
     implementation("androidx.camera:camera-core:1.3.0")

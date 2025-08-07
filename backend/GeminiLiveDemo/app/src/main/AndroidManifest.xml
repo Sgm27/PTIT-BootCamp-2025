@@ -24,6 +24,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.GeminiLiveDemo"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -34,10 +36,11 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths"/>
         </provider>
+        <!-- Login Activity - Launcher -->
         <activity
-            android:name=".MainActivity"
+            android:name=".LoginActivity"
             android:exported="true"
-            android:label="@string/app_name"
+            android:label="Đăng nhập"
             android:theme="@style/Theme.GeminiLiveDemo"
             android:screenOrientation="portrait">
             <intent-filter>
@@ -45,6 +48,23 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        
+        <!-- Register Activity -->
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false"
+            android:label="Đăng ký"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".LoginActivity" />
+        
+        <!-- Main Activity -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
         
         <activity
             android:name=".ScannerActivity"

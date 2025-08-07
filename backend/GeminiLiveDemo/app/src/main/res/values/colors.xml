@@ -15,4 +15,28 @@
     <color name="text_secondary">#6B7280</color>
     <color name="text_hint">#9CA3AF</color>
     <color name="border_light">#E5E7EB</color>
+    
+    <!-- Healthcare AI Theme Colors -->
+    <color name="primary_color">#2196F3</color>
+    <color name="primary_dark">#1976D2</color>
+    <color name="primary_light">#BBDEFB</color>
+    <color name="accent_color">#FF4081</color>
+    
+    <!-- Text Colors -->
+    <color name="primary_text">#212121</color>
+    <color name="secondary_text">#757575</color>
+    <color name="error_text">#F44336</color>
+    
+    <!-- Background Colors -->
+    <color name="background_white">#FFFFFF</color>
+    <color name="card_background">#FFFFFF</color>
+    
+    <!-- Health Status Colors -->
+    <color name="health_good">#4CAF50</color>
+    <color name="health_warning">#FF9800</color>
+    <color name="health_danger">#F44336</color>
+    
+    <!-- Transparent -->
+    <color name="transparent">#00000000</color>
+    <color name="semi_transparent">#80000000</color>
 </resources>

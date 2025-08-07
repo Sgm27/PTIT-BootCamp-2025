@@ -7,8 +7,11 @@ import android.os.Looper
 import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.*
+import com.example.geminilivedemo.data.UserPreferences
 
 class MainActivity : AppCompatActivity() {
+    
+    private lateinit var userPreferences: UserPreferences
 
     // Managers
     private lateinit var audioManager: AudioManager
@@ -27,6 +30,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Initialize user preferences
+        userPreferences = UserPreferences(this)
+        
+        // Check if user is logged in
+        if (!userPreferences.isLoggedIn()) {
+            // Redirect to login if not logged in
+            val intent = Intent(this, LoginActivity::class.java)
+            startActivity(intent)
+            finish()
+            return
+        }
+        
         setContentView(R.layout.activity_main)
 
         initializeManagers()
