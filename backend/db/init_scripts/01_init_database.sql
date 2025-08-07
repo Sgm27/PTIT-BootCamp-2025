@@ -103,7 +103,251 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Insert default system settings
+-- Drop tables if exist to ensure clean init
+-- BEGIN CLEAN INIT SECTION
+-- Drop dependent views first
+DROP VIEW IF EXISTS user_summary CASCADE;
+DROP VIEW IF EXISTS active_sessions CASCADE;
+DROP VIEW IF EXISTS health_alerts CASCADE;
+
+-- Drop tables in reverse dependency order
+DROP TABLE IF EXISTS audit_logs CASCADE;
+DROP TABLE IF EXISTS system_settings CASCADE;
+DROP TABLE IF EXISTS user_sessions CASCADE;
+DROP TABLE IF EXISTS notifications CASCADE;
+DROP TABLE IF EXISTS medication_logs CASCADE;
+DROP TABLE IF EXISTS medicine_records CASCADE;
+DROP TABLE IF EXISTS health_records CASCADE;
+DROP TABLE IF EXISTS life_memoirs CASCADE;
+DROP TABLE IF EXISTS conversation_messages CASCADE;
+DROP TABLE IF EXISTS conversations CASCADE;
+DROP TABLE IF EXISTS family_relationships CASCADE;
+DROP TABLE IF EXISTS family_profiles CASCADE;
+DROP TABLE IF EXISTS elderly_profiles CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- Create tables
+
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_type user_type_enum NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(20) UNIQUE,
+    full_name VARCHAR(255) NOT NULL,
+    date_of_birth DATE,
+    gender VARCHAR(10),
+    avatar_url TEXT,
+    address TEXT,
+    city VARCHAR(100),
+    country VARCHAR(100) DEFAULT 'Vietnam',
+    password_hash VARCHAR(255),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_login TIMESTAMP,
+    preferred_language VARCHAR(10) DEFAULT 'vi',
+    timezone VARCHAR(50) DEFAULT 'Asia/Ho_Chi_Minh',
+    notification_settings JSON DEFAULT '{}'
+);
+
+CREATE TABLE IF NOT EXISTS elderly_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    medical_conditions TEXT[],
+    current_medications JSON DEFAULT '{}',
+    allergies TEXT[],
+    emergency_contact VARCHAR(20),
+    doctor_info JSON DEFAULT '{}',
+    care_level VARCHAR(20) DEFAULT 'independent',
+    mobility_status VARCHAR(20),
+    cognitive_status VARCHAR(20),
+    emergency_contacts JSON DEFAULT '[]',
+    medical_insurance JSON DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS family_profiles (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    occupation VARCHAR(100),
+    workplace VARCHAR(255),
+    is_primary_caregiver BOOLEAN DEFAULT FALSE,
+    care_responsibilities TEXT[],
+    availability_schedule JSON DEFAULT '{}',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS family_relationships (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    elderly_id UUID REFERENCES elderly_profiles(id) ON DELETE CASCADE,
+    family_member_id UUID REFERENCES family_profiles(id) ON DELETE CASCADE,
+    relationship_type relationship_type_enum NOT NULL,
+    can_view_health_data BOOLEAN DEFAULT TRUE,
+    can_receive_notifications BOOLEAN DEFAULT TRUE,
+    can_manage_medications BOOLEAN DEFAULT FALSE,
+    can_schedule_appointments BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    session_id VARCHAR(255),
+    title VARCHAR(255),
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    total_messages INTEGER DEFAULT 0,
+    conversation_summary TEXT,
+    topics_discussed TEXT[]
+);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+    role conversation_role_enum NOT NULL,
+    content TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    message_order INTEGER NOT NULL,
+    has_audio BOOLEAN DEFAULT FALSE,
+    audio_file_path VARCHAR(500),
+    processing_time_ms FLOAT
+);
+
+CREATE TABLE IF NOT EXISTS life_memoirs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    conversation_id UUID REFERENCES conversations(id) ON DELETE SET NULL,
+    title VARCHAR(255) NOT NULL,
+    content TEXT NOT NULL,
+    date_of_memory DATE,
+    extracted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    categories TEXT[],
+    people_mentioned TEXT[],
+    places_mentioned TEXT[],
+    time_period VARCHAR(50),
+    emotional_tone VARCHAR(20),
+    importance_score FLOAT DEFAULT 0.0
+);
+
+CREATE TABLE IF NOT EXISTS health_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    record_type VARCHAR(50) NOT NULL,
+    blood_pressure_systolic INTEGER,
+    blood_pressure_diastolic INTEGER,
+    heart_rate INTEGER,
+    temperature FLOAT,
+    weight FLOAT,
+    blood_sugar FLOAT,
+    symptoms TEXT[],
+    pain_level INTEGER,
+    mood VARCHAR(20),
+    energy_level VARCHAR(20),
+    sleep_quality VARCHAR(20),
+    appetite VARCHAR(20),
+    notes TEXT,
+    recorded_by VARCHAR(50) DEFAULT 'user'
+);
+
+CREATE TABLE IF NOT EXISTS medicine_records (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    medicine_name VARCHAR(255) NOT NULL,
+    generic_name VARCHAR(255),
+    dosage VARCHAR(100) NOT NULL,
+    frequency VARCHAR(100) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE,
+    is_active BOOLEAN DEFAULT TRUE,
+    instructions TEXT,
+    side_effects TEXT[],
+    contraindications TEXT[],
+    prescribed_by VARCHAR(255),
+    prescription_date DATE,
+    pharmacy VARCHAR(255),
+    scan_image_path VARCHAR(500),
+    scan_confidence FLOAT,
+    scan_result JSON,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS medication_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    medicine_id UUID REFERENCES medicine_records(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    scheduled_time TIMESTAMP NOT NULL,
+    actual_time TIMESTAMP,
+    status VARCHAR(20) NOT NULL,
+    notes TEXT,
+    side_effects_experienced TEXT[],
+    logged_by VARCHAR(50) DEFAULT 'user',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    notification_type notification_type_enum NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    scheduled_at TIMESTAMP NOT NULL,
+    sent_at TIMESTAMP,
+    is_sent BOOLEAN DEFAULT FALSE,
+    is_read BOOLEAN DEFAULT FALSE,
+    has_voice BOOLEAN DEFAULT FALSE,
+    voice_file_path VARCHAR(500),
+    voice_generated_at TIMESTAMP,
+    priority VARCHAR(10) DEFAULT 'normal',
+    category VARCHAR(50),
+    related_record_id UUID,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    session_handle VARCHAR(255) NOT NULL UNIQUE,
+    websocket_session_id VARCHAR(255),
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ended_at TIMESTAMP,
+    is_active BOOLEAN DEFAULT TRUE,
+    device_info JSON DEFAULT '{}',
+    ip_address VARCHAR(45),
+    user_agent TEXT
+);
+
+CREATE TABLE IF NOT EXISTS system_settings (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    setting_key VARCHAR(100) NOT NULL UNIQUE,
+    setting_value JSON NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_by VARCHAR(255)
+);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(id),
+    action VARCHAR(100) NOT NULL,
+    table_name VARCHAR(100),
+    record_id UUID,
+    old_values JSON,
+    new_values JSON,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT
+);
+-- END CLEAN INIT SECTION
+
+-- Create system_settings table
 INSERT INTO system_settings (setting_key, setting_value, description) VALUES
 ('app_version', '"1.0.0"', 'Current application version'),
 ('max_session_duration_hours', '24', 'Maximum session duration in hours'),
