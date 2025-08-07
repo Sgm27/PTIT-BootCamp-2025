@@ -5,12 +5,19 @@ import retrofit2.converter.gson.GsonConverterFactory
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import java.util.concurrent.TimeUnit
+import android.util.Log
 
 object ApiClient {
     
-    // Base URL của backend server - Deployed domain
-    private const val BASE_URL = "https://backend-bootcamp.sonktx.online/" // Production server
-    // Local development: "http://192.168.0.28:8000/" | Emulator: "http://10.0.2.2:8000/"
+    // Base URL từ ApiConfig - Automatically selects based on environment
+    private val BASE_URL = ApiConfig.BASE_URL
+    
+    init {
+        // Log environment information
+        Log.i("ApiClient", "=== API Configuration ===")
+        Log.i("ApiClient", ApiConfig.getEnvironmentInfo())
+        Log.i("ApiClient", "========================")
+    }
     
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY

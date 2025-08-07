@@ -18,8 +18,8 @@ from db.db_config import Base
 
 # Enums for better data integrity
 class UserType(enum.Enum):
-    ELDERLY = "elderly"        # Người già sử dụng app
-    FAMILY_MEMBER = "family"   # Con cháu của người già
+    ELDERLY = "ELDERLY"        # Người già sử dụng app
+    FAMILY_MEMBER = "FAMILY_MEMBER"   # Con cháu của người già
 
 class RelationshipType(enum.Enum):
     CHILD = "child"           # Con
@@ -53,7 +53,7 @@ class User(Base):
     __tablename__ = "users"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_type = Column(Enum(UserType), nullable=False)
+    user_type = Column(Enum(UserType, name='usertype'), nullable=False)
     email = Column(String(255), unique=True, nullable=True)
     phone = Column(String(20), unique=True, nullable=True)
     full_name = Column(String(255), nullable=False)

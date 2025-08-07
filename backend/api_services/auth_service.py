@@ -123,7 +123,7 @@ def add_auth_endpoints(app: FastAPI):
             # Create response
             user_data = {
                 "user_id": str(user.id),
-                "user_type": user.user_type.value,
+                "user_type": user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
                 "full_name": user.full_name,
                 "email": user.email,
                 "phone": user.phone,
@@ -197,7 +197,7 @@ def add_auth_endpoints(app: FastAPI):
             # Create response
             user_response = UserResponse(
                 user_id=str(user.id),
-                user_type=user.user_type.value,
+                user_type=user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
                 full_name=user.full_name,
                 email=user.email,
                 phone=user.phone,
@@ -238,7 +238,7 @@ def add_auth_endpoints(app: FastAPI):
             
             return UserResponse(
                 user_id=str(user.id),
-                user_type=user.user_type.value,
+                user_type=user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
                 full_name=user.full_name,
                 email=user.email,
                 phone=user.phone,

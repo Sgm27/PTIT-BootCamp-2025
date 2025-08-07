@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # Database Configuration
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST', 'localhost'),
+    'host': os.getenv('DB_HOST', '13.216.164.63'),
     'port': int(os.getenv('DB_PORT', 5432)),
     'database': os.getenv('DB_NAME', 'healthcare_ai'),
     'user': os.getenv('DB_USER', 'postgres'),
