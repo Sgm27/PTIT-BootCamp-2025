@@ -60,10 +60,9 @@ def initialize_database():
         
         logger.info("Database connection successful")
         
-        # Initialize database tables
-        logger.info("Creating database tables...")
-        init_database()
-        logger.info("Database tables created successfully")
+        # Skip table creation - tables already exist from SQL script
+        logger.info("Database tables already exist from SQL initialization script")
+        # init_database()  # Commented out to avoid conflicts with existing tables
         
         return True
         

@@ -297,6 +297,10 @@ class MainActivity : AppCompatActivity() {
                 openProfileActivity()
             }
             
+            override fun onHistoryButtonClicked() {
+                openConversationHistoryActivity()
+            }
+            
             override fun onBackgroundServiceToggled() {
                 if (isBackgroundServiceRunning) {
                     // Stopping background service
@@ -375,6 +379,25 @@ class MainActivity : AppCompatActivity() {
     private fun openProfileActivity() {
         val intent = Intent(this, ProfileActivity::class.java)
         startActivity(intent)
+    }
+
+    private fun openConversationHistoryActivity() {
+        try {
+            Log.d("MainActivity", "=== Opening ConversationHistoryActivity ===")
+            Log.d("MainActivity", "Current user ID: ${UserPreferences(this).getUserId()}")
+            Log.d("MainActivity", "Is logged in: ${UserPreferences(this).isLoggedIn()}")
+            Log.d("MainActivity", "API Base URL: ${com.example.geminilivedemo.data.ApiConfig.BASE_URL}")
+            
+            val intent = Intent(this, ConversationHistoryActivity::class.java)
+            Log.d("MainActivity", "Intent created, starting activity...")
+            startActivity(intent)
+            Log.d("MainActivity", "Activity started successfully")
+        } catch (e: Exception) {
+            Log.e("MainActivity", "=== ERROR opening ConversationHistoryActivity ===", e)
+            Log.e("MainActivity", "Error message: ${e.message}")
+            Log.e("MainActivity", "Error cause: ${e.cause}")
+            uiManager.showToast("Lỗi mở lịch sử trò chuyện: ${e.message}")
+        }
     }
     
     private fun sendVoiceMessage(b64PCM: String?, imageB64: String? = null) {

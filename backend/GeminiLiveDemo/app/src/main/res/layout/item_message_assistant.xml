@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    android:orientation="vertical">
+
+    <!-- Assistant Message (Left aligned) -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="left"
+        android:layout_marginLeft="16dp"
+        android:layout_marginRight="64dp"
+        android:orientation="vertical">
+
+        <!-- Avatar and Message Container -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="top">
+
+            <!-- Assistant Avatar -->
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginRight="8dp"
+                android:background="@drawable/circle_background"
+                android:padding="6dp"
+                android:src="@drawable/assistant_avatar_icon" />
+
+            <!-- Message Bubble -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="#FFFFFF"
+                android:paddingLeft="16dp"
+                android:paddingTop="12dp"
+                android:paddingRight="16dp"
+                android:paddingBottom="12dp"
+                android:layout_marginLeft="4dp"
+                android:layout_marginRight="4dp">
+
+                <TextView
+                    android:id="@+id/messageText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#2D3748"
+                    android:textSize="14sp"
+                    android:lineSpacingExtra="2dp"
+                    tools:text="Tôi hiểu bạn đang cảm thấy mệt mỏi và đau đầu. Điều này có thể do nhiều nguyên nhân như thiếu ngủ, căng thẳng hoặc mất nước." />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Timestamp -->
+        <TextView
+            android:id="@+id/timestampText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="40dp"
+            android:layout_marginTop="4dp"
+            android:textSize="10sp"
+            android:textColor="#A0AEC0"
+            tools:text="14:31" />
+
+    </LinearLayout>
+
+</LinearLayout> 

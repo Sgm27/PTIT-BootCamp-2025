@@ -17,7 +17,7 @@ class ProfileActivity : AppCompatActivity() {
     private lateinit var userName: TextView
     private lateinit var userEmail: TextView
     private lateinit var userPhone: TextView
-    private lateinit var switchNotifications: Switch
+
     private lateinit var currentTheme: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,7 +41,7 @@ class ProfileActivity : AppCompatActivity() {
         userName = findViewById(R.id.userName)
         userEmail = findViewById(R.id.userEmail)
         userPhone = findViewById(R.id.userPhone)
-        switchNotifications = findViewById(R.id.switchNotifications)
+
         currentTheme = findViewById(R.id.currentTheme)
     }
 
@@ -60,7 +60,7 @@ class ProfileActivity : AppCompatActivity() {
         userName.text = savedName
         userEmail.text = savedEmail
         userPhone.text = savedPhone
-        switchNotifications.isChecked = notificationsEnabled
+
         currentTheme.text = if (isDarkTheme) "Tối" else "Sáng"
     }
 
@@ -77,15 +77,17 @@ class ProfileActivity : AppCompatActivity() {
             startActivity(intent)
         }
 
-        // Notifications Switch
-        switchNotifications.setOnCheckedChangeListener { _, isChecked ->
-            saveNotificationSetting(isChecked)
-            showToast(if (isChecked) "Đã bật thông báo" else "Đã tắt thông báo")
-        }
+
 
         // Medical History
         findViewById<android.widget.LinearLayout>(R.id.btnMedicalHistory).setOnClickListener {
             showToast("Chức năng lịch sử y tế")
+        }
+
+        // Life Memoir
+        findViewById<android.widget.LinearLayout>(R.id.btnLifeMemoir).setOnClickListener {
+            val intent = Intent(this, LifeMemoirActivity::class.java)
+            startActivity(intent)
         }
 
         // Theme

@@ -21,6 +21,7 @@ class UIManager(private val activity: AppCompatActivity) {
         fun onNotificationButtonClicked()
         fun onProfileButtonClicked()
         fun onBackgroundServiceToggled()
+        fun onHistoryButtonClicked()
     }
     
     private var callback: UICallback? = null
@@ -34,6 +35,7 @@ class UIManager(private val activity: AppCompatActivity) {
     private lateinit var statusIndicator: ImageView
     private lateinit var micButton: FrameLayout
     private lateinit var homeButton: FrameLayout
+    private lateinit var historyButton: FrameLayout
     private lateinit var notificationButton: FrameLayout
     private lateinit var profileButton: FrameLayout
     private lateinit var micIcon: ImageView
@@ -54,6 +56,7 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     fun initializeViews() {
+        // Initialize all UI components
         imageView = activity.findViewById(R.id.imageView)
         captureButton = activity.findViewById(R.id.captureButton)
         startButton = activity.findViewById(R.id.startButton)
@@ -62,6 +65,7 @@ class UIManager(private val activity: AppCompatActivity) {
         statusIndicator = activity.findViewById(R.id.statusIndicator)
         micButton = activity.findViewById(R.id.micButton)
         homeButton = activity.findViewById(R.id.homeButton)
+        historyButton = activity.findViewById(R.id.historyButton)
         notificationButton = activity.findViewById(R.id.notificationButton)
         profileButton = activity.findViewById(R.id.profileButton)
         micIcon = activity.findViewById(R.id.micIcon)
@@ -87,6 +91,10 @@ class UIManager(private val activity: AppCompatActivity) {
         
         homeButton.setOnClickListener {
             callback?.onHomeButtonClicked()
+        }
+
+        historyButton.setOnClickListener {
+            callback?.onHistoryButtonClicked()
         }
 
         notificationButton.setOnClickListener {

@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
@@ -98,6 +99,38 @@
             android:name=".BackgroundServiceActivity"
             android:exported="false"
             android:label="Background Service"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Conversation History Activity -->
+        <activity
+            android:name=".ConversationHistoryActivity"
+            android:exported="false"
+            android:label="Lịch sử trò chuyện"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Conversation Detail Activity -->
+        <activity
+            android:name=".ConversationDetailActivity"
+            android:exported="false"
+            android:label="Chi tiết trò chuyện"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Life Memoir Activity -->
+        <activity
+            android:name=".LifeMemoirActivity"
+            android:exported="false"
+            android:label="Những câu chuyện đời"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Memoir Detail Activity -->
+        <activity
+            android:name=".MemoirDetailActivity"
+            android:exported="false"
+            android:label="Chi tiết câu chuyện"
             android:theme="@style/Theme.GeminiLiveDemo"
             android:screenOrientation="portrait" />
             

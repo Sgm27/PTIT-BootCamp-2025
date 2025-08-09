@@ -51,9 +51,13 @@ class ConversationService:
         """Get conversation with all messages"""
         try:
             with get_db() as db:
-                conversation = db.query(Conversation).options(
-                    joinedload(Conversation.messages)
-                ).filter(Conversation.id == conversation_id).first()
+                conversation = db.query(Conversation).filter(
+                    Conversation.id == conversation_id
+                ).first()
+                
+                if conversation:
+                    # Detach from session to avoid session issues
+                    db.expunge(conversation)
                 
                 return conversation
                 
@@ -79,6 +83,10 @@ class ConversationService:
                 conversations = query.order_by(
                     desc(Conversation.started_at)
                 ).offset(offset).limit(limit).all()
+                
+                # Detach objects from session to avoid session issues
+                for conv in conversations:
+                    db.expunge(conv)
                 
                 return conversations
                 
@@ -218,6 +226,11 @@ class ConversationService:
                     query = query.offset(offset).limit(limit)
                 
                 messages = query.all()
+                
+                # Detach from session to avoid session issues
+                for message in messages:
+                    db.expunge(message)
+                
                 return messages
                 
         except Exception as e:

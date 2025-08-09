@@ -1,0 +1,63 @@
+---
+alwaysApply: true
+description: Project structure and configuration guide
+---
+
+# Project Structure and Configuration Guide
+
+This project consists of multiple components with specific configurations:
+
+## Docker Compose Configuration
+Always check the docker-compose files to understand the project setup:
+- [backend/db/docker-compose.yml](mdc:backend/db/docker-compose.yml) - Database configuration
+
+## Key Components
+
+### Backend Server
+The main backend entry point is [backend/run_server.py](mdc:backend/run_server.py) - this is the primary server file that should be referenced for backend operations.
+
+### Android Application  
+The Android app is located in the [backend/GeminiLiveDemo/](mdc:backend/GeminiLiveDemo/) folder. This contains the complete Android project structure with:
+- Gradle build files
+- Android app source code
+- Configuration files
+
+## Project Architecture
+When analyzing this project, always:
+1. Read the relevant docker-compose.yml files to understand service configurations
+2. Reference run_server.py for backend logic and API endpoints
+3. Look in backend/GeminiLiveDemo/ for Android app related code
+4. Consider the multi-service architecture when making recommendations
+
+## Folders to Ignore
+- **backend/backend_aws/**: This folder is not currently in use and should be ignored when analyzing the project
+
+This helps ensure you understand the full context of how services interact and are configured.
+
+This project consists of multiple components with specific configurations:
+
+## Docker Compose Configuration
+Always check the docker-compose files to understand the project setup:
+- [backend/db/docker-compose.yml](mdc:backend/db/docker-compose.yml) - Database configuration
+- [backend/backend_aws/docker-compose.yml](mdc:backend/backend_aws/docker-compose.yml) - Backend AWS service configuration
+
+## Key Components
+
+### Backend Server
+The main backend entry point is [backend/run_server.py](mdc:backend/run_server.py) - this is the primary server file that should be referenced for backend operations.
+
+### Android Application  
+The Android app is located in the [backend/GeminiLiveDemo/](mdc:backend/GeminiLiveDemo/) folder. This contains the complete Android project structure with:
+- Gradle build files
+- Android app source code
+- Configuration files
+
+## Project Architecture
+When analyzing this project, always:
+1. Read the relevant docker-compose.yml files to understand service configurations
+2. Reference run_server.py for backend logic and API endpoints
+3. Look in backend/GeminiLiveDemo/ for Android app related code
+4. Consider the multi-service architecture when making recommendations
+
+This helps ensure you understand the full context of how services interact and are configured.
+---

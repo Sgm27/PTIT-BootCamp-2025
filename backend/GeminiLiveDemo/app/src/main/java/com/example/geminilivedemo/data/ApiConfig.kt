@@ -2,20 +2,20 @@ package com.example.geminilivedemo.data
 
 object ApiConfig {
     
-    // Environment Configuration
-    private const val ENVIRONMENT = "production" // "development" | "production"
+    // Environment Configuration - Changed to production to use deployed backend
+    private const val ENVIRONMENT = "production" // "development" | "production" | "local"
     
-    // Production Configuration
+    // Production Configuration (Backend API deployed on domain)
     private const val PROD_BASE_URL = "https://backend-bootcamp.sonktx.online/"
-    private const val PROD_WS_URL = "wss://backend-bootcamp.sonktx.online/ws/"
+    private const val PROD_WS_URL = "wss://backend-bootcamp.sonktx.online/gemini-live"
     
-    // Development Configuration
-    private const val DEV_BASE_URL = "http://13.216.164.63:8000/"
-    private const val DEV_WS_URL = "ws://13.216.164.63:8000/ws/"
+    // Development Configuration (Backend API on domain, not EC2 direct)
+    private const val DEV_BASE_URL = "https://backend-bootcamp.sonktx.online/"
+    private const val DEV_WS_URL = "wss://backend-bootcamp.sonktx.online/gemini-live"
     
-    // Local Development (for emulator/device testing)
+    // Local Development (for emulator/device testing with local backend)
     private const val LOCAL_BASE_URL = "http://10.0.2.2:8000/" // Emulator
-    private const val LOCAL_WS_URL = "ws://10.0.2.2:8000/ws/"
+    private const val LOCAL_WS_URL = "ws://10.0.2.2:8000/gemini-live"
     
     // Current API Configuration
     val BASE_URL: String = when (ENVIRONMENT) {
@@ -40,13 +40,30 @@ object ApiConfig {
         const val AUTH_CREATE_RELATIONSHIP = "api/auth/create-relationship"
         const val AUTH_FAMILY_MEMBERS = "api/auth/family-members/{elderly_user_id}"
         const val AUTH_ELDERLY_PATIENTS = "api/auth/elderly-patients/{family_user_id}"
+        
+        // Conversation endpoints
+        const val CONVERSATIONS = "api/conversations/{user_id}"
+        const val CONVERSATION_DETAIL = "api/conversations/{user_id}/{conversation_id}"
+        const val CONVERSATION_SEARCH = "api/conversations/{user_id}/search"
+        
+        // Memoir endpoints
+        const val MEMOIRS = "api/memoirs/{user_id}"
+        const val MEMOIR_DETAIL = "api/memoirs/{user_id}/{memoir_id}"
+        const val MEMOIR_SEARCH = "api/memoirs/{user_id}/search"
+        const val MEMOIR_TIMELINE = "api/memoirs/{user_id}/timeline"
+        const val MEMOIR_EXPORT = "api/memoirs/{user_id}/export"
+        
+        // User stats
+        const val USER_STATS = "api/users/{user_id}/stats"
     }
     
-    // Database Configuration (for reference)
+    // Database Configuration (EC2 AWS - chỉ dùng cho backend, không dùng trực tiếp từ Android)
     object Database {
-        const val HOST = "13.216.164.63"
+        const val HOST = "13.216.164.63"  // EC2 AWS - chỉ backend connect
         const val PORT = 5432
         const val NAME = "healthcare_ai"
+        const val USER = "postgres"
+        const val PASSWORD = "postgres"
     }
     
     // Environment Info
@@ -55,7 +72,7 @@ object ApiConfig {
             Environment: $ENVIRONMENT
             API Base URL: $BASE_URL
             WebSocket URL: $WEBSOCKET_URL
-            Database Host: ${Database.HOST}:${Database.PORT}
+            Note: Database (${Database.HOST}:${Database.PORT}) chỉ backend kết nối trực tiếp
         """.trimIndent()
     }
     

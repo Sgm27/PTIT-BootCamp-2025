@@ -115,7 +115,7 @@ class RegisterActivity : AppCompatActivity() {
 
     private fun attemptRegister() {
         // Get form data
-        val userType = if (elderlyRadioButton.isChecked) UserType.ELDERLY else UserType.FAMILY
+        val userType = if (elderlyRadioButton.isChecked) UserType.ELDERLY else UserType.FAMILY_MEMBER
         val fullName = fullNameEditText.text.toString().trim()
         val email = emailEditText.text.toString().trim().ifEmpty { null }
         val phone = phoneEditText.text.toString().trim().ifEmpty { null }

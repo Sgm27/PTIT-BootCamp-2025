@@ -7,7 +7,7 @@ enum class UserType {
     @SerializedName("elderly")
     ELDERLY,
     @SerializedName("family")
-    FAMILY
+    FAMILY_MEMBER
 }
 
 enum class RelationshipType {

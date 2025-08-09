@@ -1,0 +1,22 @@
+---
+alwaysApply: true
+description: Development guidelines for database, environment, and build processes
+---
+
+# Development Guidelines
+
+## Database & Environment
+- **Database is currently deployed** - Always remember this when making database-related changes
+- **Always check [.env](mdc:.env) file** before making any configuration changes or when troubleshooting issues
+- Verify environment variables are properly configured before running the application
+
+## Build Process
+- **Do NOT build Android app automatically** after coding completion
+- The developer will handle Android builds manually
+- Focus on code completion and testing, not build processes
+
+## Workflow Reminders
+1. Check `.env` file for current configuration
+2. Consider database deployment status when making schema changes
+3. Complete coding tasks without triggering Android builds
+4. Let the developer handle manual build processes

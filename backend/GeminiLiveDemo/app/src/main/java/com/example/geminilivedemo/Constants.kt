@@ -3,10 +3,13 @@ package com.example.geminilivedemo
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import com.example.geminilivedemo.data.ApiConfig
 
 object Constants {
-    const val URL = "ws://backend-bootcamp.sonktx.online/gemini-live"
-    const val VOICE_NOTIFICATION_API = "https://backend-bootcamp.sonktx.online/api/generate-voice-notification"
+    // Use URLs from ApiConfig to ensure consistency
+    val URL = ApiConfig.WEBSOCKET_URL  // Will be wss://backend-bootcamp.sonktx.online/gemini-live for production
+    val VOICE_NOTIFICATION_API = "${ApiConfig.BASE_URL}api/generate-voice-notification"
+    
     const val CAMERA_REQUEST_CODE = 100
     const val AUDIO_REQUEST_CODE = 200
     
@@ -37,4 +40,13 @@ object Constants {
     // Audio processing delays - optimized for turn-taking
     const val AUDIO_PROCESSING_DELAY: Long = 20  // Slightly longer for better stability
     const val AUDIO_QUEUE_MAX_SIZE = 30  // Smaller queue to reduce latency
+    
+    // Debug info
+    fun getApiInfo(): String {
+        return """
+            WebSocket URL: $URL
+            Voice API: $VOICE_NOTIFICATION_API
+            Environment: ${if (ApiConfig.isProduction()) "Production" else "Development"}
+        """.trimIndent()
+    }
 }

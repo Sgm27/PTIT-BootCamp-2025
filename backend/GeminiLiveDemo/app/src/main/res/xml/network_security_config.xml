@@ -9,8 +9,22 @@
         <domain includeSubdomains="true">127.0.0.1</domain>
     </domain-config>
     
-    <!-- Production domain uses HTTPS by default -->
-    <domain-config>
+    <!-- Production domain - allow all certificates for testing -->
+    <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">backend-bootcamp.sonktx.online</domain>
+        <trust-anchors>
+            <!-- Trust system certificates -->
+            <certificates src="system"/>
+            <!-- Trust user added certificates -->
+            <certificates src="user"/>
+        </trust-anchors>
     </domain-config>
+    
+    <!-- Base config - allow all for development -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system"/>
+            <certificates src="user"/>
+        </trust-anchors>
+    </base-config>
 </network-security-config> 
