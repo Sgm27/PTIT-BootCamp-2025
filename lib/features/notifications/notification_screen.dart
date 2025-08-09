@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../common_widgets/notification_card.dart';
+import '../../core/common_widgets/notification_card.dart';
 
 class NotificationScreen extends StatelessWidget {
   const NotificationScreen({super.key});
@@ -10,6 +10,7 @@ class NotificationScreen extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
 
     return Scaffold(
+
       appBar: AppBar(
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
@@ -33,26 +34,25 @@ class NotificationScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
         children: const [
-          // Sử dụng lại NotificationCard với các màu sắc khác nhau
           NotificationCard(
             title: 'Notification Title',
             subtitle: 'Lorem ipsum dolor sit amet, consectetur Lorem ipsum dolor',
-            dotColor: Color(0xFF6A5AE0), // Màu tím
+            dotColor: Color(0xFF6A5AE0),
           ),
           NotificationCard(
             title: 'Notification Title',
             subtitle: 'Lorem ipsum dolor sit amet, consectetur Lorem ipsum dolor',
-            dotColor: Colors.orangeAccent, // Màu vàng
+            dotColor: Colors.orangeAccent,
           ),
           NotificationCard(
             title: 'Notification Title',
             subtitle: 'Lorem ipsum dolor sit amet, consectetur Lorem ipsum dolor',
-            dotColor: Colors.cyan, // Màu xanh dương
+            dotColor: Colors.cyan,
           ),
           NotificationCard(
             title: 'Notification Title',
             subtitle: 'Lorem ipsum dolor sit amet, consectetur Lorem ipsum dolor',
-            dotColor: Colors.orangeAccent, // Màu vàng
+            dotColor: Colors.orangeAccent,
           ),
         ],
       ),

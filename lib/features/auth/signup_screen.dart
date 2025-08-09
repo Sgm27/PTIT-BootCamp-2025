@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'login_screen.dart';
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
 
@@ -37,7 +37,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 100), // Khoảng trống ở trên
+                const SizedBox(height: 100),
                 Text(
                   'Tạo tài khoản',
                   style: textTheme.headlineMedium?.copyWith(
@@ -69,13 +69,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         _buildMobileForm(context)
                       else
                         _buildEmailForm(context),
+                      const SizedBox(height: 24),
+                      _buildDivider(context),
+                      const SizedBox(height: 24),
+                      _buildGoogleLoginButton(context),
                     ],
                   ),
                 ),
-                const SizedBox(height: 24),
-                _buildDivider(context),
-                const SizedBox(height: 24),
-                _buildGoogleLoginButton(context),
                 const SizedBox(height: 24),
                 _buildLoginRow(context),
                 const SizedBox(height: 40),
@@ -110,6 +110,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 style: TextStyle(
                   color: _isMobileTabActive ? Colors.white : theme.primaryColor,
                   fontWeight: FontWeight.bold,
+                  fontSize: 20.0,
                 ),
               ),
             ),
@@ -125,8 +126,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
               child: Text(
                 'Email',
                 style: TextStyle(
-                  color: !_isMobileTabActive ? Colors.white : theme.primaryColor,
+                  color: _isMobileTabActive ? theme.primaryColor : Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontSize: 20.0,
                 ),
               ),
             ),
@@ -141,21 +143,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Họ và tên', style: Theme.of(context).textTheme.bodyLarge),
+        Text(
+          'Họ và tên',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           decoration: _inputDecoration(context, 'Nhập họ và tên của bạn'),
           keyboardType: TextInputType.name,
         ),
-        const SizedBox(height: 16),
-        Text('Số điện thoại', style: Theme.of(context).textTheme.bodyLarge),
+        const SizedBox(height: 8),
+        Text(
+          'Số điện thoại',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           decoration: _inputDecoration(context, 'Nhập số điện thoại'),
           keyboardType: TextInputType.phone,
         ),
-        const SizedBox(height: 16),
-        Text('Mật khẩu', style: Theme.of(context).textTheme.bodyLarge),
+        const SizedBox(height: 8),
+        Text(
+          'Mật khẩu',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           decoration: _passwordInputDecoration(context, 'Nhập mật khẩu', _isPasswordObscured, () {
@@ -163,8 +180,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
           }),
           obscureText: _isPasswordObscured,
         ),
-        const SizedBox(height: 16),
-        Text('Xác nhận mật khẩu', style: Theme.of(context).textTheme.bodyLarge),
+        const SizedBox(height: 8),
+        Text(
+          'Xác nhận mật khẩu',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           decoration: _passwordInputDecoration(context, 'Nhập lại mật khẩu', _isConfirmPasswordObscured, () {
@@ -183,21 +205,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Họ và tên', style: Theme.of(context).textTheme.bodyLarge),
+        Text(
+          'Họ và tên',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           decoration: _inputDecoration(context, 'Nhập họ và tên của bạn'),
           keyboardType: TextInputType.name,
         ),
-        const SizedBox(height: 16),
-        Text('Email', style: Theme.of(context).textTheme.bodyLarge),
+        const SizedBox(height: 8),
+        Text(
+          'Email',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           decoration: _inputDecoration(context, 'Nhập email của bạn'),
           keyboardType: TextInputType.emailAddress,
         ),
-        const SizedBox(height: 16),
-        Text('Mật khẩu', style: Theme.of(context).textTheme.bodyLarge),
+        const SizedBox(height: 8),
+        Text(
+          'Mật khẩu',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           decoration: _passwordInputDecoration(context, 'Nhập mật khẩu', _isPasswordObscured, () {
@@ -205,8 +242,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
           }),
           obscureText: _isPasswordObscured,
         ),
-        const SizedBox(height: 16),
-        Text('Xác nhận mật khẩu', style: Theme.of(context).textTheme.bodyLarge),
+        const SizedBox(height: 8),
+        Text(
+          'Xác nhận mật khẩu',
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: Theme.of(context).primaryColor,
+          ),
+        ),
         const SizedBox(height: 8),
         TextFormField(
           decoration: _passwordInputDecoration(context, 'Nhập lại mật khẩu', _isConfirmPasswordObscured, () {
@@ -235,7 +277,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
         child: Text(
           'Đăng ký',
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white, fontSize: 16),
+          style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.white, fontSize: 20),
         ),
       ),
     );
@@ -248,7 +290,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         Expanded(child: Divider()),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: 8.0),
-          child: Text('Hoặc đăng ký với', style: TextStyle(color: Colors.grey)),
+          child: Text('Hoặc', style: TextStyle(color: Colors.grey)),
         ),
         Expanded(child: Divider()),
       ],
@@ -265,9 +307,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
         side: BorderSide(color: Colors.grey.shade300),
       ),
       icon: Image.asset('assets/images/google_logo.png', height: 24),
-      label: const Text(
-        'Tiếp tục với Google',
-        style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+      label: Text(
+        ' Tiếp tục với Google',
+        style: Theme.of(context).textTheme.bodyLarge,
       ),
     );
   }
@@ -277,17 +319,24 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('Đã có tài khoản?'),
+        Text('Đã có tài khoản?',
+          style: TextStyle(
+            fontSize: 20,
+          ),
+        ),
         TextButton(
           onPressed: () {
-            // Điều hướng đến trang Đăng nhập
-            Navigator.of(context).pop();
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const LoginScreen()),
+            );
           },
           child: Text(
             'Đăng nhập',
             style: TextStyle(
               color: Theme.of(context).primaryColor,
               fontWeight: FontWeight.bold,
+              fontSize: 20,
             ),
           ),
         ),
@@ -299,24 +348,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   InputDecoration _inputDecoration(BuildContext context, String hintText) {
     return InputDecoration(
       hintText: hintText,
-      hintStyle: TextStyle(color: Colors.grey[400]),
+      hintStyle: TextStyle(color: Theme.of(context).primaryColor.withOpacity(0.6)),
       filled: true,
-      fillColor: Colors.white,
+      fillColor: Theme.of(context).scaffoldBackgroundColor,
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12.0),
-        borderSide: BorderSide(
-          color: Theme.of(context).primaryColor,
-          width: 1.5,
-        ),
+        borderSide: BorderSide.none,
       ),
     );
   }

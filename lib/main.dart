@@ -59,9 +59,12 @@ class MyApp extends StatelessWidget {
 
         useMaterial3: true,
       ),
-      debugShowCheckedModeBanner: false, // Tắt banner debug
+      debugShowCheckedModeBanner: false,
       // home: const LoginScreen(),
-      home: const SignUpScreen(),
+      // home: const SignUpScreen(),
+      // home: const GreetingScreen(),
+        home: const GreetingScreen(),
+
     );
   }
 }

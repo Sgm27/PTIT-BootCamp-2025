@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
-import '../../common_widgets/custom_nav_bar.dart';
-import '../../features/notifications/notification_screen.dart';
-import '../../features/profile/profile_screen.dart';
+import '../../core/common_widgets/custom_nav_bar.dart';
+import '../history/chat_history_screen.dart';
+import '../notifications/notification_screen.dart';
+import '../profile/profile_screen.dart';
+import '../scan/scan_screen.dart';
 
 class GreetingScreen extends StatefulWidget {
   const GreetingScreen({super.key});
@@ -11,32 +13,36 @@ class GreetingScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<GreetingScreen> {
-  // Biến state để xác định ai đang là vai trò chính (avatar to)
-  // true: Người dùng là chính, false: Bác sĩ là chính
-  bool _isUserMain = true;
-
-  // Hàm để hoán đổi vai trò khi nhấn vào avatar nhỏ
-  void _swapRoles() {
-    setState(() {
-      _isUserMain = !_isUserMain;
-    });
-  }
+  bool _isListening = false;
 
   @override
   Widget build(BuildContext context) {
-    // Xác định ảnh nào sẽ hiển thị ở vị trí chính và phụ dựa vào state
-    final String mainAvatar = _isUserMain ? 'assets/images/user_avatar.png' : 'assets/images/doctor_avatar.png';
-    final String secondaryAvatar = !_isUserMain ? 'assets/images/user_avatar.png' : 'assets/images/doctor_avatar.png';
+    final ThemeData theme = Theme.of(context);
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
-    final ThemeData theme = Theme.of(context);
-
 
     return Scaffold(
-      extendBody: true, // Cho phép body hiển thị đằng sau BottomAppBar
+      extendBody: true,
       appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: Colors.transparent,
         elevation: 0,
+
+        // button lịch sử trò chuyện
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 12.0),
+          child: IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ChatHistoryScreen()),
+              );
+            },
+            icon: Icon(Icons.history_rounded, color: theme.colorScheme.primary, size: 40),
+          ),
+        ),
+        // end button lịch sử trò chuyên
+
+        // button noti
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12.0),
@@ -52,52 +58,37 @@ class _HomeScreenState extends State<GreetingScreen> {
           ),
         ],
       ),
+      // end button noti
 
+      // chatbot
       body: Stack(
         children: [
-          // Avatar chính (to ở giữa)
-          Positioned(
-            top: 0, bottom: 0, left: 0, right: 0,
+          Positioned.fill(
             child: Image.asset(
-              mainAvatar,
+              'assets/images/doctor_avatar.png',
               fit: BoxFit.cover,
             ),
           ),
-          // Avatar phụ (nhỏ ở góc phải)
           Positioned(
             bottom: screenHeight * 0.15,
-            right: screenWidth * 0.1,
-            child: GestureDetector(
-              onTap: _swapRoles, // Gọi hàm hoán đổi khi nhấn vào
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 3),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey,
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    )
-                  ],
-                ),
-                child: CircleAvatar(
-                  radius: 30, // Kích thước avatar phụ
-                  backgroundImage: AssetImage(secondaryAvatar),
-                ),
-              ),
-            ),
+            right: screenWidth * 0.08,
+            child: _buildMicrophoneButton(),
           ),
         ],
       ),
+      //end chatbot
 
-
-      // Nút nổi ở giữa thanh điều hướng dưới
+      // navbar
       floatingActionButton: SizedBox(
         width: 78,
         height: 78,
         child: FloatingActionButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ScanScreen()),
+            );
+          },
           backgroundColor: theme.colorScheme.primary,
           elevation: 4.0,
           shape: RoundedRectangleBorder(
@@ -107,25 +98,58 @@ class _HomeScreenState extends State<GreetingScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      bottomNavigationBar: CustomNavBar(
+        activeIndex: 0,
+        onHomeTap: () {},
+        onProfileTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const ProfileScreen()),
+          );
+        },
+        onCenterTap: () {},
+      ),
+      //end navbar
 
-        bottomNavigationBar: CustomNavBar(
-          activeIndex: 0, // Màn hình hiện tại là Home
-          onHomeTap: () {
-            // Đang ở Home rồi nên không cần làm gì
-            print('Already on Home screen');
-          },
-          onProfileTap: () {
-            // 👇 LOGIC ĐIỀU HƯỚNG ĐẾN TRANG PROFILE
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const ProfileScreen()),
-            );
-          },
-          onCenterTap: () {
-            // Xử lý nút giữa
-          },
-        ),
     );
   }
 
+  // button microphone
+  Widget _buildMicrophoneButton() {
+    final gradientColors = _isListening
+        ? [Colors.red.shade400, Colors.orange.shade400]
+        : [Colors.blue.shade300, Colors.purple.shade300];
+
+    final shadowColor = _isListening ? Colors.red : Colors.purple;
+    final icon = _isListening ? Icons.stop_rounded : Icons.mic_none_rounded;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _isListening = !_isListening;
+        });
+      },
+      child: Container(
+        width: 60,
+        height: 60,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: gradientColors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: shadowColor.withOpacity(0.5),
+              blurRadius: 15,
+              spreadRadius: 2,
+            )
+          ],
+        ),
+        child: Icon(icon, color: Colors.white, size: 30), 
+      ),
+    );
+  }
+  // end button microphone
 }

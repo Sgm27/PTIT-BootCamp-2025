@@ -1,30 +1,16 @@
 import 'package:flutter/material.dart';
 
-class CustomColors extends ThemeExtension<CustomColors> {
-  const CustomColors({
-    required this.background1,
-    required this.background2,
-  });
+class AppColors {
+  AppColors._();
 
-  final Color? background1;
-  final Color? background2;
+  // Màu cho giao diện sáng
+  static const Color primary = Color(0xFF7A6CEA);
+  static const Color background = Color(0xFFF4F6FD);
+  static const Color card = Colors.white;
+  static const Color font = Color(0xFF252525);
+  static const Color fontSecondary = Color(0xFF7B7B7B);
 
-  @override
-  CustomColors copyWith({Color? background1, Color? background2}) {
-    return CustomColors(
-      background1: background1 ?? this.background1,
-      background2: background2 ?? this.background2,
-    );
-  }
-
-  @override
-  CustomColors lerp(ThemeExtension<CustomColors>? other, double t) {
-    if (other is! CustomColors) {
-      return this;
-    }
-    return CustomColors(
-      background1: Color.lerp(background1, other.background1, t),
-      background2: Color.lerp(background2, other.background2, t),
-    );
-  }
+  // Màu nhấn (Accent Colors)
+  static const Color accent1 = Color(0xFFF96078);
+  static const Color accent2 = Color(0xFFFF9A7A);
 }

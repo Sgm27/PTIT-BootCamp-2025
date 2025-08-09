@@ -1,13 +1,16 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../common_widgets/custom_nav_bar.dart';
-import '../../common_widgets/profile_menu_item.dart';
-import '../../common_widgets/header_wave_painter.dart';
+import '../../core/common_widgets/custom_nav_bar.dart';
+import '../../core/common_widgets/profile_menu_item.dart';
+import '../../core/common_widgets/header_wave_painter.dart';
 import '../history/medical_history_screen.dart';
 import '../policy/privacy_policy_screen.dart';
 import '../policy/help_and_support_screen.dart';
+import '../auth/login_screen.dart';
 import 'edit_profile_screen.dart';
+import '../loved_ones/loved_ones_screen.dart';
+import '../scan/scan_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -95,6 +98,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     context,
                     children: [
                       ProfileMenuItem(
+                        icon: Icons.folder_shared_outlined,
+                        iconSize: 30,
+                        title: 'Kết nối yêu thương',
+                        onTap: () {
+                          // Điều hướng đến trang LovedOnesScreen khi nhấn vào
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const LovedOnesScreen()),
+                          );
+                        },
+                      ),
+                      ProfileMenuItem(
                         icon: Icons.receipt_long,
                         iconSize: 30,
                         title: 'Lịch sử tra thuốc',
@@ -146,8 +161,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         icon: Icons.logout,
                         iconSize: 30,
                         title: 'Đăng xuất',
-                        onTap: () {},
                         color: Colors.red,
+                        onTap: () {
+                          Navigator.pushAndRemoveUntil(
+                            context,
+                            MaterialPageRoute(builder: (context) => LoginScreen()),
+                                (Route<dynamic> route) => false,
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -171,7 +192,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
         width: 78,
         height: 78,
         child: FloatingActionButton(
-          onPressed: () {},
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const ScanScreen()),
+            );
+          },
           backgroundColor: theme.colorScheme.primary,
           elevation: 4.0,
           shape: RoundedRectangleBorder(
@@ -234,7 +260,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   backgroundColor: Colors.white,
                   child: CircleAvatar(
                     radius: 50,
-                    // Hiển thị ảnh đã chọn, nếu không có thì hiển thị ảnh mặc định
                     backgroundImage: _imageFile != null
                         ? FileImage(_imageFile!) as ImageProvider
                         : const NetworkImage('https://i.pinimg.com/736x/74/25/c1/7425c135fb196ea7ced7e34f895ca6eb.jpg'),
@@ -248,4 +273,3 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 }
-

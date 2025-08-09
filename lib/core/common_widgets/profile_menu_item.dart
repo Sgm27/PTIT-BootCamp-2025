@@ -5,7 +5,7 @@ class ProfileMenuItem extends StatelessWidget {
   final String title;
   final Widget? trailing;
   final VoidCallback onTap;
-  final Color? color; // Tùy chọn màu cho icon và chữ (dùng cho Logout)
+  final Color? color;
   final double? iconSize;
 
   const ProfileMenuItem({

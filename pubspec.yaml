@@ -20,6 +20,11 @@ dev_dependencies:
     sdk: flutter
   flutter_lints: ^5.0.0
   flutter_svg: ^2.0.10+1
+  mobile_scanner: ^5.1.2
+  camera: ^0.10.5+9
+  google_fonts: ^6.2.1
+  intl: ^0.20.2
+  http: ^1.5.0
 
 flutter:
   uses-material-design: true
@@ -32,8 +37,4 @@ flutter:
     - assets/images/header_wave_painter.jpg
     - assets/images/medical_history_icon.png
     - assets/images/google_logo.png
-  # Khi nào cần thêm font, bạn sẽ thêm vào đây. Ví dụ:
-  # fonts:
-  #   - family: MyCustomFont
-  #     fonts:
-  #       - assets: assets/fonts/MyCustomFont-Regular.ttf
+    - assets/images/no_data.jpg

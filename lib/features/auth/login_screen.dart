@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,7 +21,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return Scaffold(
       body: Container(
-        // Background gradient
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
@@ -36,7 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const SizedBox(height: 100), // Khoảng trống ở trên
+                const SizedBox(height: 100),
                 Text(
                   'Chào mừng trở lại',
                   style: textTheme.headlineMedium?.copyWith(
@@ -63,7 +63,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     children: [
                       _buildTabSelector(context),
                       const SizedBox(height: 24),
-                      // Hiển thị form tương ứng với tab được chọn
                       if (_isMobileTabActive)
                         _buildMobileForm(context)
                       else
@@ -77,6 +76,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 24),
+                _buildSignUpRow(context),
                 const SizedBox(height: 40),
               ],
             ),
@@ -86,7 +87,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  // Widget cho bộ chọn Tab (Số điện thoại / Email)
   Widget _buildTabSelector(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
@@ -264,6 +264,37 @@ class _LoginScreenState extends State<LoginScreen> {
         'Tiếp tục với Google',
         style: TextStyle(color: Colors.black87, fontWeight: FontWeight.normal, fontSize: 20),
       ),
+    );
+  }
+
+  Widget _buildSignUpRow(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text('Đã chưa có tài khoản?',
+          style: TextStyle(
+            fontSize: 20,
+          ),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const SignUpScreen()),
+            );
+          },
+          child: Text(
+            'Đăng kí',
+            style: TextStyle(
+              color: Theme
+                  .of(context)
+                  .primaryColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          ),
+        ),
+      ],
     );
   }
 
