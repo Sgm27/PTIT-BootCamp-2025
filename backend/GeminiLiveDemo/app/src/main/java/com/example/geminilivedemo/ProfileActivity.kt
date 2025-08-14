@@ -3,37 +3,50 @@ package com.example.geminilivedemo
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.util.Log
 import android.widget.ImageView
 import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import com.example.geminilivedemo.data.ProfileRepository
+import com.example.geminilivedemo.data.UserPreferences
 
-class ProfileActivity : AppCompatActivity() {
+class ProfileActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStateCallback {
 
     private lateinit var sharedPreferences: SharedPreferences
+    private lateinit var profileRepository: ProfileRepository
+    private lateinit var userPreferences: UserPreferences
     private lateinit var profileAvatar: ImageView
     private lateinit var userName: TextView
     private lateinit var userEmail: TextView
     private lateinit var userPhone: TextView
-
     private lateinit var currentTheme: TextView
+    private lateinit var globalConnectionManager: GlobalConnectionManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
 
+        // Lấy GlobalConnectionManager và đăng ký callback
+        globalConnectionManager = (application as GeminiLiveApplication).getGlobalConnectionManager()
+        globalConnectionManager.registerCallback(this)
+
         initViews()
         setupSharedPreferences()
-        loadUserData()
+        setupServices()
+        loadThemeSetting()
+        loadUserDataFromServer()
         setupClickListeners()
     }
 
     override fun onResume() {
         super.onResume()
-        // Reload user data when returning from EditProfileActivity
-        loadUserData()
+        // Reload user data from server when returning from EditProfileActivity
+        loadUserDataFromServer()
     }
 
     private fun initViews() {
@@ -41,68 +54,115 @@ class ProfileActivity : AppCompatActivity() {
         userName = findViewById(R.id.userName)
         userEmail = findViewById(R.id.userEmail)
         userPhone = findViewById(R.id.userPhone)
-
         currentTheme = findViewById(R.id.currentTheme)
     }
 
     private fun setupSharedPreferences() {
         sharedPreferences = getSharedPreferences("UserProfile", MODE_PRIVATE)
     }
-
-    private fun loadUserData() {
-        // Load user data from SharedPreferences
-        val savedName = sharedPreferences.getString("user_name", "Puerto Rico")
-        val savedEmail = sharedPreferences.getString("user_email", "youremail@domain.com")
-        val savedPhone = sharedPreferences.getString("user_phone", "+01 234 567 89")
-        val notificationsEnabled = sharedPreferences.getBoolean("notifications_enabled", true)
+    
+    private fun setupServices() {
+        profileRepository = ProfileRepository(this)
+        userPreferences = UserPreferences(this)
+    }
+    
+    private fun loadThemeSetting() {
         val isDarkTheme = sharedPreferences.getBoolean("dark_theme", false)
+        val isSystemTheme = sharedPreferences.getBoolean("system_theme", false)
+        
+        when {
+            isSystemTheme -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+            isDarkTheme -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+        }
+    }
 
-        userName.text = savedName
-        userEmail.text = savedEmail
-        userPhone.text = savedPhone
+    private fun loadUserDataFromServer() {
+        // Get current user ID from UserPreferences
+        val currentUser = userPreferences.getCurrentUser()
+        if (currentUser == null) {
+            showError("Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại.")
+            redirectToLogin()
+            return
+        }
 
-        currentTheme.text = if (isDarkTheme) "Tối" else "Sáng"
+        // Show loading state
+        showLoadingState()
+        
+        // Load data directly from server
+        lifecycleScope.launch {
+            try {
+                val result = profileRepository.loadProfileFromServer(currentUser.userId)
+                if (result.isSuccess) {
+                    val userProfile = result.getOrNull()
+                    if (userProfile != null) {
+                        updateUI(userProfile)
+                        Toast.makeText(this@ProfileActivity, "Đã tải dữ liệu từ server", Toast.LENGTH_SHORT).show()
+                    } else {
+                        showError("Không thể tải thông tin người dùng từ server")
+                    }
+                } else {
+                    val error = result.exceptionOrNull()
+                    showError("Lỗi kết nối server: ${error?.message ?: "Không xác định"}")
+                }
+            } catch (e: Exception) {
+                showError("Lỗi không mong muốn: ${e.message}")
+            }
+        }
+    }
+    
+    private fun updateUI(userProfile: com.example.geminilivedemo.data.UserResponse) {
+        userName.text = userProfile.fullName
+        userEmail.text = userProfile.email ?: "Chưa cập nhật"
+        userPhone.text = userProfile.phone ?: "Chưa cập nhật"
+        
+        // Load theme setting (this can stay in SharedPreferences as it's a UI preference)
+        val isDarkTheme = sharedPreferences.getBoolean("dark_theme", false)
+        val isSystemTheme = sharedPreferences.getBoolean("system_theme", false)
+        currentTheme.text = when {
+            isSystemTheme -> "Theo hệ thống"
+            isDarkTheme -> "Tối"
+            else -> "Sáng"
+        }
+    }
+    
+    private fun showLoadingState() {
+        userName.text = "Đang tải..."
+        userEmail.text = "Đang tải..."
+        userPhone.text = "Đang tải..."
+    }
+    
+    private fun showError(message: String) {
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        // Show error state in UI
+        userName.text = "Lỗi tải dữ liệu"
+        userEmail.text = "Vui lòng thử lại"
+        userPhone.text = "Kiểm tra kết nối mạng"
+    }
+    
+    private fun redirectToLogin() {
+        val intent = Intent(this, LoginActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        startActivity(intent)
+        finish()
     }
 
     private fun setupClickListeners() {
-        // Edit Avatar
-        findViewById<ImageView>(R.id.editAvatarIcon).setOnClickListener {
-            showToast("Chức năng chỉnh sửa ảnh đại diện")
-        }
-
-        // Edit Profile Information
+        // Edit profile
         findViewById<android.widget.LinearLayout>(R.id.btnEditProfile).setOnClickListener {
-            // Start EditProfileActivity
             val intent = Intent(this, EditProfileActivity::class.java)
             startActivity(intent)
         }
 
-
-
-        // Medical History
-        findViewById<android.widget.LinearLayout>(R.id.btnMedicalHistory).setOnClickListener {
-            showToast("Chức năng lịch sử y tế")
-        }
-
-        // Life Memoir
+        // Life memoir
         findViewById<android.widget.LinearLayout>(R.id.btnLifeMemoir).setOnClickListener {
             val intent = Intent(this, LifeMemoirActivity::class.java)
             startActivity(intent)
         }
 
-        // Theme
+        // Theme settings
         findViewById<android.widget.LinearLayout>(R.id.btnTheme).setOnClickListener {
             showThemeDialog()
-        }
-
-        // Help & Support
-        findViewById<android.widget.LinearLayout>(R.id.btnHelpSupport).setOnClickListener {
-            showToast("Chức năng trợ giúp & hỗ trợ")
-        }
-
-        // Privacy Policy
-        findViewById<android.widget.LinearLayout>(R.id.btnPrivacyPolicy).setOnClickListener {
-            showToast("Chính sách bảo mật")
         }
 
         // Logout
@@ -110,41 +170,7 @@ class ProfileActivity : AppCompatActivity() {
             showLogoutDialog()
         }
     }
-
-    private fun showEditProfileDialog() {
-        val dialogBuilder = androidx.appcompat.app.AlertDialog.Builder(this)
-        dialogBuilder.setTitle("Chỉnh sửa thông tin")
-        
-        val dialogView = layoutInflater.inflate(R.layout.dialog_edit_profile, null)
-        dialogBuilder.setView(dialogView)
-        
-        val editName = dialogView.findViewById<android.widget.EditText>(R.id.editName)
-        val editEmail = dialogView.findViewById<android.widget.EditText>(R.id.editEmail)
-        val editPhone = dialogView.findViewById<android.widget.EditText>(R.id.editPhone)
-        
-        // Set current values
-        editName.setText(userName.text.toString())
-        editEmail.setText(userEmail.text.toString())
-        editPhone.setText(userPhone.text.toString())
-        
-        dialogBuilder.setPositiveButton("Lưu") { _, _ ->
-            val newName = editName.text.toString().trim()
-            val newEmail = editEmail.text.toString().trim()
-            val newPhone = editPhone.text.toString().trim()
-            
-            if (newName.isNotEmpty() && newEmail.isNotEmpty() && newPhone.isNotEmpty()) {
-                saveUserData(newName, newEmail, newPhone)
-                loadUserData()
-                showToast("Đã cập nhật thông tin thành công")
-            } else {
-                showToast("Vui lòng điền đầy đủ thông tin")
-            }
-        }
-        
-        dialogBuilder.setNegativeButton("Hủy", null)
-        dialogBuilder.create().show()
-    }
-
+    
     private fun showThemeDialog() {
         val themes = arrayOf("Sáng", "Tối", "Theo hệ thống")
         val currentThemeIndex = when {
@@ -175,7 +201,7 @@ class ProfileActivity : AppCompatActivity() {
             .setNegativeButton("Hủy", null)
             .show()
     }
-
+    
     private fun showLogoutDialog() {
         androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Đăng xuất")
@@ -186,21 +212,7 @@ class ProfileActivity : AppCompatActivity() {
             .setNegativeButton("Hủy", null)
             .show()
     }
-
-    private fun saveUserData(name: String, email: String, phone: String) {
-        val editor = sharedPreferences.edit()
-        editor.putString("user_name", name)
-        editor.putString("user_email", email)
-        editor.putString("user_phone", phone)
-        editor.apply()
-    }
-
-    private fun saveNotificationSetting(enabled: Boolean) {
-        val editor = sharedPreferences.edit()
-        editor.putBoolean("notifications_enabled", enabled)
-        editor.apply()
-    }
-
+    
     private fun setTheme(isDark: Boolean, isSystem: Boolean) {
         val editor = sharedPreferences.edit()
         editor.putBoolean("dark_theme", isDark)
@@ -215,22 +227,41 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun logout() {
-        // Clear user data
-        val editor = sharedPreferences.edit()
-        editor.clear()
-        editor.apply()
-
-        // Return to main activity or login screen
-        showToast("Đã đăng xuất thành công")
+        // Clear user session data
+        userPreferences.clearUserData()
         
-        // You can redirect to MainActivity or Login Activity here
-        val intent = Intent(this, MainActivity::class.java)
+        // Clear any remaining SharedPreferences data
+        sharedPreferences.edit().clear().apply()
+        
+        // Redirect to login
+        val intent = Intent(this, LoginActivity::class.java)
         intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         startActivity(intent)
         finish()
+        
+        Toast.makeText(this, "Đã đăng xuất", Toast.LENGTH_SHORT).show()
     }
-
-    private fun showToast(message: String) {
-        Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
+    
+    override fun onDestroy() {
+        super.onDestroy()
+        // Hủy đăng ký callback
+        globalConnectionManager.unregisterCallback(this)
+    }
+    
+    // Callback methods từ GlobalConnectionManager.ConnectionStateCallback
+    override fun onConnectionStateChanged(isConnected: Boolean) {
+        Log.d("ProfileActivity", "Connection state changed: $isConnected")
+        // ProfileActivity không cần xử lý connection state đặc biệt
+    }
+    
+    override fun onChatAvailabilityChanged(isChatAvailable: Boolean) {
+        Log.d("ProfileActivity", "Chat availability changed: $isChatAvailable")
+        // ProfileActivity không có chat UI nên không cần xử lý
+        if (isChatAvailable) {
+            // Có thể hiển thị thông báo rằng chat chỉ khả dụng ở màn hình chính
+            runOnUiThread {
+                Toast.makeText(this, "Chat chỉ khả dụng ở màn hình chính", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 }

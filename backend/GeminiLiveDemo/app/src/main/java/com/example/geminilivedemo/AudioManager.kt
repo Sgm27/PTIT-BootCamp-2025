@@ -48,6 +48,10 @@ class AudioManager(private val context: Context) {
         this.callback = callback
     }
     
+    fun isRecording(): Boolean {
+        return isRecording
+    }
+    
     fun startAudioInput() {
         if (isRecording) return
         

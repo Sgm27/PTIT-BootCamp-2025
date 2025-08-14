@@ -6,6 +6,7 @@ import json
 import logging
 from typing import Set
 from fastapi import WebSocket
+import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -49,11 +50,22 @@ class WebSocketConnectionManager:
         
         logger.info(f"Broadcasting voice notification to {len(self.active_connections)} connections")
         
-        # Send message to all active connections
-        for connection in self.active_connections:
+        # Send message to all active connections with better error handling
+        for connection in list(self.active_connections):  # Create a copy to avoid modification during iteration
             try:
-                await connection.send_text(json.dumps(message))
-                logger.debug(f"Voice notification sent to WebSocket connection")
+                # Check connection state before sending
+                if connection.client_state.name == 'CONNECTED':
+                    await asyncio.wait_for(
+                        connection.send_text(json.dumps(message)),
+                        timeout=10.0  # 10 second timeout for send
+                    )
+                    logger.debug(f"Voice notification sent to WebSocket connection")
+                else:
+                    logger.warning("WebSocket not connected, marking for removal")
+                    failed_connections.append(connection)
+            except asyncio.TimeoutError:
+                logger.error("Timeout sending voice notification to WebSocket")
+                failed_connections.append(connection)
             except Exception as e:
                 logger.error(f"Failed to send voice notification to WebSocket: {e}")
                 failed_connections.append(connection)
@@ -82,6 +94,36 @@ class WebSocketConnectionManager:
     def get_connection_count(self) -> int:
         """Trả về số lượng active connections"""
         return len(self.active_connections)
+    
+    async def cleanup_dead_connections(self):
+        """Cleanup dead or invalid WebSocket connections"""
+        dead_connections = []
+        
+        for connection in list(self.active_connections):
+            try:
+                # Check if connection is still valid
+                if connection.client_state.name != 'CONNECTED':
+                    dead_connections.append(connection)
+                    logger.debug("Marking dead connection for cleanup")
+            except Exception as e:
+                logger.error(f"Error checking connection state: {e}")
+                dead_connections.append(connection)
+        
+        # Remove dead connections
+        for connection in dead_connections:
+            self.remove_connection(connection)
+        
+        if dead_connections:
+            logger.info(f"Cleaned up {len(dead_connections)} dead connections")
+        
+        return len(dead_connections)
+    
+    def get_connection_stats(self) -> dict:
+        """Get connection statistics for monitoring"""
+        return {
+            "total_connections": len(self.active_connections),
+            "timestamp": datetime.datetime.now().isoformat()
+        }
 
 
 # Global instance để sử dụng trong toàn bộ application

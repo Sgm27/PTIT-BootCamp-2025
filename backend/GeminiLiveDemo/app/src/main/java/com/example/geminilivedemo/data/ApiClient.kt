@@ -69,17 +69,17 @@ class ApiClient {
         private val okHttpClient = OkHttpClient.Builder()
             .addInterceptor(loggingInterceptor)
             .addInterceptor(networkInterceptor) // Add the network interceptor
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(60, TimeUnit.SECONDS)  // Tăng từ 30s cho stability
+            .readTimeout(60, TimeUnit.SECONDS)     // Tăng từ 30s cho stability
+            .writeTimeout(60, TimeUnit.SECONDS)    // Tăng từ 30s cho stability
             .apply {
                 // For development/testing - bypass SSL verification
                 try {
-                    val sslContext = SSLContext.getInstance("SSL")
+                    val sslContext = SSLContext.getInstance("TLS")  // Sử dụng TLS thay vì SSL
                     sslContext.init(null, trustAllCerts, java.security.SecureRandom())
                     sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
                     hostnameVerifier { _, _ -> true }
-                    Log.d("ApiClient", "SSL verification bypassed for development")
+                    Log.d("ApiClient", "SSL verification bypassed for development (TLS)")
                 } catch (e: Exception) {
                     Log.e("ApiClient", "Error setting up SSL bypass", e)
                 }

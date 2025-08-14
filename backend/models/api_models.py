@@ -84,3 +84,12 @@ class UserStatsResponse(BaseModel):
     conversation_stats: dict
     memoir_stats: dict
     user_info: dict
+
+class ProfileUpdateRequest(BaseModel):
+    """Request model for updating user profile"""
+    full_name: str
+    email: str
+    phone: str
+    address: str
+    date_of_birth: str = None
+    gender: str = None

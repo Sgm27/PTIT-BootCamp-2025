@@ -42,6 +42,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.6.2")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
     implementation("androidx.activity:activity-ktx:1.8.0")
     
     // Material Design
@@ -60,6 +61,9 @@ dependencies {
     
     // SharedPreferences for user session
     implementation("androidx.preference:preference-ktx:1.2.1")
+    
+    // Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     
     // CameraX dependencies
     implementation("androidx.camera:camera-core:1.3.0")

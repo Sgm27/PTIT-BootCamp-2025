@@ -265,4 +265,35 @@ class UIManager(private val activity: AppCompatActivity) {
             Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
         }
     }
+    
+    fun updateConnectionStatus(connected: Boolean) {
+        isConnected = connected
+        // Use the same logic as updateStatusIndicator for consistency
+        updateStatusIndicator()
+        Log.d("UIManager", "Connection status updated: $connected")
+    }
+    
+    fun setChatEnabled(enabled: Boolean) {
+        activity.runOnUiThread {
+            // Enable/disable chat controls
+            micButton.isEnabled = enabled
+            captureButton.isEnabled = enabled
+            startButton.isEnabled = enabled
+            stopButton.isEnabled = enabled
+            
+            // Visual feedback
+            val alpha = if (enabled) 1.0f else 0.5f
+            micButton.alpha = alpha
+            captureButton.alpha = alpha
+            startButton.alpha = alpha
+            stopButton.alpha = alpha
+            
+            Log.d("UIManager", "Chat controls enabled: $enabled")
+            
+            // Removed toast notification as requested by user
+            // if (!enabled) {
+            //     showToast("Chat không khả dụng ở màn hình này")
+            // }
+        }
+    }
 }

@@ -36,6 +36,9 @@ opencv-python==4.8.1.78
 redis==5.0.1
 aioredis==2.0.1
 
+# Scheduling and background tasks
+apscheduler==3.10.4
+
 # Development and debugging
 pytest==7.4.3
 black==23.11.0

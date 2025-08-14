@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Comprehensive Voice Notification Test - Test tất cả notification types
+Comprehensive Voice Notification Test - Test tất cả notification types với user cụ thể
 """
 
 import requests
@@ -8,18 +8,66 @@ import json
 import time
 
 class VoiceNotificationTester:
-    """Class để test tất cả các loại voice notifications"""
+    """Class để test tất cả các loại voice notifications với user authentication"""
     
     def __init__(self):
-        self.base_url = "https://backend-bootcamp.sonktx.online/api/generate-voice-notification"
+        self.base_url = "https://backend-bootcamp.sonktx.online"
+        self.auth_url = f"{self.base_url}/api/auth/login"
+        self.voice_url = f"{self.base_url}/api/generate-voice-notification"
         self.headers = {
             "Content-Type": "application/json",
             "Accept": "application/json"
         }
+        self.session_token = None
+        self.user_id = None
         self.results = []
         
+    def authenticate_user(self):
+        """Đăng nhập với user son123@gmail.com để lấy session token"""
+        print("🔐 AUTHENTICATING USER")
+        print("=" * 50)
+        
+        login_payload = {
+            "identifier": "son123@gmail.com",
+            "password": "12345678"  # Password đúng
+        }
+        
+        try:
+            response = requests.post(
+                self.auth_url,
+                json=login_payload,
+                headers=self.headers,
+                timeout=30
+            )
+            
+            print(f"📊 Login Status Code: {response.status_code}")
+            
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('success'):
+                    self.session_token = result.get('session_token')
+                    self.user_id = result.get('user', {}).get('user_id')
+                    
+                    print("✅ LOGIN SUCCESSFUL!")
+                    print(f"👤 User ID: {self.user_id}")
+                    print(f"🔑 Session Token: {self.session_token[:20]}...")
+                    print(f"👤 User Name: {result.get('user', {}).get('full_name')}")
+                    print(f"📧 Email: {result.get('user', {}).get('email')}")
+                    return True
+                else:
+                    print(f"❌ Login failed: {result.get('message')}")
+                    return False
+            else:
+                print(f"❌ HTTP Error: {response.status_code}")
+                print(f"📄 Response: {response.text[:200]}...")
+                return False
+                
+        except Exception as e:
+            print(f"❌ Authentication error: {e}")
+            return False
+    
     def test_payloads(self):
-        """Tất cả test payloads cho các notification types"""
+        """Tất cả test payloads cho các notification types với user authentication"""
         return [
             # Medicine reminders
             {
@@ -119,18 +167,24 @@ class VoiceNotificationTester:
         ]
     
     def test_single_notification(self, payload, test_index):
-        """Test một notification đơn lẻ"""
+        """Test một notification đơn lẻ với user authentication"""
         print(f"\n🧪 TEST #{test_index:02d}: {payload['description']}")
         print("=" * 60)
-        print(f"� Type: {payload['type']}")
+        print(f"🏷️ Type: {payload['type']}")
+        print(f"👤 Authenticated User: son123@gmail.com (ID: {self.user_id})")
         print(f"📝 Text: {payload['text'][:100]}{'...' if len(payload['text']) > 100 else ''}")
         print("-" * 60)
         
         try:
+            # Thêm Authorization header nếu có session token
+            headers = self.headers.copy()
+            if self.session_token:
+                headers["Authorization"] = f"Bearer {self.session_token}"
+            
             response = requests.post(
-                self.base_url, 
+                self.voice_url, 
                 json=payload, 
-                headers=self.headers, 
+                headers=headers, 
                 timeout=30
             )
             
@@ -149,6 +203,7 @@ class VoiceNotificationTester:
                     self.results.append({
                         "test": payload['description'],
                         "type": payload['type'],
+                        "user_id": self.user_id,
                         "status": "SUCCESS",
                         "audio_length": audio_length,
                         "response_size": len(str(result))
@@ -161,6 +216,7 @@ class VoiceNotificationTester:
                     self.results.append({
                         "test": payload['description'],
                         "type": payload['type'],
+                        "user_id": self.user_id,
                         "status": f"JSON_ERROR: {e}",
                         "audio_length": 0,
                         "response_size": 0
@@ -172,6 +228,7 @@ class VoiceNotificationTester:
                 self.results.append({
                     "test": payload['description'],
                     "type": payload['type'],
+                    "user_id": self.user_id,
                     "status": f"HTTP_ERROR: {response.status_code}",
                     "audio_length": 0,
                     "response_size": 0
@@ -183,6 +240,7 @@ class VoiceNotificationTester:
             self.results.append({
                 "test": payload['description'],
                 "type": payload['type'],
+                "user_id": self.user_id,
                 "status": "TIMEOUT",
                 "audio_length": 0,
                 "response_size": 0
@@ -193,6 +251,7 @@ class VoiceNotificationTester:
             self.results.append({
                 "test": payload['description'],
                 "type": payload['type'],
+                "user_id": self.user_id,
                 "status": f"CONNECTION_ERROR: {e}",
                 "audio_length": 0,
                 "response_size": 0
@@ -203,6 +262,7 @@ class VoiceNotificationTester:
             self.results.append({
                 "test": payload['description'],
                 "type": payload['type'],
+                "user_id": self.user_id,
                 "status": f"ERROR: {e}",
                 "audio_length": 0,
                 "response_size": 0
@@ -210,12 +270,23 @@ class VoiceNotificationTester:
             return False
     
     def run_comprehensive_test(self):
-        """Chạy test toàn diện cho tất cả notification types"""
-        print("🚀 COMPREHENSIVE VOICE NOTIFICATION TEST")
+        """Chạy test toàn diện cho tất cả notification types với user authentication"""
+        print("🚀 COMPREHENSIVE VOICE NOTIFICATION TEST WITH USER AUTHENTICATION")
         print("=" * 80)
         print(f"🌐 Target URL: {self.base_url}")
+        print(f"👤 Target User: son123@gmail.com")
         print(f"⏰ Started at: {time.strftime('%Y-%m-%d %H:%M:%S')}")
         
+        # Bước 1: Authenticate user
+        if not self.authenticate_user():
+            print("❌ Authentication failed. Cannot proceed with tests.")
+            return 0, 0
+        
+        print("\n" + "=" * 80)
+        print("🔐 AUTHENTICATION SUCCESSFUL - PROCEEDING WITH TESTS")
+        print("=" * 80)
+        
+        # Bước 2: Run voice notification tests
         test_payloads = self.test_payloads()
         total_tests = len(test_payloads)
         passed_tests = 0
@@ -239,9 +310,10 @@ class VoiceNotificationTester:
     def print_summary(self, total_tests, passed_tests):
         """In tổng kết kết quả test"""
         print("\n" + "=" * 80)
-        print("� TEST SUMMARY REPORT")
+        print("📊 TEST SUMMARY REPORT")
         print("=" * 80)
         
+        print(f"👤 Test User: son123@gmail.com (ID: {self.user_id})")
         print(f"✅ Passed: {passed_tests}/{total_tests} tests")
         print(f"❌ Failed: {total_tests - passed_tests}/{total_tests} tests")
         print(f"📈 Success Rate: {(passed_tests/total_tests)*100:.1f}%")

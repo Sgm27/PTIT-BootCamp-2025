@@ -26,12 +26,23 @@ class ConversationService:
         user_id: str,
         session_id: Optional[str] = None,
         title: Optional[str] = None
-    ) -> Optional[Conversation]:
+    ) -> Optional[str]:
         """Create a new conversation"""
         try:
+            # Validate and convert user_id to UUID
+            import uuid
+            try:
+                if isinstance(user_id, str):
+                    user_uuid = uuid.UUID(user_id)
+                else:
+                    user_uuid = user_id
+            except (ValueError, TypeError) as e:
+                self.logger.error(f"Invalid user_id format: {user_id}, error: {e}")
+                return None
+            
             with get_db() as db:
                 conversation = Conversation(
-                    user_id=user_id,
+                    user_id=str(user_uuid),  # Ensure it's a string UUID
                     session_id=session_id,
                     title=title or f"Conversation {datetime.now().strftime('%Y-%m-%d %H:%M')}"
                 )
@@ -40,8 +51,9 @@ class ConversationService:
                 db.commit()
                 db.refresh(conversation)
                 
-                self.logger.info(f"Created conversation {conversation.id} for user {user_id}")
-                return conversation
+                conversation_id = str(conversation.id)
+                self.logger.info(f"Created conversation {conversation_id} for user {user_id}")
+                return conversation_id
                 
         except Exception as e:
             self.logger.error(f"Failed to create conversation: {e}")

@@ -42,11 +42,14 @@ class GeminiService:
     - Nói với nhịp độ vừa phải, không quá nhanh hay chậm
     - Sử dụng ngôn ngữ thân mật như "cô/chú", "bác"
     
-    NGUYÊN TẮC TRỢ GIÚP:
-    - LUÔN trả lời đầy đủ và chi tiết ngay từ lần đầu
+    NGUYÊN TẮC TRỢ GIÚP QUAN TRỌNG:
+    - LUÔN LUÔN trả lời đầy đủ và hoàn chỉnh ngay từ lần đầu
+    - KHÔNG BAO GIỜ nói "bác chờ cháu một chút" hoặc "để cháu tìm hiểu" rồi kết thúc
+    - KHÔNG BAO GIỜ dừng cuộc trò chuyện đột ngột mà không đưa ra câu trả lời
+    - PHẢI đưa ra câu trả lời cụ thể, hữu ích và hoàn chỉnh cho mọi câu hỏi
+    - Nếu không biết chính xác, hãy đưa ra lời khuyên tổng quát phù hợp với người cao tuổi
     - KHÔNG hỏi lại hoặc yêu cầu thêm thông tin trừ khi thực sự cần thiết
     - Đưa ra lời khuyên cụ thể và thực tế dựa trên thông tin có sẵn
-    - Nếu thiếu thông tin, hãy đưa ra lời khuyên tổng quát phù hợp với người cao tuổi
     - Tránh những câu hỏi như "Bác có thể cho biết thêm...", "Cô muốn tôi giải thích gì..."
     
     NHIỆM VỤ CHÍNH:
@@ -64,7 +67,8 @@ class GeminiService:
     - Khuyến khích tích cực nhưng không áp đặt
     - Nhắc nhở khám bác sĩ khi cần thiết
     - Nói như đang trò chuyện face-to-face, không như đọc kịch bản
-    - Kết thúc câu trả lời một cách tự nhiên mà không cần hỏi thêm
+    - Kết thúc câu trả lời một cách tự nhiên với thông tin đầy đủ
+    - LUÔN đưa ra câu trả lời hoàn chỉnh, không để người dùng chờ đợi
     
     KHI NÓI VỀ THUỐC:
     - Giải thích tên thuốc, công dụng một cách dễ hiểu
@@ -81,6 +85,7 @@ class GeminiService:
     - Khuyến khích duy trì các hoạt động xã hội
     - Nói chuyện như với người thân trong gia đình
     - Tạo ra cuộc trò chuyện có ý nghĩa mà không cần liên tục hỏi han
+    - LUÔN đưa ra câu trả lời đầy đủ và hữu ích
     
     LƯU Ý QUAN TRỌNG:
     - Không thay thế lời khuyên của bác sĩ
@@ -88,6 +93,8 @@ class GeminiService:
     - Nhận diện các tình huống khẩn cấp và khuyên gọi cấp cứu
     - Giữ giọng nói ấm áp và tự nhiên trong mọi tình huống
     - Ưu tiên đưa ra câu trả lời hoàn chỉnh và hữu ích ngay lập tức
+    - KHÔNG BAO GIỜ kết thúc cuộc trò chuyện mà không đưa ra câu trả lời đầy đủ
+    - PHẢI luôn đưa ra thông tin hữu ích, ngay cả khi không có thông tin chính xác
     """
     
     def __init__(self, client: genai.Client = None, model: str = None):
@@ -100,6 +107,8 @@ class GeminiService:
         self.client = client or genai.Client(api_key=settings.GOOGLE_API_KEY)
         self.model = model or settings.GEMINI_MODEL
         self.session_service = SessionService()
+        # User identification for database operations
+        self.current_user_id = None
         # Conversation history tracking
         self.conversation_history = []  # List of {role, text, timestamp}
         # File to persist conversation history
@@ -121,20 +130,30 @@ class GeminiService:
         from services.notification_voice_service import NotificationVoiceService
         self.notification_voice_service = NotificationVoiceService(self.client, self.model)
         
-        # Initialize memoir extraction service
+        # Initialize memoir extraction service (legacy - now using daily extraction)
         try:
             from services.memoir_extraction_service import MemoirExtractionService
             from openai import AsyncOpenAI
             if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
                 openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
                 self.memoir_extraction_service = MemoirExtractionService(openai_client)
-                logger.info("Memoir extraction service initialized successfully")
+                logger.info("Memoir extraction service initialized successfully (legacy)")
             else:
                 logger.warning("OpenAI API key not found, memoir extraction disabled")
                 self.memoir_extraction_service = None
         except Exception as e:
             logger.error(f"Failed to initialize memoir extraction service: {e}")
             self.memoir_extraction_service = None
+        
+        # Initialize database services for conversation storage
+        try:
+            from db.db_services.conversation_service import ConversationService
+            self.conversation_service = ConversationService()
+            self.current_conversation_id = None
+            logger.info("Database conversation service initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize database conversation service: {e}")
+            self.conversation_service = None
     
     def _create_live_config(self, previous_session_handle: Optional[str] = None) -> types.LiveConnectConfig:
         """Create live connection configuration.
@@ -188,10 +207,43 @@ class GeminiService:
             try:
                 config_message = await asyncio.wait_for(
                     websocket.receive_text(), 
-                    timeout=30.0  # 30 second timeout for config
+                    timeout=settings.WEBSOCKET_CONFIG_TIMEOUT  # Sử dụng setting từ config
                 )
                 config_data = json.loads(config_message)
                 logger.info(f"Received config: {config_data}")
+                
+                # Extract user_id from config for database operations
+                user_id_raw = config_data.get("user_id")
+                if user_id_raw:
+                    # Validate and convert user_id to proper format
+                    try:
+                        import uuid
+                        # Try to parse as UUID if it's a string
+                        if isinstance(user_id_raw, str):
+                            # Check if it's already a valid UUID
+                            try:
+                                uuid.UUID(user_id_raw)
+                                self.current_user_id = user_id_raw
+                            except ValueError:
+                                # If not a valid UUID, generate a test UUID for testing purposes
+                                if user_id_raw.startswith("test_"):
+                                    self.current_user_id = "550e8400-e29b-41d4-a716-446655440000"
+                                    logger.info(f"Test user ID detected, using test UUID: {self.current_user_id}")
+                                else:
+                                    logger.warning(f"Invalid UUID format: {user_id_raw}")
+                                    self.current_user_id = None
+                        else:
+                            self.current_user_id = str(user_id_raw)
+                        
+                        if self.current_user_id:
+                            logger.info(f"User ID set for session: {self.current_user_id}")
+                        else:
+                            logger.warning("Invalid user_id format - database operations disabled")
+                    except Exception as e:
+                        logger.error(f"Error processing user_id: {e}")
+                        self.current_user_id = None
+                else:
+                    logger.warning("No user_id provided in config - database operations disabled")
             except asyncio.TimeoutError:
                 logger.error("Timeout waiting for config message")
                 await self._close_websocket_safely(websocket, 4000, "Config timeout")
@@ -205,6 +257,21 @@ class GeminiService:
             config = self._create_live_config(previous_session_handle)
             
             async with self.client.aio.live.connect(model=self.model, config=config) as session:
+                # Create conversation in database if user_id is available
+                if self.current_user_id and self.conversation_service:
+                    try:
+                        conversation_id = await self.conversation_service.create_conversation(
+                            user_id=self.current_user_id,
+                            title=f"Cuộc trò chuyện {datetime.datetime.now().strftime('%d/%m/%Y %H:%M')}"
+                        )
+                        if conversation_id:
+                            self.current_conversation_id = conversation_id
+                            logger.info(f"Created conversation {self.current_conversation_id} for user {self.current_user_id}")
+                        else:
+                            logger.warning("Failed to create conversation in database")
+                    except Exception as e:
+                        logger.error(f"Error creating conversation in database: {e}")
+                
                 # Create tasks
                 send_task = asyncio.create_task(self._send_to_gemini(websocket, session))
                 receive_task = asyncio.create_task(self._receive_from_gemini(websocket, session))
@@ -250,11 +317,9 @@ class GeminiService:
                     except Exception:
                         pass
             
-            # Extract memoir from entire conversation when session ends
-            try:
-                await self.extract_memoir_on_disconnect()
-            except Exception as e:
-                logger.error(f"Error during final memoir extraction: {e}")
+            # Note: Memoir extraction is now handled daily by scheduler
+            # Individual conversation memoir extraction is disabled
+            logger.info("Session ended - memoir extraction will be handled by daily scheduler")
             
             logger.info("Gemini session closed")
     
@@ -273,11 +338,20 @@ class GeminiService:
                     # Check if WebSocket is still connected
                     if websocket.client_state.name == 'CONNECTED':
                         # Send a keepalive message instead of ping
-                        await websocket.send_text(json.dumps({"type": "keepalive", "timestamp": datetime.datetime.now().isoformat()}))
+                        await asyncio.wait_for(
+                            websocket.send_text(json.dumps({
+                                "type": "keepalive", 
+                                "timestamp": datetime.datetime.now().isoformat()
+                            })),
+                            timeout=settings.WEBSOCKET_PING_TIMEOUT
+                        )
                         logger.debug("Sent WebSocket keepalive")
                     else:
                         logger.warning("WebSocket not connected, stopping keepalive")
                         break
+                except asyncio.TimeoutError:
+                    logger.error("Timeout sending keepalive message")
+                    break
                 except Exception as e:
                     logger.error(f"Error sending keepalive: {e}")
                     break
@@ -315,7 +389,7 @@ class GeminiService:
                     # Add timeout for receiving messages
                     message = await asyncio.wait_for(
                         websocket.receive_text(),
-                        timeout=120.0  # 2 minute timeout
+                        timeout=settings.WEBSOCKET_MESSAGE_TIMEOUT  # Sử dụng setting từ config
                     )
                     data = json.loads(message)
                 
@@ -545,17 +619,45 @@ class GeminiService:
             "timestamp": datetime.datetime.now().isoformat()
         }
         self.conversation_history.append(entry)
-        # Persist to file
+        
+        # Save to database if available
+        if self.conversation_service and self.current_conversation_id:
+            try:
+                # Convert role to enum
+                from db.models import ConversationRole
+                db_role = ConversationRole.USER if role == "user" else ConversationRole.ASSISTANT
+                
+                # Save message to database asynchronously
+                asyncio.create_task(self._save_message_to_database(db_role, text))
+            except Exception as e:
+                logger.error(f"Error saving message to database: {e}")
+        
+        # Also persist to file as backup
         try:
             # Ensure directory exists
             os.makedirs(os.path.dirname(self.conversation_history_file) or ".", exist_ok=True)
             with open(self.conversation_history_file, "w", encoding="utf-8") as f:
                 json_lib.dump(self.conversation_history, f, ensure_ascii=False, indent=2)
                 
-            # Auto extraction disabled - will extract only on disconnect
-            
         except Exception as e:
-            logger.error(f"Failed to save conversation history: {e}")
+            logger.error(f"Failed to save conversation history to file: {e}")
+    
+    async def _save_message_to_database(self, role, content: str):
+        """Save a message to the database.
+        
+        Args:
+            role: ConversationRole enum value
+            content: Message content
+        """
+        try:
+            if self.conversation_service and self.current_conversation_id:
+                await self.conversation_service.add_message(
+                    conversation_id=self.current_conversation_id,
+                    role=role,
+                    content=content
+                )
+        except Exception as e:
+            logger.error(f"Failed to save message to database: {e}")
     
     async def extract_memoir_on_disconnect(self):
         """Extract memoir from entire conversation history when client disconnects.

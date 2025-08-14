@@ -151,4 +151,30 @@ data class ElderlyPatient(
 data class ElderlyPatientsResponse(
     @SerializedName("elderly_patients")
     val elderlyPatients: List<ElderlyPatient>
+)
+
+// Profile Update Request
+data class ProfileUpdateRequest(
+    @SerializedName("full_name")
+    val fullName: String,
+    @SerializedName("email")
+    val email: String,
+    @SerializedName("phone")
+    val phone: String,
+    @SerializedName("address")
+    val address: String,
+    @SerializedName("date_of_birth")
+    val dateOfBirth: String? = null,
+    @SerializedName("gender")
+    val gender: String? = null
+)
+
+// Profile Update Response
+data class ProfileUpdateResponse(
+    @SerializedName("success")
+    val success: Boolean,
+    @SerializedName("message")
+    val message: String,
+    @SerializedName("user")
+    val user: UserResponse?
 ) 

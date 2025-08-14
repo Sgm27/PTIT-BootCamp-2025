@@ -71,6 +71,14 @@ class CreateRelationshipRequest(BaseModel):
     relationship_type: RelationshipTypeEnum
     permissions: Optional[dict] = None
 
+class ProfileUpdateRequest(BaseModel):
+    full_name: str
+    email: str
+    phone: str
+    address: str
+    date_of_birth: Optional[str] = None
+    gender: Optional[str] = None
+
 def hash_password(password: str) -> str:
     """Hash password using SHA-256"""
     return hashlib.sha256(password.encode()).hexdigest()
@@ -99,7 +107,7 @@ def add_auth_endpoints(app: FastAPI):
             # Hash password
             hashed_password = hash_password(request.password)
             
-            # Convert enum to database enum
+            # Convert enum to database enum value
             user_type = UserType.ELDERLY if request.user_type == UserTypeEnum.ELDERLY else UserType.FAMILY_MEMBER
             
             # Create user
@@ -123,7 +131,7 @@ def add_auth_endpoints(app: FastAPI):
             # Create response
             user_data = {
                 "user_id": str(user.id),
-                "user_type": user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
+                "user_type": user.user_type.lower() if isinstance(user.user_type, str) else user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
                 "full_name": user.full_name,
                 "email": user.email,
                 "phone": user.phone,
@@ -197,7 +205,7 @@ def add_auth_endpoints(app: FastAPI):
             # Create response
             user_response = UserResponse(
                 user_id=str(user.id),
-                user_type=user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
+                user_type=user.user_type.lower() if isinstance(user.user_type, str) else user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
                 full_name=user.full_name,
                 email=user.email,
                 phone=user.phone,
@@ -238,7 +246,7 @@ def add_auth_endpoints(app: FastAPI):
             
             return UserResponse(
                 user_id=str(user.id),
-                user_type=user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
+                user_type=user.user_type.lower() if isinstance(user.user_type, str) else user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
                 full_name=user.full_name,
                 email=user.email,
                 phone=user.phone,
@@ -271,7 +279,7 @@ def add_auth_endpoints(app: FastAPI):
             else:
                 elderly_user = user_service.get_user_by_contact(phone=request.elderly_user_identifier)
             
-            if not elderly_user or elderly_user.user_type != UserType.ELDERLY:
+            if not elderly_user or elderly_user.user_type != UserType.ELDERLY.value:
                 raise HTTPException(status_code=404, detail="Elderly user not found")
             
             # Convert enum
@@ -324,4 +332,55 @@ def add_auth_endpoints(app: FastAPI):
             
         except Exception as e:
             logger.error(f"Get elderly patients error: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    @app.put("/api/auth/profile/{user_id}")
+    async def update_user_profile(user_id: str, request: ProfileUpdateRequest):
+        """Update user profile information"""
+        if not DATABASE_AVAILABLE:
+            raise HTTPException(status_code=503, detail="Database not available")
+        
+        try:
+            user_service = UserService()
+            
+            # Check if user exists
+            user = user_service.get_user_by_id(user_id)
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            # Update user profile
+            updated_user = user_service.update_user_profile(
+                user_id=user_id,
+                full_name=request.full_name,
+                email=request.email,
+                phone=request.phone,
+                address=request.address,
+                date_of_birth=request.date_of_birth,
+                gender=request.gender
+            )
+            
+            if not updated_user:
+                raise HTTPException(status_code=400, detail="Failed to update profile")
+            
+            return {
+                "success": True,
+                "message": "Profile updated successfully",
+                "user": {
+                    "user_id": str(updated_user.id),
+                    "user_type": updated_user.user_type.lower() if isinstance(updated_user.user_type, str) else updated_user.user_type.value.lower(),
+                    "full_name": updated_user.full_name,
+                    "email": updated_user.email,
+                    "phone": updated_user.phone,
+                    "date_of_birth": updated_user.date_of_birth.isoformat() if updated_user.date_of_birth else None,
+                    "gender": updated_user.gender,
+                    "address": updated_user.address,
+                    "created_at": updated_user.created_at.isoformat(),
+                    "is_active": updated_user.is_active
+                }
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Update profile error: {e}")
             raise HTTPException(status_code=500, detail="Internal server error") 

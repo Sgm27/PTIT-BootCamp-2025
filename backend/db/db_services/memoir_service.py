@@ -6,7 +6,7 @@ import logging
 from typing import Optional, List, Dict, Any
 from datetime import datetime, date
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import desc, and_, or_
+from sqlalchemy import desc, and_, or_, func
 
 from db.db_config import get_db
 from db.models import LifeMemoir, User, Conversation
@@ -68,7 +68,26 @@ class MemoirDBService:
                 memoir = db.query(LifeMemoir).filter(
                     LifeMemoir.id == memoir_id
                 ).first()
-                return memoir
+                
+                if memoir:
+                    # Convert to dictionary to avoid session issues
+                    memoir_dict = {
+                        'id': str(memoir.id),
+                        'user_id': str(memoir.user_id),
+                        'title': memoir.title,
+                        'content': memoir.content,
+                        'categories': memoir.categories,
+                        'people_mentioned': memoir.people_mentioned,
+                        'places_mentioned': memoir.places_mentioned,
+                        'time_period': memoir.time_period,
+                        'emotional_tone': memoir.emotional_tone,
+                        'importance_score': memoir.importance_score,
+                        'extracted_at': memoir.extracted_at,
+                        'date_of_memory': memoir.date_of_memory,
+                        'conversation_id': str(memoir.conversation_id) if memoir.conversation_id else None
+                    }
+                    return memoir_dict
+                return None
         except Exception as e:
             self.logger.error(f"Failed to get memoir {memoir_id}: {e}")
             return None
@@ -79,7 +98,7 @@ class MemoirDBService:
         limit: int = 50,
         offset: int = 0,
         order_by: str = "extracted_at"
-    ) -> List[LifeMemoir]:
+    ) -> List[Dict]:
         """Get all memoirs for a user"""
         try:
             with get_db() as db:
@@ -94,7 +113,25 @@ class MemoirDBService:
                     query = query.order_by(desc(LifeMemoir.extracted_at))
                 
                 memoirs = query.offset(offset).limit(limit).all()
-                return memoirs
+                
+                # Convert to dictionaries to avoid session issues
+                memoir_dicts = []
+                for memoir in memoirs:
+                    memoir_dicts.append({
+                        'id': str(memoir.id),
+                        'title': memoir.title,
+                        'content': memoir.content,
+                        'categories': memoir.categories,
+                        'people_mentioned': memoir.people_mentioned,
+                        'places_mentioned': memoir.places_mentioned,
+                        'time_period': memoir.time_period,
+                        'emotional_tone': memoir.emotional_tone,
+                        'importance_score': memoir.importance_score,
+                        'extracted_at': memoir.extracted_at,
+                        'date_of_memory': memoir.date_of_memory
+                    })
+                
+                return memoir_dicts
                 
         except Exception as e:
             self.logger.error(f"Failed to get memoirs for user {user_id}: {e}")
@@ -108,7 +145,7 @@ class MemoirDBService:
         time_period: Optional[str] = None,
         emotional_tone: Optional[str] = None,
         limit: int = 20
-    ) -> List[LifeMemoir]:
+    ) -> List[Dict]:
         """Search memoirs by content, categories, or other attributes"""
         try:
             with get_db() as db:
@@ -138,7 +175,24 @@ class MemoirDBService:
                     desc(LifeMemoir.extracted_at)
                 ).limit(limit).all()
                 
-                return memoirs
+                # Convert to dictionaries to avoid session issues
+                memoir_dicts = []
+                for memoir in memoirs:
+                    memoir_dicts.append({
+                        'id': str(memoir.id),
+                        'title': memoir.title,
+                        'content': memoir.content,
+                        'categories': memoir.categories,
+                        'people_mentioned': memoir.people_mentioned,
+                        'places_mentioned': memoir.places_mentioned,
+                        'time_period': memoir.time_period,
+                        'emotional_tone': memoir.emotional_tone,
+                        'importance_score': memoir.importance_score,
+                        'extracted_at': memoir.extracted_at,
+                        'date_of_memory': memoir.date_of_memory
+                    })
+                
+                return memoir_dicts
                 
         except Exception as e:
             self.logger.error(f"Failed to search memoirs for user {user_id}: {e}")
@@ -460,7 +514,7 @@ class MemoirDBService:
                 
                 # Average importance score
                 avg_importance = db.query(
-                    db.func.avg(LifeMemoir.importance_score)
+                    func.avg(LifeMemoir.importance_score)
                 ).filter(LifeMemoir.user_id == user_id).scalar() or 0.0
                 
                 return {

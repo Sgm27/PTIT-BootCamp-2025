@@ -24,10 +24,11 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import androidx.lifecycle.lifecycleScope
 
-class ConversationHistoryActivity : AppCompatActivity() {
+class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStateCallback {
     
     private lateinit var userPreferences: UserPreferences
     private lateinit var apiClient: ApiClient
+    private lateinit var globalConnectionManager: GlobalConnectionManager
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: ConversationHistoryAdapter
     private lateinit var emptyView: TextView
@@ -48,6 +49,10 @@ class ConversationHistoryActivity : AppCompatActivity() {
             Log.d("ConversationHistory", "Setting content view...")
             setContentView(R.layout.activity_conversation_history)
             Log.d("ConversationHistory", "Content view set successfully")
+            
+            // Lấy GlobalConnectionManager và đăng ký callback
+            globalConnectionManager = (application as GeminiLiveApplication).getGlobalConnectionManager()
+            globalConnectionManager.registerCallback(this)
             
             // Initialize components
             Log.d("ConversationHistory", "Initializing UserPreferences...")
@@ -75,33 +80,16 @@ class ConversationHistoryActivity : AppCompatActivity() {
             Log.d("ConversationHistory", "User ID: '$userId'")
             Log.d("ConversationHistory", "Is logged in: $isLoggedIn")
             
-            // Force use test user ID for debugging
-            val testUserId = "f5db7d59-1df3-4b83-a066-bbb95d7a28a0"
-            Log.d("ConversationHistory", "Forcing test user ID: $testUserId")
-            
-            if (userId.isNullOrEmpty() || userId != testUserId) {
-                Log.e("ConversationHistory", "=== USER ID IS NULL, EMPTY, OR NOT TEST USER ===")
-                Log.d("ConversationHistory", "Current userId: '$userId', Expected: '$testUserId'")
-                Log.d("ConversationHistory", "Setting test user data to enable functionality")
-                setTestUserData()
-                
-                // Get the new userId after setting test data
-                val newUserId = userPreferences.getUserId()
-                if (newUserId.isNullOrEmpty() || newUserId != testUserId) {
-                    Log.e("ConversationHistory", "Failed to set test user data correctly")
-                    Log.e("ConversationHistory", "Expected: '$testUserId', Got: '$newUserId'")
-                    showError("Không thể thiết lập dữ liệu test")
-                    return
-                }
-                
-                // Use the test userId for this call
-                Log.d("ConversationHistory", "Using test userId: $newUserId")
-            } else {
-                Log.d("ConversationHistory", "=== USER ID FOUND AND MATCHES TEST USER ===")
+            // Check if user is logged in
+            if (userId.isNullOrEmpty() || !isLoggedIn) {
+                Log.e("ConversationHistory", "User not logged in or no user ID found")
+                showError("Vui lòng đăng nhập để xem lịch sử trò chuyện")
+                finish()
+                return
             }
             
             // Load conversations
-            Log.d("ConversationHistory", "Loading conversations...")
+            Log.d("ConversationHistory", "Loading conversations for user: $userId")
             loadConversations()
             
             Log.d("ConversationHistory", "=== ConversationHistoryActivity onCreate COMPLETED ===")
@@ -225,42 +213,16 @@ class ConversationHistoryActivity : AppCompatActivity() {
         Log.d("ConversationHistory", "User ID: '$userId'")
         Log.d("ConversationHistory", "Is logged in: $isLoggedIn")
         
-        // Force use test user ID for debugging
-        val testUserId = "f5db7d59-1df3-4b83-a066-bbb95d7a28a0"
-        Log.d("ConversationHistory", "Forcing test user ID: $testUserId")
-        
-        if (userId.isNullOrEmpty() || userId != testUserId) {
-            Log.e("ConversationHistory", "=== USER ID IS NULL, EMPTY, OR NOT TEST USER ===")
-            Log.d("ConversationHistory", "Current userId: '$userId', Expected: '$testUserId'")
-            Log.d("ConversationHistory", "Setting test user data to enable functionality")
-            setTestUserData()
-            
-            // Get the new userId after setting test data
-            val newUserId = userPreferences.getUserId()
-            if (newUserId.isNullOrEmpty() || newUserId != testUserId) {
-                Log.e("ConversationHistory", "Failed to set test user data correctly")
-                Log.e("ConversationHistory", "Expected: '$testUserId', Got: '$newUserId'")
-                showError("Không thể thiết lập dữ liệu test")
-                return
-            }
-            
-            // Use the test userId for this call
-            Log.d("ConversationHistory", "Using test userId: $newUserId")
-        } else {
-            Log.d("ConversationHistory", "=== USER ID FOUND AND MATCHES TEST USER ===")
-        }
-        
-        // Get current userId (should be test userId)
-        val currentUserId = userPreferences.getUserId()
-        if (currentUserId.isNullOrEmpty() || currentUserId != testUserId) {
-            Log.e("ConversationHistory", "No valid test userId available")
-            Log.e("ConversationHistory", "Expected: '$testUserId', Got: '$currentUserId'")
-            showError("Không có thông tin người dùng test")
+        // Check if user is logged in
+        if (userId.isNullOrEmpty() || !isLoggedIn) {
+            Log.e("ConversationHistory", "User not logged in or no user ID found")
+            showError("Vui lòng đăng nhập để xem lịch sử trò chuyện")
+            finish()
             return
         }
         
         Log.d("ConversationHistory", "API Base URL: ${ApiConfig.BASE_URL}")
-        Log.d("ConversationHistory", "Using userId: $currentUserId")
+        Log.d("ConversationHistory", "Using userId: $userId")
         
         // Show loading state
         showLoading(true)
@@ -272,10 +234,10 @@ class ConversationHistoryActivity : AppCompatActivity() {
                 kotlinx.coroutines.delay(100)
                 
                 Log.d("ConversationHistory", "=== STARTING API CALL ===")
-                Log.d("ConversationHistory", "Making API call to get conversations for userId: $currentUserId")
-                Log.d("ConversationHistory", "Full API URL: ${ApiConfig.BASE_URL}api/conversations/$currentUserId")
+                Log.d("ConversationHistory", "Making API call to get conversations for userId: $userId")
+                Log.d("ConversationHistory", "Full API URL: ${ApiConfig.BASE_URL}api/conversations/$userId")
                 
-                val response = apiClient.getUserConversations(currentUserId)
+                val response = apiClient.getUserConversations(userId)
                 
                 Log.d("ConversationHistory", "=== API CALL COMPLETED ===")
                 Log.d("ConversationHistory", "Response is null: ${response == null}")
@@ -393,64 +355,6 @@ class ConversationHistoryActivity : AppCompatActivity() {
         loadingView.visibility = View.GONE
     }
     
-    private fun setTestUserData() {
-        // For testing purposes - set the test user data
-        Log.d("ConversationHistory", "=== SETTING TEST USER DATA ===")
-        
-        try {
-            // Create a mock LoginResponse for the test user
-            val testUser = UserResponse(
-                userId = "f5db7d59-1df3-4b83-a066-bbb95d7a28a0", // From our test data
-                userType = "family",
-                fullName = "Sơn Đại Tài",
-                email = "sondaitai27@gmail.com",
-                phone = "0123456789",
-                dateOfBirth = null,
-                gender = null,
-                address = null,
-                createdAt = "",
-                isActive = true
-            )
-            
-            val testLoginResponse = LoginResponse(
-                success = true,
-                message = "Test login",
-                sessionToken = "test_token",
-                user = testUser
-            )
-            
-            Log.d("ConversationHistory", "Test user ID: ${testUser.userId}")
-            Log.d("ConversationHistory", "Test user name: ${testUser.fullName}")
-            
-            userPreferences.saveUserData(testLoginResponse)
-            
-            // Verify data was saved
-            val savedUserId = userPreferences.getUserId()
-            val savedIsLoggedIn = userPreferences.isLoggedIn()
-            Log.d("ConversationHistory", "After saving - User ID: '$savedUserId'")
-            Log.d("ConversationHistory", "After saving - Is logged in: $savedIsLoggedIn")
-            
-            Toast.makeText(this, "Đã thiết lập dữ liệu test. Đang tải lại...", Toast.LENGTH_SHORT).show()
-            
-            Log.d("ConversationHistory", "Test user data set successfully")
-            // Don't call loadConversations() here to avoid infinite recursion
-            // The caller will handle the retry logic
-        } catch (e: Exception) {
-            Log.e("ConversationHistory", "Error setting test user data", e)
-            showError("Lỗi thiết lập dữ liệu test: ${e.message}")
-        }
-    }
-    
-    override fun onSupportNavigateUp(): Boolean {
-        finish()
-        return true
-    }
-    
-    override fun onBackPressed() {
-        super.onBackPressed()
-        finish()
-    }
-    
     private fun showError(message: String) {
         Toast.makeText(this, message, Toast.LENGTH_LONG).show()
         // Show empty view on error if views are initialized
@@ -505,5 +409,18 @@ class ConversationHistoryActivity : AppCompatActivity() {
         super.onDestroy()
         // Cancel loading job to prevent memory leaks
         loadingJob?.cancel()
+        // Hủy đăng ký callback
+        globalConnectionManager.unregisterCallback(this)
+    }
+    
+    // Callback methods từ GlobalConnectionManager.ConnectionStateCallback
+    override fun onConnectionStateChanged(isConnected: Boolean) {
+        Log.d("ConversationHistoryActivity", "Connection state changed: $isConnected")
+        // ConversationHistoryActivity không cần xử lý connection state đặc biệt
+    }
+    
+    override fun onChatAvailabilityChanged(isChatAvailable: Boolean) {
+        Log.d("ConversationHistoryActivity", "Chat availability changed: $isChatAvailable")
+        // ConversationHistoryActivity không có chat UI nên không cần xử lý
     }
 } 

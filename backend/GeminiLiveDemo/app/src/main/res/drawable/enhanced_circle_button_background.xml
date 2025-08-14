@@ -2,18 +2,26 @@
 <selector xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:state_pressed="true">
         <shape android:shape="oval">
-            <solid android:color="#F5F5F5" />
+            <solid android:color="@color/primary_100" />
             <stroke
                 android:width="2dp"
-                android:color="#4A90E2" />
+                android:color="@color/primary_500" />
+        </shape>
+    </item>
+    <item android:state_focused="true">
+        <shape android:shape="oval">
+            <solid android:color="@color/primary_50" />
+            <stroke
+                android:width="2dp"
+                android:color="@color/primary_500" />
         </shape>
     </item>
     <item>
         <shape android:shape="oval">
-            <solid android:color="#FFFFFF" />
+            <solid android:color="@color/surface_primary" />
             <stroke
-                android:width="2dp"
-                android:color="#E3F2FD" />
+                android:width="1.5dp"
+                android:color="@color/border_primary" />
         </shape>
     </item>
 </selector>

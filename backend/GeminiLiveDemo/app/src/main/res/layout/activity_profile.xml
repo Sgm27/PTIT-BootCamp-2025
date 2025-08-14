@@ -90,7 +90,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_email"
-                        android:tint="#666666" />
+                        app:tint="#666666" />
 
                     <TextView
                         android:id="@+id/userEmail"
@@ -116,7 +116,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_phone"
-                        android:tint="#666666" />
+                        app:tint="#666666" />
 
                     <TextView
                         android:id="@+id/userPhone"
@@ -164,7 +164,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_edit_profile"
-                        android:tint="#4A90E2" />
+                        app:tint="#4A90E2" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -179,7 +179,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#CCCCCC" />
+                        app:tint="#CCCCCC" />
 
                 </LinearLayout>
 
@@ -208,7 +208,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_medical_history"
-                        android:tint="#4A90E2" />
+                        app:tint="#4A90E2" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -223,7 +223,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#CCCCCC" />
+                        app:tint="#CCCCCC" />
 
                 </LinearLayout>
 
@@ -250,7 +250,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/baseline_home_24"
-                        android:tint="#4A90E2" />
+                        app:tint="#4A90E2" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -265,7 +265,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#CCCCCC" />
+                        app:tint="#CCCCCC" />
 
                 </LinearLayout>
 
@@ -292,7 +292,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_theme"
-                        android:tint="#4A90E2" />
+                        app:tint="#4A90E2" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -316,7 +316,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#CCCCCC" />
+                        app:tint="#CCCCCC" />
 
                 </LinearLayout>
 
@@ -354,7 +354,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_help"
-                        android:tint="#4A90E2" />
+                        app:tint="#4A90E2" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -369,7 +369,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#CCCCCC" />
+                        app:tint="#CCCCCC" />
 
                 </LinearLayout>
 
@@ -396,7 +396,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_privacy"
-                        android:tint="#4A90E2" />
+                        app:tint="#4A90E2" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -411,7 +411,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#CCCCCC" />
+                        app:tint="#CCCCCC" />
 
                 </LinearLayout>
 
@@ -438,7 +438,7 @@
                         android:layout_width="24dp"
                         android:layout_height="24dp"
                         android:src="@drawable/ic_logout"
-                        android:tint="#E74C3C" />
+                        app:tint="#E74C3C" />
 
                     <TextView
                         android:layout_width="0dp"
@@ -453,7 +453,7 @@
                         android:layout_width="20dp"
                         android:layout_height="20dp"
                         android:src="@drawable/ic_arrow_right"
-                        android:tint="#CCCCCC" />
+                        app:tint="#CCCCCC" />
 
                 </LinearLayout>
 

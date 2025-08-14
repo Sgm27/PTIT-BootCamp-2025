@@ -16,6 +16,12 @@ interface ApiService {
     @GET("api/auth/profile/{user_id}")
     suspend fun getUserProfile(@Path("user_id") userId: String): Response<UserResponse>
     
+    @PUT("api/auth/profile/{user_id}")
+    suspend fun updateUserProfile(
+        @Path("user_id") userId: String,
+        @Body request: ProfileUpdateRequest
+    ): Response<ProfileUpdateResponse>
+    
     @POST("api/auth/create-relationship")
     suspend fun createFamilyRelationship(
         @Body request: CreateRelationshipRequest,

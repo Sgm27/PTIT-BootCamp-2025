@@ -9,11 +9,12 @@ import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.*
 import com.example.geminilivedemo.data.UserPreferences
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStateCallback {
     
     private lateinit var userPreferences: UserPreferences
+    private lateinit var globalConnectionManager: GlobalConnectionManager
 
-    // Managers
+    // Managers - sẽ được lấy từ GlobalConnectionManager
     private lateinit var audioManager: AudioManager
     private lateinit var webSocketManager: WebSocketManager
     private lateinit var cameraManager: CameraManager
@@ -27,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private var currentFrameB64: String? = null
     private var lastImageSendTime: Long = 0
     private var isBackgroundServiceRunning = false
+    private var isChatEnabled = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,6 +47,10 @@ class MainActivity : AppCompatActivity() {
         
         setContentView(R.layout.activity_main)
 
+        // Lấy GlobalConnectionManager từ Application
+        globalConnectionManager = (application as GeminiLiveApplication).getGlobalConnectionManager()
+        globalConnectionManager.registerCallback(this)
+        
         initializeManagers()
         setupCallbacks()
         
@@ -53,26 +59,27 @@ class MainActivity : AppCompatActivity() {
         // Start background listening service
         serviceManager.startListeningService()
         isBackgroundServiceRunning = true
+        globalConnectionManager.setBackgroundServiceRunning(isBackgroundServiceRunning)
         uiManager.setBackgroundServiceRunning(isBackgroundServiceRunning)
         
         // Pause service listening since app is in foreground
         serviceManager.pauseListeningService()
         
-        // Delay WebSocket connection to allow UI to fully initialize
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            Log.d("MainActivity", "Initiating WebSocket connection after UI setup")
-            webSocketManager.connect()
-        }, 1000) // 1 second delay
+        // GlobalConnectionManager sẽ tự động quản lý WebSocket connection
+        Log.d("MainActivity", "MainActivity initialized - GlobalConnectionManager will handle connection")
     }
     
     private fun initializeManagers() {
-        audioManager = AudioManager(this)
-        webSocketManager = WebSocketManager()
+        // Lấy managers từ GlobalConnectionManager
+        audioManager = globalConnectionManager.getAudioManager()!!
+        webSocketManager = globalConnectionManager.getWebSocketManager()!!
+        serviceManager = globalConnectionManager.getServiceManager()!!
+        voiceNotificationManager = globalConnectionManager.getVoiceNotificationManager()!!
+        
+        // Khởi tạo các managers local
         cameraManager = CameraManager(this)
         permissionHelper = PermissionHelper(this)
         uiManager = UIManager(this)
-        serviceManager = ServiceManager(this)
-        voiceNotificationManager = VoiceNotificationManager(this)
         voiceNotificationWebSocketManager = VoiceNotificationWebSocketManager(webSocketManager)
     }
     
@@ -419,55 +426,79 @@ class MainActivity : AppCompatActivity() {
     
     override fun onDestroy() {
         super.onDestroy()
-        audioManager.cleanup()
-        webSocketManager.disconnect()
-        voiceNotificationManager.cleanup()
-        // Resume background service when app is completely closed
-        if (isBackgroundServiceRunning) {
+        Log.d("MainActivity", "MainActivity being destroyed")
+        
+        // Hủy đăng ký callback
+        globalConnectionManager.unregisterCallback(this)
+        
+        // Cleanup local managers only
+        // cameraManager doesn't have cleanup method
+        
+        // GlobalConnectionManager sẽ tự quản lý cleanup khi cần thiết
+        // Chỉ resume background service nếu app thực sự đóng
+        if (isBackgroundServiceRunning && isFinishing) {
             serviceManager.resumeListeningService()
         }
     }
     
     override fun onPause() {
         super.onPause()
-        // App is going to background - pause our connection and resume service
-        Log.d("MainActivity", "App going to background - resuming service listening")
-        if (isBackgroundServiceRunning) {
-            serviceManager.resumeListeningService()
-            // Give service a moment to reconnect before we disconnect
-            Handler(Looper.getMainLooper()).postDelayed({
-                webSocketManager.disconnect()
-                Log.d("MainActivity", "App WebSocket disconnected after service reconnection")
-            }, 1000) // 1 second delay
-        } else {
-            // No background service, disconnect immediately
-            webSocketManager.disconnect()
-        }
+        Log.d("MainActivity", "MainActivity paused - GlobalConnectionManager will handle connection")
+        
+        // Disable chat UI khi pause
+        isChatEnabled = false
+        updateChatUI()
+        
+        // GlobalConnectionManager sẽ tự quyết định có disconnect hay không
+        // dựa trên việc có Activity nào khác đang active không
     }
     
     override fun onResume() {
         super.onResume()
-        // App is coming to foreground - pause service and resume our connection
-        Log.d("MainActivity", "App coming to foreground - pausing service listening")
+        Log.d("MainActivity", "MainActivity resumed - enabling chat")
+        
+        // Enable chat UI khi resume
+        isChatEnabled = true
+        updateChatUI()
+        
+        // Pause background service khi MainActivity active
         if (isBackgroundServiceRunning) {
             serviceManager.pauseListeningService()
-            // Give service a moment to pause and disconnect before we reconnect
-            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                if (!webSocketManager.isConnected()) {
-                    Log.d("MainActivity", "Reconnecting WebSocket after service pause")
-                    webSocketManager.connect()
-                } else {
-                    Log.d("MainActivity", "WebSocket already connected")
-                }
-            }, 800) // Slightly longer delay for stability
-        } else {
-            // No background service, connect if not already connected
-            if (!webSocketManager.isConnected()) {
-                Log.d("MainActivity", "Connecting WebSocket (no background service)")
-                webSocketManager.connect()
+        }
+        
+        // Update UI to reflect current service status
+        uiManager.setBackgroundServiceRunning(isBackgroundServiceRunning)
+        
+        // GlobalConnectionManager sẽ tự động đảm bảo connection
+    }
+    
+    // Callback methods từ GlobalConnectionManager.ConnectionStateCallback
+    override fun onConnectionStateChanged(isConnected: Boolean) {
+        Log.d("MainActivity", "Connection state changed: $isConnected")
+        runOnUiThread {
+            // Cập nhật UI dựa trên trạng thái connection
+            uiManager.updateConnectionStatus(isConnected)
+        }
+    }
+    
+    override fun onChatAvailabilityChanged(isChatAvailable: Boolean) {
+        Log.d("MainActivity", "Chat availability changed: $isChatAvailable")
+        runOnUiThread {
+            isChatEnabled = isChatAvailable
+            updateChatUI()
+        }
+    }
+    
+    private fun updateChatUI() {
+        // Cập nhật UI để enable/disable chat controls
+        uiManager.setChatEnabled(isChatEnabled)
+        
+        if (!isChatEnabled) {
+            Log.d("MainActivity", "Chat disabled - stopping any ongoing recording")
+            // Dừng recording nếu đang recording
+            if (audioManager.isRecording()) {
+                audioManager.stopAudioInput()
             }
         }
-        // Update UI to reflect current service status when returning to app
-        uiManager.setBackgroundServiceRunning(isBackgroundServiceRunning)
     }
 }

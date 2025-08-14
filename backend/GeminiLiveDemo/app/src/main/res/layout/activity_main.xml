@@ -10,12 +10,12 @@
     <!-- Profile Button - Top Left -->
     <FrameLayout
         android:id="@+id/profileButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginTop="16dp"
-                    android:layout_marginLeft="16dp"
+        android:layout_width="@dimen/icon_size_xl"
+        android:layout_height="@dimen/icon_size_xl"
+        android:layout_marginTop="@dimen/spacing_md"
+        android:layout_marginStart="@dimen/spacing_md"
         android:background="@drawable/enhanced_circle_button_background"
-        android:elevation="4dp"
+        android:elevation="@dimen/elevation_md"
         android:clickable="true"
         android:focusable="true"
         android:foreground="?android:attr/selectableItemBackgroundBorderless"
@@ -23,11 +23,11 @@
         app:layout_constraintStart_toStartOf="parent">
 
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="@dimen/icon_size_md"
+            android:layout_height="@dimen/icon_size_md"
             android:layout_gravity="center"
             android:src="@drawable/ic_edit_profile"
-            android:tint="#4A90E2"
+            app:tint="@color/primary_500"
             android:contentDescription="Profile" />
 
     </FrameLayout>
@@ -35,11 +35,11 @@
     <!-- History Button - Top Center -->
     <FrameLayout
         android:id="@+id/historyButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginTop="16dp"
+        android:layout_width="@dimen/icon_size_xl"
+        android:layout_height="@dimen/icon_size_xl"
+        android:layout_marginTop="@dimen/spacing_md"
         android:background="@drawable/enhanced_circle_button_background"
-        android:elevation="4dp"
+        android:elevation="@dimen/elevation_md"
         android:clickable="true"
         android:focusable="true"
         android:foreground="?android:attr/selectableItemBackgroundBorderless"
@@ -48,11 +48,11 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="@dimen/icon_size_md"
+            android:layout_height="@dimen/icon_size_md"
             android:layout_gravity="center"
             android:src="@drawable/baseline_history_24"
-            android:tint="#4A90E2"
+            app:tint="@color/primary_500"
             android:contentDescription="Conversation History" />
 
     </FrameLayout>
@@ -60,12 +60,12 @@
     <!-- Notification Button - Top Right -->
     <FrameLayout
         android:id="@+id/notificationButton"
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
+        android:layout_width="@dimen/icon_size_xl"
+        android:layout_height="@dimen/icon_size_xl"
+        android:layout_marginTop="@dimen/spacing_md"
+        android:layout_marginEnd="@dimen/spacing_md"
         android:background="@drawable/enhanced_circle_button_background"
-        android:elevation="4dp"
+        android:elevation="@dimen/elevation_md"
         android:clickable="true"
         android:focusable="true"
         android:foreground="?android:attr/selectableItemBackgroundBorderless"
@@ -73,23 +73,22 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="@dimen/icon_size_md"
+            android:layout_height="@dimen/icon_size_md"
             android:layout_gravity="center"
             android:src="@drawable/baseline_notifications_24"
-            android:tint="#4A90E2"
+            app:tint="@color/primary_500"
             android:contentDescription="Notifications" />
 
     </FrameLayout>
-
 
     <!-- Avatar Container -->
     <FrameLayout
         android:id="@+id/avatarContainer"
         android:layout_width="280dp"
         android:layout_height="320dp"
-        android:layout_marginTop="56dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginTop="@dimen/spacing_xl"
+        android:layout_marginBottom="@dimen/spacing_md"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
@@ -102,20 +101,21 @@
             android:layout_height="match_parent"
             android:scaleType="centerCrop"
             android:background="@drawable/enhanced_avatar_placeholder"
-            android:elevation="2dp"
+            android:elevation="@dimen/elevation_sm"
             android:contentDescription="Avatar" />
 
         <!-- Status Indicator (overlay on avatar) -->
         <ImageView
             android:id="@+id/statusIndicator"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
+            android:layout_width="@dimen/icon_size_xl"
+            android:layout_height="@dimen/icon_size_xl"
             android:layout_gravity="bottom|center_horizontal"
-            android:layout_marginBottom="20dp"
+            android:layout_marginBottom="@dimen/spacing_lg"
             android:src="@drawable/baseline_equalizer_24"
             android:background="@drawable/enhanced_circle_background"
-            android:padding="12dp"
-            android:elevation="4dp"
+            android:padding="@dimen/spacing_sm"
+            android:elevation="@dimen/elevation_md"
+            app:tint="@color/primary_500"
             android:contentDescription="Status" />
 
     </FrameLayout>
@@ -127,9 +127,9 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:gravity="center"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginStart="@dimen/spacing_lg"
+        android:layout_marginEnd="@dimen/spacing_lg"
+        android:layout_marginBottom="@dimen/spacing_md"
         app:layout_constraintBottom_toTopOf="@id/backgroundServiceControls"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -141,7 +141,7 @@
         android:id="@+id/chatLogContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:layout_margin="16dp"
+        android:layout_margin="@dimen/spacing_md"
         android:visibility="gone"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
@@ -153,9 +153,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/chat_background"
-            android:padding="16dp"
-            android:textSize="14sp"
-            android:textColor="#2D3748"
+            android:padding="@dimen/padding_component_large"
+            android:textSize="@dimen/text_body_sm"
+            android:textColor="@color/text_primary"
             android:scrollbars="vertical" />
 
     </ScrollView>
@@ -167,10 +167,10 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:paddingTop="20dp"
-        android:paddingBottom="8dp"
+        android:paddingStart="@dimen/spacing_lg"
+        android:paddingEnd="@dimen/spacing_lg"
+        android:paddingTop="@dimen/spacing_lg"
+        android:paddingBottom="@dimen/spacing_sm"
         android:background="@drawable/bottom_nav_background"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -179,21 +179,21 @@
         <!-- Home Button -->
         <FrameLayout
             android:id="@+id/homeButton"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginEnd="24dp"
+            android:layout_width="@dimen/button_height_large"
+            android:layout_height="@dimen/button_height_large"
+            android:layout_marginEnd="@dimen/spacing_lg"
             android:background="@drawable/enhanced_circle_button_background"
-            android:elevation="4dp"
+            android:elevation="@dimen/elevation_md"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="@dimen/icon_size_md"
+                android:layout_height="@dimen/icon_size_md"
                 android:layout_gravity="center"
                 android:src="@drawable/baseline_home_24"
-                android:tint="#4A90E2"
+                app:tint="@color/primary_500"
                 android:contentDescription="Home" />
 
         </FrameLayout>
@@ -204,17 +204,17 @@
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:background="@drawable/enhanced_large_circle_button_background"
-            android:elevation="6dp"
+            android:elevation="@dimen/elevation_lg"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="@dimen/icon_size_lg"
+                android:layout_height="@dimen/icon_size_lg"
                 android:layout_gravity="center"
                 android:src="@drawable/baseline_qr_code_scanner_24"
-                android:tint="#FFFFFF"
+                app:tint="@color/white"
                 android:contentDescription="Camera/QR Scanner" />
 
         </FrameLayout>
@@ -222,22 +222,22 @@
         <!-- Mic Button -->
         <FrameLayout
             android:id="@+id/micButton"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginStart="24dp"
+            android:layout_width="@dimen/button_height_large"
+            android:layout_height="@dimen/button_height_large"
+            android:layout_marginStart="@dimen/spacing_lg"
             android:background="@drawable/enhanced_circle_button_background"
-            android:elevation="4dp"
+            android:elevation="@dimen/elevation_md"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
                 android:id="@+id/micIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="@dimen/icon_size_md"
+                android:layout_height="@dimen/icon_size_md"
                 android:layout_gravity="center"
                 android:src="@drawable/baseline_mic_24"
-                android:tint="#4A90E2"
+                app:tint="@color/primary_500"
                 android:contentDescription="Microphone" />
 
         </FrameLayout>
@@ -249,9 +249,9 @@
         android:id="@+id/backgroundServiceControls"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="24dp"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginStart="@dimen/spacing_lg"
+        android:layout_marginEnd="@dimen/spacing_lg"
+        android:layout_marginBottom="@dimen/spacing_md"
         android:orientation="horizontal"
         android:gravity="center"
         app:layout_constraintBottom_toTopOf="@id/bottomNavigation"
@@ -260,22 +260,22 @@
 
         <FrameLayout
             android:id="@+id/backgroundServiceButton"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_marginEnd="16dp"
+            android:layout_width="@dimen/icon_size_xl"
+            android:layout_height="@dimen/icon_size_xl"
+            android:layout_marginEnd="@dimen/spacing_md"
             android:background="@drawable/enhanced_circle_button_background"
-            android:elevation="4dp"
+            android:elevation="@dimen/elevation_md"
             android:clickable="true"
             android:focusable="true"
             android:foreground="?android:attr/selectableItemBackgroundBorderless">
 
             <ImageView
                 android:id="@+id/backgroundServiceIcon"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="@dimen/icon_size_md"
+                android:layout_height="@dimen/icon_size_md"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_mic"
-                android:tint="#4A90E2"
+                app:tint="@color/primary_500"
                 android:contentDescription="Background Service" />
 
         </FrameLayout>
@@ -286,8 +286,8 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Background Listening: OFF"
-            android:textColor="#FFFFFF"
-            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:textSize="@dimen/text_body_sm"
             android:gravity="center_vertical" />
 
     </LinearLayout>

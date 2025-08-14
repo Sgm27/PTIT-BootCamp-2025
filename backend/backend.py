@@ -22,7 +22,8 @@ from models.api_models import (
     MedicineScanRequest, TextExtractRequest, HealthResponse,
     ConversationCreateRequest, ConversationListResponse, ConversationDetailResponse,
     MessageCreateRequest, MemoirListResponse, MemoirDetailResponse,
-    MemoirSearchRequest, MemoirExportRequest, UserStatsResponse
+    MemoirSearchRequest, MemoirExportRequest, UserStatsResponse,
+    ProfileUpdateRequest
 )
 
 # Import services
@@ -92,6 +93,30 @@ if AUTH_ENDPOINTS_AVAILABLE:
     add_auth_endpoints(app)
     logger.info("Authentication endpoints loaded")
 
+# Add daily memoir endpoints
+try:
+    from api_services.daily_memoir_api import add_daily_memoir_endpoints
+    add_daily_memoir_endpoints(app)
+    logger.info("Daily memoir API endpoints loaded")
+except ImportError as e:
+    logger.warning(f"Daily memoir API endpoints not available: {e}")
+
+# Startup event to initialize async services
+@app.on_event("startup")
+async def startup_event():
+    """Initialize async services on startup"""
+    try:
+        # Start daily memoir scheduler in async context
+        from services.daily_memoir_scheduler import daily_memoir_scheduler
+        if hasattr(daily_memoir_scheduler, 'start_scheduler_async'):
+            success = await daily_memoir_scheduler.start_scheduler_async()
+            if success:
+                logger.info("✅ Daily memoir scheduler started successfully in async context")
+            else:
+                logger.warning("❌ Failed to start daily memoir scheduler in async context")
+    except Exception as e:
+        logger.error(f"Error starting async services: {e}")
+
 # API Routes
 @app.get("/")
 async def root():
@@ -105,19 +130,49 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {
-        "status": "healthy", 
-        "timestamp": datetime.datetime.now().isoformat(),
-        "services": {
-            "medicine_service": "active",
-            "text_extraction_service": "active",
-            "gemini_service": "active",
-            "notification_voice_service": "active",
-            "memoir_extraction_service": "active",
-            "database_services": "active" if DATABASE_SERVICES_AVAILABLE else "disabled"
+    """Health check endpoint"""
+    try:
+        # Get WebSocket connection stats
+        ws_stats = websocket_manager.get_connection_stats()
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "websocket_connections": ws_stats,
+            "database_available": DATABASE_SERVICES_AVAILABLE,
+            "services": {
+                "gemini_service": True,
+                "medicine_service": True,
+                "notification_service": True,
+                "memoir_service": True
+            }
         }
-    }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+
+@app.get("/api/websocket/status")
+async def websocket_status():
+    """Get WebSocket connection status"""
+    try:
+        # Cleanup dead connections first
+        cleaned_count = await websocket_manager.cleanup_dead_connections()
+        
+        return {
+            "success": True,
+            "data": {
+                "active_connections": websocket_manager.get_connection_count(),
+                "cleaned_connections": cleaned_count,
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting WebSocket status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ====== CONVERSATION API ENDPOINTS ======
 
@@ -317,17 +372,17 @@ async def get_user_memoirs(user_id: str, limit: int = 50, offset: int = 0, order
         memoir_list = []
         for memoir in memoirs:
             memoir_list.append({
-                "id": str(memoir.id),
-                "title": memoir.title,
-                "content": memoir.content,
-                "date_of_memory": memoir.date_of_memory.isoformat() if memoir.date_of_memory else None,
-                "extracted_at": memoir.extracted_at.isoformat(),
-                "categories": memoir.categories or [],
-                "people_mentioned": memoir.people_mentioned or [],
-                "places_mentioned": memoir.places_mentioned or [],
-                "time_period": memoir.time_period,
-                "emotional_tone": memoir.emotional_tone,
-                "importance_score": memoir.importance_score
+                "id": memoir["id"],
+                "title": memoir["title"],
+                "content": memoir["content"],
+                "date_of_memory": memoir["date_of_memory"],
+                "extracted_at": memoir["extracted_at"],
+                "categories": memoir["categories"] or [],
+                "people_mentioned": memoir["people_mentioned"] or [],
+                "places_mentioned": memoir["places_mentioned"] or [],
+                "time_period": memoir["time_period"],
+                "emotional_tone": memoir["emotional_tone"],
+                "importance_score": memoir["importance_score"]
             })
         
         return MemoirListResponse(
@@ -354,22 +409,22 @@ async def get_memoir_detail(user_id: str, memoir_id: str):
             raise HTTPException(status_code=404, detail="Memoir not found")
             
         # Check if memoir belongs to user
-        if str(memoir.user_id) != user_id:
+        if str(memoir["user_id"]) != user_id:
             raise HTTPException(status_code=403, detail="Access denied")
         
         memoir_data = {
-            "id": str(memoir.id),
-            "title": memoir.title,
-            "content": memoir.content,
-            "date_of_memory": memoir.date_of_memory.isoformat() if memoir.date_of_memory else None,
-            "extracted_at": memoir.extracted_at.isoformat(),
-            "categories": memoir.categories or [],
-            "people_mentioned": memoir.people_mentioned or [],
-            "places_mentioned": memoir.places_mentioned or [],
-            "time_period": memoir.time_period,
-            "emotional_tone": memoir.emotional_tone,
-            "importance_score": memoir.importance_score,
-            "conversation_id": str(memoir.conversation_id) if memoir.conversation_id else None
+            "id": memoir["id"],
+            "title": memoir["title"],
+            "content": memoir["content"],
+            "date_of_memory": memoir["date_of_memory"],
+            "extracted_at": memoir["extracted_at"],
+            "categories": memoir["categories"] or [],
+            "people_mentioned": memoir["people_mentioned"] or [],
+            "places_mentioned": memoir["places_mentioned"] or [],
+            "time_period": memoir["time_period"],
+            "emotional_tone": memoir["emotional_tone"],
+            "importance_score": memoir["importance_score"],
+            "conversation_id": memoir["conversation_id"]
         }
         
         return MemoirDetailResponse(memoir=memoir_data)
@@ -399,15 +454,15 @@ async def search_memoirs(user_id: str, request: MemoirSearchRequest):
         memoir_list = []
         for memoir in memoirs:
             memoir_list.append({
-                "id": str(memoir.id),
-                "title": memoir.title,
-                "content": memoir.content[:200] + "..." if len(memoir.content) > 200 else memoir.content,
-                "date_of_memory": memoir.date_of_memory.isoformat() if memoir.date_of_memory else None,
-                "extracted_at": memoir.extracted_at.isoformat(),
-                "categories": memoir.categories or [],
-                "time_period": memoir.time_period,
-                "emotional_tone": memoir.emotional_tone,
-                "importance_score": memoir.importance_score
+                "id": memoir["id"],
+                "title": memoir["title"],
+                "content": memoir["content"][:200] + "..." if len(memoir["content"]) > 200 else memoir["content"],
+                "date_of_memory": memoir["date_of_memory"],
+                "extracted_at": memoir["extracted_at"],
+                "categories": memoir["categories"] or [],
+                "time_period": memoir["time_period"],
+                "emotional_tone": memoir["emotional_tone"],
+                "importance_score": memoir["importance_score"]
             })
         
         return {
@@ -462,6 +517,74 @@ async def get_memoir_timeline(user_id: str):
         }
     except Exception as e:
         logger.error(f"Error getting memoir timeline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/stats")
+async def get_memoir_stats(user_id: str):
+    """Get memoir statistics for a user"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        stats = await memoir_db_service.get_memoir_stats(user_id)
+        
+        return {
+            "success": True,
+            "memoir_stats": stats
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/categories")
+async def get_memoir_categories(user_id: str):
+    """Get all categories used in user's memoirs"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        categories = await memoir_db_service.get_memoir_categories(user_id)
+        
+        return {
+            "success": True,
+            "categories": categories
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir categories: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/people")
+async def get_memoir_people(user_id: str):
+    """Get all people mentioned in user's memoirs"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        people = await memoir_db_service.get_memoir_people(user_id)
+        
+        return {
+            "success": True,
+            "people": people
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir people: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/places")
+async def get_memoir_places(user_id: str):
+    """Get all places mentioned in user's memoirs"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        places = await memoir_db_service.get_memoir_places(user_id)
+        
+        return {
+            "success": True,
+            "places": places
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir places: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/users/{user_id}/stats", response_model=UserStatsResponse)

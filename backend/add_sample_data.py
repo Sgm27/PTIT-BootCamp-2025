@@ -25,7 +25,7 @@ def add_sample_data():
             if not user:
                 # Create user if doesn't exist - using available enum value
                 user = User(
-                    user_type=UserType.FAMILY_MEMBER,  # Use FAMILY_MEMBER instead
+                    user_type=UserType.FAMILY_MEMBER.value,  # Use FAMILY_MEMBER value instead
                     email="sondaitai27@gmail.com",
                     full_name="Sơn Đại Tài",
                     phone="0123456789",

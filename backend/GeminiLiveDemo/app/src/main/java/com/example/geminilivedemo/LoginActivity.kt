@@ -4,25 +4,22 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
-import android.widget.*
+import android.widget.EditText
+import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.example.geminilivedemo.data.*
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.util.concurrent.TimeUnit
 
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var userPreferences: UserPreferences
     private lateinit var identifierEditText: EditText
     private lateinit var passwordEditText: EditText
-    private lateinit var loginButton: Button
-    private lateinit var registerButton: Button
-    private lateinit var progressBar: ProgressBar
+    private lateinit var loginButton: com.google.android.material.button.MaterialButton
+    private lateinit var registerLink: TextView
     private lateinit var errorTextView: TextView
-    private lateinit var forgotPasswordTextView: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,10 +41,8 @@ class LoginActivity : AppCompatActivity() {
         identifierEditText = findViewById(R.id.identifierEditText)
         passwordEditText = findViewById(R.id.passwordEditText)
         loginButton = findViewById(R.id.loginButton)
-        registerButton = findViewById(R.id.registerButton)
-        progressBar = findViewById(R.id.progressBar)
+        registerLink = findViewById(R.id.registerLink)
         errorTextView = findViewById(R.id.errorTextView)
-        forgotPasswordTextView = findViewById(R.id.forgotPasswordTextView)
     }
 
     private fun setupClickListeners() {
@@ -55,14 +50,9 @@ class LoginActivity : AppCompatActivity() {
             attemptLogin()
         }
 
-        registerButton.setOnClickListener {
+        registerLink.setOnClickListener {
             val intent = Intent(this, RegisterActivity::class.java)
             startActivity(intent)
-        }
-
-        forgotPasswordTextView.setOnClickListener {
-            // Debug: Test server connectivity
-            testServerConnectivity()
         }
     }
 
@@ -150,9 +140,8 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun setLoadingState(isLoading: Boolean) {
-        progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
         loginButton.isEnabled = !isLoading
-        registerButton.isEnabled = !isLoading
+        registerLink.isEnabled = !isLoading
         identifierEditText.isEnabled = !isLoading
         passwordEditText.isEnabled = !isLoading
         
@@ -171,41 +160,7 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun testServerConnectivity() {
-        lifecycleScope.launch {
-            try {
-                showError("Testing server connectivity...")
-                Log.d("LoginActivity", "Testing connectivity to backend server...")
-                
-                // Try to call a simple endpoint
-                val testUrl = "https://backend-bootcamp.sonktx.online/health"
-                Log.d("LoginActivity", "Testing URL: $testUrl")
-                
-                val client = OkHttpClient.Builder()
-                    .connectTimeout(10, TimeUnit.SECONDS)
-                    .readTimeout(10, TimeUnit.SECONDS)
-                    .build()
-                
-                val request = Request.Builder()
-                    .url(testUrl)
-                    .build()
-                
-                val response = client.newCall(request).execute()
-                
-                if (response.isSuccessful) {
-                    val body = response.body?.string()
-                    Log.d("LoginActivity", "Server response: $body")
-                    showError("✅ Server connected! Response: ${response.code}")
-                } else {
-                    showError("❌ Server responded with: ${response.code}")
-                }
-                
-            } catch (e: Exception) {
-                Log.e("LoginActivity", "Connectivity test failed", e)
-                showError("❌ Connection failed: ${e.message}")
-            }
-        }
-    }
+
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {

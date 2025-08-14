@@ -63,7 +63,7 @@ class UserService:
                 
                 # Create user
                 user_data = {
-                    'user_type': user_type,
+                    'user_type': user_type.value,  # Convert enum to string value
                     'full_name': full_name,
                     'email': email,
                     'phone': phone,
@@ -124,7 +124,26 @@ class UserService:
                     joinedload(User.elderly_profiles),
                     joinedload(User.family_profiles)
                 ).filter(User.id == user_id).first()
-                return user
+                
+                if user:
+                    # Create a detached copy to avoid session issues
+                    detached_user = User(
+                        id=user.id,
+                        user_type=user.user_type,
+                        full_name=user.full_name,
+                        email=user.email,
+                        phone=user.phone,
+                        date_of_birth=user.date_of_birth,
+                        gender=user.gender,
+                        address=user.address,
+                        password_hash=user.password_hash,
+                        created_at=user.created_at,
+                        updated_at=user.updated_at,
+                        is_active=user.is_active,
+                        last_login=user.last_login
+                    )
+                    return detached_user
+                return None
         except Exception as e:
             self.logger.error(f"Failed to get user {user_id}: {e}")
             return None
@@ -200,6 +219,78 @@ class UserService:
         except Exception as e:
             self.logger.error(f"Failed to update user {user_id}: {e}")
             return False
+    
+    def update_user_profile(
+        self,
+        user_id: str,
+        full_name: str,
+        email: str,
+        phone: str,
+        address: str,
+        date_of_birth: Optional[str] = None,
+        gender: Optional[str] = None
+    ) -> Optional[User]:
+        """Update user profile information from Android app"""
+        try:
+            with get_db() as db:
+                user = db.query(User).filter(User.id == user_id).first()
+                if not user:
+                    return None
+                
+                # Check for email/phone conflicts with other users
+                if email != user.email or phone != user.phone:
+                    existing = db.query(User).filter(
+                        and_(
+                            User.id != user_id,
+                            or_(User.email == email, User.phone == phone)
+                        )
+                    ).first()
+                    if existing:
+                        raise ValueError("Email or phone already exists for another user")
+                
+                # Update user information
+                user.full_name = full_name
+                user.email = email
+                user.phone = phone
+                user.address = address
+                user.gender = gender
+                
+                # Parse date_of_birth if provided
+                if date_of_birth:
+                    try:
+                        user.date_of_birth = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
+                    except ValueError:
+                        self.logger.warning(f"Invalid date format for user {user_id}: {date_of_birth}")
+                
+                user.updated_at = datetime.utcnow()
+                db.commit()
+                
+                self.logger.info(f"Updated profile for user {user_id}")
+                
+                # Create a detached copy to avoid session issues
+                detached_user = User(
+                    id=user.id,
+                    user_type=user.user_type,
+                    full_name=user.full_name,
+                    email=user.email,
+                    phone=user.phone,
+                    date_of_birth=user.date_of_birth,
+                    gender=user.gender,
+                    address=user.address,
+                    password_hash=user.password_hash,
+                    created_at=user.created_at,
+                    updated_at=user.updated_at,
+                    is_active=user.is_active,
+                    last_login=user.last_login
+                )
+                return detached_user
+                
+        except ValueError as e:
+            self.logger.error(f"Validation error updating profile {user_id}: {e}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Failed to update profile {user_id}: {e}")
+            return None
     
     def deactivate_user(self, user_id: str) -> bool:
         """Deactivate user account"""
@@ -303,11 +394,11 @@ class UserService:
             with get_db() as db:
                 # Verify both users exist and have correct types
                 elderly_user = db.query(User).filter(
-                    and_(User.id == elderly_user_id, User.user_type == UserType.ELDERLY)
+                    and_(User.id == elderly_user_id, User.user_type == UserType.ELDERLY.value)
                 ).first()
                 
                 family_user = db.query(User).filter(
-                    and_(User.id == family_member_id, User.user_type == UserType.FAMILY_MEMBER)
+                    and_(User.id == family_member_id, User.user_type == UserType.FAMILY_MEMBER.value)
                 ).first()
                 
                 if not elderly_user or not family_user:

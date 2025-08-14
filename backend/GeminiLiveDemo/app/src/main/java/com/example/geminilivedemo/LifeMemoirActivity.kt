@@ -6,6 +6,7 @@ import android.util.Log
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -20,7 +21,7 @@ class LifeMemoirActivity : AppCompatActivity() {
     private lateinit var apiClient: ApiClient
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MemoirAdapter
-    private lateinit var emptyView: TextView
+    private lateinit var emptyView: LinearLayout
     private lateinit var statsView: TextView
     
     private val memoirs = mutableListOf<Map<String, Any>>()
@@ -37,8 +38,10 @@ class LifeMemoirActivity : AppCompatActivity() {
         setupUI()
         setupRecyclerView()
         
-        // Load memoirs
+        // Load memoirs first (this is the main functionality)
         loadMemoirs()
+        
+        // Load stats in background (optional, won't crash if it fails)
         loadMemoirStats()
     }
     
@@ -147,6 +150,7 @@ class LifeMemoirActivity : AppCompatActivity() {
                     emptyView.visibility = View.VISIBLE
                 }
             }
+
         }
     }
     
@@ -159,6 +163,7 @@ class LifeMemoirActivity : AppCompatActivity() {
         
         Log.d("LifeMemoir", "Loading memoir stats for user: $userId")
         
+        // Load stats in background without blocking the main functionality
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val response = apiClient.getUserStats(userId)
@@ -177,6 +182,8 @@ class LifeMemoirActivity : AppCompatActivity() {
                             Log.d("LifeMemoir", "Stats loaded: $totalMemoirs memoirs, $categoriesCount categories")
                         } else {
                             Log.e("LifeMemoir", "Memoir stats is null")
+                            // Hide stats view if no data
+                            statsView.visibility = View.GONE
                         }
                     } else {
                         Log.d("LifeMemoir", "No memoir stats in response")
@@ -187,8 +194,9 @@ class LifeMemoirActivity : AppCompatActivity() {
                 
             } catch (e: Exception) {
                 Log.e("LifeMemoir", "Error loading memoir stats", e)
+                // Don't show error toast for stats - it's optional functionality
                 withContext(Dispatchers.Main) {
-                    // Hide stats view on error
+                    // Hide stats view on error - this won't crash the app
                     statsView.visibility = View.GONE
                 }
             }
@@ -205,4 +213,5 @@ class LifeMemoirActivity : AppCompatActivity() {
         // Refresh memoirs when returning from detail view
         loadMemoirs()
     }
+} 
 } 

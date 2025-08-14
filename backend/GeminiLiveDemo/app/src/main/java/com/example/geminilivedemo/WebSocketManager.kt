@@ -22,13 +22,14 @@ class WebSocketManager {
     private var webSocket: WebSocketClient? = null
     private var isConnected = false
     private var shouldReconnect = true
-    private val maxReconnectAttempts = 8
+    private val maxReconnectAttempts = 15  // Tăng từ 8 cho stability
     private var reconnectAttempts = 0
     private var isConnecting = false
-    private val baseRetryDelay = 1000L // 1 second base delay
+    private val baseRetryDelay = 2000L // 2 seconds base delay (tăng từ 1s)
+    private val maxRetryDelay = 60000L // Max 60 seconds
 
-    // Heartbeat/keep-alive configuration
-    private val heartbeatInterval = 5000L // 5 seconds
+    // Heartbeat/keep-alive configuration - Sync với backend
+    private val heartbeatInterval = 30000L // 30 seconds (sync với backend)
     private val heartbeatHandler = Handler(Looper.getMainLooper())
     private val heartbeatRunnable = object : Runnable {
         override fun run() {
@@ -82,10 +83,14 @@ class WebSocketManager {
                     sendInitialSetupMessage()
                     // Start heartbeat to keep connection alive
                     startHeartbeat()
+                    // Start health check monitoring
+                    startHealthCheck()
+                    lastMessageTime = System.currentTimeMillis()
                 }
 
                 override fun onMessage(message: String?) {
                     Log.d("WebSocketManager", "Message Received: $message")
+                    lastMessageTime = System.currentTimeMillis() // Update last message time
                     receiveMessage(message)
                 }
 
@@ -97,15 +102,16 @@ class WebSocketManager {
                     
                     // Stop heartbeat when connection closes
                     stopHeartbeat()
+                    // Stop health check when connection closes
+                    stopHealthCheck()
 
                     // Only auto-reconnect if shouldReconnect is true, within retry limit, and not a normal close
                     if (shouldReconnect && reconnectAttempts < maxReconnectAttempts && code != 1000) {
                         reconnectAttempts++
                         
                         // Exponential backoff with jitter to avoid thundering herd
-                        val delay = baseRetryDelay * (1L shl (reconnectAttempts - 1)) + (Math.random() * 1000).toLong()
-                        val maxDelay = 30000L // Maximum 30 seconds
-                        val actualDelay = minOf(delay, maxDelay)
+                        val delay = baseRetryDelay * (1L shl (reconnectAttempts - 1)) + (Math.random() * 2000).toLong()
+                        val actualDelay = minOf(delay, maxRetryDelay)
                         
                         Log.d("WebSocketManager", "Attempting reconnection $reconnectAttempts/$maxReconnectAttempts in ${actualDelay}ms (code: $code)")
                         
@@ -128,12 +134,35 @@ class WebSocketManager {
                     Log.e("WebSocketManager", "WebSocket Error: ${ex?.message}", ex)
                     isConnected = false
                     isConnecting = false
-                    callback?.onError(ex)
+                    
+                    // Phân loại lỗi để xử lý phù hợp
+                    when (ex) {
+                        is java.net.SocketTimeoutException -> {
+                            Log.w("WebSocketManager", "Connection timeout, will retry")
+                            callback?.onError(ex)
+                        }
+                        is java.net.ConnectException -> {
+                            Log.w("WebSocketManager", "Connection refused, will retry")
+                            callback?.onError(ex)
+                        }
+                        is javax.net.ssl.SSLException -> {
+                            Log.e("WebSocketManager", "SSL error, check certificate", ex)
+                            callback?.onError(ex)
+                        }
+                        is java.net.UnknownHostException -> {
+                            Log.e("WebSocketManager", "Unknown host, check URL", ex)
+                            callback?.onError(ex)
+                        }
+                        else -> {
+                            Log.e("WebSocketManager", "Unknown error", ex)
+                            callback?.onError(ex)
+                        }
+                    }
                 }
             }
             
-            // Set connection timeout
-            webSocket?.connectionLostTimeout = 60 // 60 seconds timeout to reduce false disconnects
+            // Set connection timeout - Tăng cho stability
+            webSocket?.connectionLostTimeout = 120 // 120 seconds timeout (tăng từ 60s)
             webSocket?.connect()
             
         } catch (e: Exception) {
@@ -351,5 +380,76 @@ class WebSocketManager {
         } else {
             Log.w("WebSocketManager", "Cannot send raw message - WebSocket not connected")
         }
+    }
+    
+    // Pause connection - giữ connection nhưng không xử lý messages
+    private var isPaused = false
+    
+    // Connection health monitoring
+    private var lastMessageTime = 0L
+    private val healthCheckInterval = 60000L // 1 phút
+    private val healthCheckHandler = Handler(Looper.getMainLooper())
+    private val healthCheckRunnable = object : Runnable {
+        override fun run() {
+            if (isConnected && System.currentTimeMillis() - lastMessageTime > healthCheckInterval) {
+                Log.w("WebSocketManager", "No messages received for 1 minute, checking connection")
+                sendHealthCheckPing()
+            }
+            healthCheckHandler.postDelayed(this, healthCheckInterval)
+        }
+    }
+    
+    private fun sendHealthCheckPing() {
+        try {
+            val pingPayload = JSONObject().put("type", "ping")
+            webSocket?.send(pingPayload.toString())
+            Log.d("WebSocketManager", "Sent health check ping")
+        } catch (e: Exception) {
+            Log.e("WebSocketManager", "Health check ping failed", e)
+            // Trigger reconnection if ping fails
+            if (shouldReconnect && !isConnecting) {
+                Log.d("WebSocketManager", "Triggering reconnection due to health check failure")
+                reconnectAttempts = 0 // Reset attempts
+                connectWebSocket()
+            }
+        }
+    }
+    
+    private fun startHealthCheck() {
+        healthCheckHandler.removeCallbacksAndMessages(null)
+        healthCheckHandler.postDelayed(healthCheckRunnable, healthCheckInterval)
+    }
+    
+    private fun stopHealthCheck() {
+        healthCheckHandler.removeCallbacksAndMessages(null)
+    }
+    
+    fun pause() {
+        Log.d("WebSocketManager", "Pausing WebSocket - keeping connection alive")
+        isPaused = true
+        // Dừng heartbeat để tiết kiệm bandwidth
+        stopHeartbeat()
+    }
+    
+    fun resume() {
+        Log.d("WebSocketManager", "Resuming WebSocket")
+        isPaused = false
+        // Khởi động lại heartbeat
+        if (isConnected) {
+            startHeartbeat()
+        }
+    }
+    
+    fun isPaused(): Boolean = isPaused
+    
+    // Override sendVoiceMessage để check pause state
+    private val originalSendVoiceMessage = ::sendVoiceMessage
+    
+    fun sendVoiceMessageIfNotPaused(b64PCM: String?, currentFrameB64: String? = null) {
+        if (isPaused) {
+            Log.d("WebSocketManager", "WebSocket is paused - not sending message")
+            return
+        }
+        sendVoiceMessage(b64PCM, currentFrameB64)
     }
 }

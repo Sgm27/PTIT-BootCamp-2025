@@ -97,7 +97,7 @@
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:src="@drawable/baseline_notifications_24"
-            android:tint="#CCCCCC"
+            app:tint="#CCCCCC"
             android:layout_marginBottom="16dp" />
 
         <TextView
