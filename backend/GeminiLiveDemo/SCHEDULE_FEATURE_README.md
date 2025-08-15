@@ -1,148 +1,150 @@
-# Tính năng Lịch trình (Schedule) - Kết nối yêu thương
+# Schedule Feature Documentation
 
-## Tổng quan
-Tính năng lịch trình cho phép người dùng tạo và quản lý các lịch trình hàng ngày như uống thuốc, khám bệnh, tập thể dục, v.v. Khi đến giờ đã định, ứng dụng sẽ gửi thông báo voice để nhắc nhở người già.
+## Overview
+The Schedule feature provides comprehensive scheduling and reminder functionality for the AI Healthcare Assistant application.
 
-## Tính năng chính
+## Features
 
-### 1. Giao diện người dùng
-- **Profile Card**: Hiển thị tên người già với gradient background đẹp mắt
-- **Lịch trình hôm nay**: Hiển thị các schedule của ngày hiện tại
-- **Lịch trình hôm qua**: Hiển thị các schedule đã hoàn thành của ngày trước
-- **Nút "Thêm"**: Tạo lịch trình mới
+### 1. Schedule Management
+- Create, read, update, and delete schedules
+- Support for different notification types
+- Category-based organization
+- Priority levels
 
-### 2. Tạo lịch trình mới
-- **Tên lịch trình**: Nhập tên cho schedule (VD: "Uống thuốc huyết áp")
-- **Ngày và giờ**: Chọn ngày và giờ cụ thể
-- **Ghi chú**: Mô tả chi tiết về schedule
-- **Phân loại**: Chọn loại schedule
-  - Uống thuốc
-  - Khám bệnh
-  - Tập thể dục
-  - Ăn uống
-  - Khác
+### 2. Notification System
+- Push notifications
+- Voice notifications
+- Email reminders
+- SMS alerts
 
-### 3. Thông báo voice tự động
-- **Text-to-Speech**: Sử dụng TTS của Android để đọc thông báo
-- **Backend Integration**: Gửi thông báo đến backend để tạo voice từ Gemini
-- **WebSocket Broadcasting**: Gửi thông báo đến tất cả thiết bị kết nối
+### 3. Family Connection Feature 🆕
+The Family Connection feature allows family members to view and manage schedules for elderly family members they care for.
 
-## Cấu trúc kỹ thuật
+#### Key Components:
+- **FamilyConnectionActivity**: Main screen for viewing elderly schedules
+- **User Type Support**: 
+  - Elderly users can view their own schedules
+  - Family members can view schedules of elderly they care for
+- **Real-time Sync**: All data is synchronized with backend database
+- **Smart UI**: Adaptive interface based on user type
+
+#### User Flow:
+1. **Elderly User**:
+   - Navigate to Profile → Kết nối yêu thương
+   - View their own daily schedules
+   - Create new schedules and reminders
+
+2. **Family Member**:
+   - Navigate to Profile → Kết nối yêu thương
+   - Select which elderly person to view
+   - View and manage their schedules
+   - Create new schedules on their behalf
+
+#### API Endpoints:
+- `GET /api/schedules` - Get user schedules
+- `GET /api/auth/elderly-patients/{family_user_id}` - Get elderly patients for family member
+- `POST /api/schedules` - Create new schedule
+- `PUT /api/schedules/{schedule_id}` - Update schedule
+- `DELETE /api/schedules/{schedule_id}` - Delete schedule
+
+#### Database Models:
+- **User**: Base user model with user_type (elderly/family)
+- **ElderlyProfile**: Extended profile for elderly users
+- **FamilyProfile**: Extended profile for family members
+- **FamilyRelationship**: Links elderly users with family members
+- **Notification**: Stores schedules and reminders
+
+## Technical Implementation
 
 ### Backend
-- **API Endpoints**: `/api/schedules` cho CRUD operations
-- **Database**: Sử dụng bảng `notifications` với trường `scheduled_at`
-- **Voice Service**: Tích hợp với Gemini để tạo voice notifications
-- **WebSocket**: Broadcast thông báo real-time
+- FastAPI-based REST API
+- PostgreSQL database with SQLAlchemy ORM
+- Authentication middleware for secure access
+- WebSocket support for real-time updates
 
 ### Android App
-- **ScheduleNotificationService**: Service chạy background để theo dõi schedule
-- **AlarmManager**: Đặt alarm cho từng schedule
-- **BroadcastReceiver**: Nhận thông báo khi đến giờ
-- **TextToSpeech**: Đọc thông báo ngay lập tức
+- Kotlin-based native Android application
+- Retrofit for API communication
+- Coroutines for asynchronous operations
+- Material Design components for UI
 
-## Cách sử dụng
+### Security Features
+- JWT token authentication
+- Role-based access control
+- Secure API endpoints
+- Data validation and sanitization
 
-### 1. Khởi động tính năng
-```kotlin
-// Service sẽ tự động khởi động khi mở FamilyConnectionActivity
-ScheduleNotificationService.startService(this)
+## Configuration
+
+### Environment Variables
+```bash
+DATABASE_URL=postgresql://user:password@localhost/dbname
+JWT_SECRET_KEY=your-secret-key
+GOOGLE_API_KEY=your-google-api-key
 ```
 
-### 2. Tạo schedule mới
-```kotlin
-val result = ApiClient.createSchedule(
-    title = "Uống thuốc huyết áp",
-    message = "Uống thuốc theo chỉ định của bác sĩ",
-    scheduledAt = "2024-08-07T08:00:00",
-    notificationType = "medicine_reminder",
-    category = "medicine"
-)
-```
-
-### 3. Lấy danh sách schedule
-```kotlin
-val result = ApiClient.getUserSchedules()
-```
-
-### 4. Đánh dấu hoàn thành
-```kotlin
-val result = ApiClient.markScheduleComplete(scheduleId)
-```
-
-## Cấu hình
-
-### Permissions
-```xml
-<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-<uses-permission android:name="android.permission.WAKE_LOCK" />
-```
-
-### Service Registration
-```xml
-<service
-    android:name=".ScheduleNotificationService"
-    android:exported="false"
-    android:foregroundServiceType="dataSync" />
-
-<receiver
-    android:name=".ScheduleNotificationReceiver"
-    android:exported="false" />
-```
-
-## Database Schema
-
-### Bảng notifications
+### Database Setup
 ```sql
-CREATE TABLE notifications (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES users(id),
-    notification_type VARCHAR(50),
-    title VARCHAR(255),
-    message TEXT,
-    scheduled_at TIMESTAMP,
-    sent_at TIMESTAMP,
-    is_sent BOOLEAN DEFAULT FALSE,
-    is_read BOOLEAN DEFAULT FALSE,
-    has_voice BOOLEAN DEFAULT FALSE,
-    voice_file_path VARCHAR(500),
-    priority VARCHAR(10) DEFAULT 'normal',
-    category VARCHAR(50),
-    created_at TIMESTAMP DEFAULT NOW()
-);
+-- Run the initialization script
+\i db/init_scripts/01_init_database.sql
 ```
 
-## Luồng hoạt động
+## Usage Examples
 
-1. **Tạo Schedule**: User tạo schedule → Lưu vào database → Đặt alarm
-2. **Đến giờ**: AlarmManager kích hoạt → BroadcastReceiver nhận → TTS đọc thông báo
-3. **Backend Sync**: Gửi thông báo đến backend → Tạo voice từ Gemini → Broadcast qua WebSocket
-4. **Cập nhật trạng thái**: Đánh dấu schedule đã hoàn thành
+### Creating a Schedule
+```json
+POST /api/schedules
+{
+  "title": "Uống thuốc huyết áp",
+  "message": "Uống thuốc theo chỉ định của bác sĩ",
+  "scheduled_at": "2024-01-15T08:00:00",
+  "notification_type": "medicine_reminder",
+  "category": "medicine",
+  "priority": "high"
+}
+```
+
+### Getting User Schedules
+```bash
+GET /api/schedules?user_id=123e4567-e89b-12d3-a456-426614174000
+Authorization: Bearer <jwt-token>
+```
+
+## Testing
+
+### API Testing
+```bash
+# Test family connection endpoints
+python test_family_connection_api.py
+```
+
+### Android App Testing
+1. Build and install the app
+2. Login with test credentials
+3. Navigate to Profile → Kết nối yêu thương
+4. Test both elderly and family member flows
 
 ## Troubleshooting
 
-### Vấn đề thường gặp
-1. **Service không chạy**: Kiểm tra permission và battery optimization
-2. **Thông báo không hiện**: Kiểm tra notification channel và settings
-3. **Voice không phát**: Kiểm tra TTS language support và audio settings
+### Common Issues
+1. **Authentication Errors**: Check JWT token validity
+2. **Database Connection**: Verify PostgreSQL is running
+3. **API Timeouts**: Check network connectivity
+4. **Schedule Notifications**: Verify notification permissions
 
-### Debug
+### Debug Mode
+Enable debug logging in the Android app:
 ```kotlin
-// Log để debug
-Log.d("ScheduleNotification", "Received notification: $title")
-Log.d("ScheduleNotification", "Voice notification sent to backend")
+Log.d("FamilyConnection", "Debug message")
 ```
 
-## Tương lai
+## Future Enhancements
+- [ ] Multi-language support
+- [ ] Advanced scheduling (recurring, conditional)
+- [ ] Integration with external calendar apps
+- [ ] AI-powered schedule optimization
+- [ ] Family group management
+- [ ] Emergency contact integration
 
-### Tính năng dự kiến
-- **Recurring Schedules**: Lịch trình lặp lại (hàng ngày, hàng tuần)
-- **Smart Reminders**: Nhắc nhở thông minh dựa trên thói quen
-- **Family Coordination**: Đồng bộ schedule giữa các thành viên gia đình
-- **Voice Commands**: Tạo schedule bằng giọng nói
-
-### Tối ưu hóa
-- **Battery Optimization**: Sử dụng WorkManager thay vì AlarmManager
-- **Push Notifications**: Sử dụng FCM cho thông báo đáng tin cậy hơn
-- **Offline Support**: Cache schedule và sync khi có internet 
+## Support
+For technical support or feature requests, please contact the development team. 

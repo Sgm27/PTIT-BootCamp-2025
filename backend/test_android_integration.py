@@ -1,101 +1,183 @@
+#!/usr/bin/env python3
 """
-Test Android App Integration
-Tests the memoir API endpoints that Android app will use
+Android App Integration Test Script
+Tests the integration between Android app and backend API
 """
+
 import requests
 import json
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 
-# API Configuration
+# Configuration
 BASE_URL = "http://localhost:8000"
-USER_ID = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"
+API_BASE = f"{BASE_URL}/api"
 
-def test_android_memoir_endpoints():
-    """Test the main endpoints that Android app will use"""
-    print("🚀 Testing Android App Integration...")
-    print(f"Base URL: {BASE_URL}")
-    print(f"User ID: {USER_ID}")
-    print("=" * 60)
-    
-    # Test 1: Get user memoirs (main screen)
-    print("\n1️⃣ Testing GET /api/memoirs/{user_id}")
+def test_backend_availability():
+    """Test if backend is accessible"""
     try:
-        response = requests.get(f"{BASE_URL}/api/memoirs/{USER_ID}")
+        response = requests.get(f"{BASE_URL}/health", timeout=5)
         if response.status_code == 200:
-            data = response.json()
-            print("✅ Success! Retrieved user memoirs")
-            print(f"   Found {len(data.get('memoirs', []))} memoirs")
+            print("✅ Backend is accessible")
+            return True
+        else:
+            print(f"❌ Backend returned status: {response.status_code}")
+            return False
+    except Exception as e:
+        print(f"❌ Cannot connect to backend: {e}")
+        return False
+
+def test_api_endpoints():
+    """Test all required API endpoints"""
+    endpoints = [
+        ("Health Check", f"{BASE_URL}/health", "GET"),
+        ("API Documentation", f"{BASE_URL}/docs", "GET"),
+        ("Schedules API", f"{API_BASE}/schedules", "GET"),
+    ]
+    
+    print("\n🔍 Testing API Endpoints")
+    print("-" * 40)
+    
+    results = []
+    for name, url, method in endpoints:
+        try:
+            if method == "GET":
+                response = requests.get(url, timeout=5)
+            else:
+                response = requests.post(url, timeout=5)
             
-            # Show first memoir details
-            if data.get('memoirs'):
-                memoir = data['memoirs'][0]
-                print(f"   First memoir: {memoir.get('title', 'No title')}")
-                print(f"   Content preview: {memoir.get('content', '')[:100]}...")
-                print(f"   Categories: {memoir.get('categories', [])}")
-                print(f"   Extracted at: {memoir.get('extracted_at', 'Unknown')}")
-        else:
-            print(f"❌ Failed with status {response.status_code}")
-            print(f"   Response: {response.text}")
-    except Exception as e:
-        print(f"❌ Error: {e}")
+            status = "✅" if response.status_code < 400 else "⚠️"
+            print(f"{status} {name}: {response.status_code}")
+            
+            if response.status_code < 400:
+                results.append(True)
+            else:
+                results.append(False)
+                
+        except Exception as e:
+            print(f"❌ {name}: {e}")
+            results.append(False)
     
-    # Test 2: Search memoirs
-    print("\n2️⃣ Testing POST /api/memoirs/{user_id}/search")
+    return results
+
+def test_authentication_flow():
+    """Test authentication flow (without real credentials)"""
+    print("\n🔐 Testing Authentication Flow")
+    print("-" * 40)
+    
+    # Test protected endpoints without auth
+    protected_endpoints = [
+        ("Schedules", f"{API_BASE}/schedules"),
+        ("User Profile", f"{API_BASE}/auth/profile/test_user"),
+        ("Elderly Patients", f"{API_BASE}/auth/elderly-patients/test_user"),
+    ]
+    
+    results = []
+    for name, url in protected_endpoints:
+        try:
+            response = requests.get(url, timeout=5)
+            if response.status_code == 401:
+                print(f"✅ {name}: Correctly requires authentication")
+                results.append(True)
+            else:
+                print(f"⚠️ {name}: Unexpected status {response.status_code}")
+                results.append(False)
+        except Exception as e:
+            print(f"❌ {name}: {e}")
+            results.append(False)
+    
+    return results
+
+def test_schedule_creation():
+    """Test schedule creation (without auth)"""
+    print("\n📅 Testing Schedule Creation")
+    print("-" * 40)
+    
+    schedule_data = {
+        "title": "Test Medicine Reminder",
+        "message": "Take blood pressure medication",
+        "scheduled_at": (datetime.now() + timedelta(hours=1)).isoformat(),
+        "notification_type": "medicine_reminder",
+        "category": "medicine",
+        "priority": "high"
+    }
+    
     try:
-        search_data = {"query": "chiến tranh", "limit": 10}
-        response = requests.post(f"{BASE_URL}/api/memoirs/{USER_ID}/search", json=search_data)
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ Success! Searched memoirs")
-            print(f"   Found {len(data.get('memoirs', []))} results for 'chiến tranh'")
+        response = requests.post(f"{API_BASE}/schedules", json=schedule_data, timeout=5)
+        if response.status_code == 401:
+            print("✅ Schedule creation: Correctly requires authentication")
+            return True
         else:
-            print(f"❌ Failed with status {response.status_code}")
-            print(f"   Response: {response.text}")
+            print(f"⚠️ Schedule creation: Unexpected status {response.status_code}")
+            return False
     except Exception as e:
-        print(f"❌ Error: {e}")
+        print(f"❌ Schedule creation: {e}")
+        return False
+
+def generate_test_report():
+    """Generate a comprehensive test report"""
+    print("\n📊 Integration Test Report")
+    print("=" * 50)
     
-    # Test 3: Get memoir categories
-    print("\n3️⃣ Testing GET /api/memoirs/{user_id}/categories")
-    try:
-        response = requests.get(f"{BASE_URL}/api/memoirs/{USER_ID}/categories")
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ Success! Retrieved memoir categories")
-            print(f"   Categories: {data.get('categories', [])}")
-        else:
-            print(f"❌ Failed with status {response.status_code}")
-            print(f"   Response: {response.text}")
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    # Test backend availability
+    backend_ok = test_backend_availability()
     
-    # Test 4: Get memoir stats
-    print("\n4️⃣ Testing GET /api/memoirs/{user_id}/stats")
-    try:
-        response = requests.get(f"{BASE_URL}/api/memoirs/{USER_ID}/stats")
-        if response.status_code == 200:
-            data = response.json()
-            print("✅ Success! Retrieved memoir stats")
-            print(f"   Stats: {data.get('memoir_stats', {})}")
-        else:
-            print(f"❌ Failed with status {response.status_code}")
-            print(f"   Response: {response.text}")
-    except Exception as e:
-        print(f"❌ Error: {e}")
+    if not backend_ok:
+        print("\n❌ Backend is not available. Please start the server first.")
+        print("   Run: python start_backend.py")
+        return
     
-    print("\n" + "=" * 60)
-    print("🎉 Android Integration Test Completed!")
+    # Test API endpoints
+    api_results = test_api_endpoints()
+    api_success = sum(api_results)
+    api_total = len(api_results)
     
-    # Summary for Android app
-    print("\n📱 ANDROID APP INTEGRATION SUMMARY:")
-    print("✅ Main memoir list endpoint: WORKING")
-    print("✅ Search memoirs endpoint: WORKING")
-    print("⚠️  Categories endpoint: NEEDS FIX")
-    print("⚠️  Stats endpoint: NEEDS FIX")
-    print("\n💡 Android app can now:")
-    print("   - Display list of user memoirs")
-    print("   - Search through memoirs")
-    print("   - Show memoir details")
-    print("   - Navigate between memoir screens")
+    # Test authentication
+    auth_results = test_authentication_flow()
+    auth_success = sum(auth_results)
+    auth_total = len(auth_results)
+    
+    # Test schedule creation
+    schedule_ok = test_schedule_creation()
+    
+    # Summary
+    print("\n📈 Test Summary")
+    print("-" * 30)
+    print(f"Backend Availability: {'✅' if backend_ok else '❌'}")
+    print(f"API Endpoints: {api_success}/{api_total} ✅")
+    print(f"Authentication: {auth_success}/{auth_total} ✅")
+    print(f"Schedule Creation: {'✅' if schedule_ok else '❌'}")
+    
+    # Overall status
+    total_tests = 1 + api_total + auth_total + 1
+    passed_tests = (1 if backend_ok else 0) + api_success + auth_success + (1 if schedule_ok else 0)
+    
+    print(f"\nOverall: {passed_tests}/{total_tests} tests passed")
+    
+    if passed_tests == total_tests:
+        print("🎉 All tests passed! Backend is ready for Android app integration.")
+        print("\n📱 Next steps:")
+        print("   1. Build and install Android app")
+        print("   2. Test login functionality")
+        print("   3. Test family connection feature")
+        print("   4. Verify data synchronization")
+    else:
+        print("⚠️ Some tests failed. Check the backend implementation.")
+        print("\n🔧 Troubleshooting:")
+        print("   1. Verify all endpoints are registered in backend.py")
+        print("   2. Check database connection")
+        print("   3. Verify authentication middleware")
+        print("   4. Check server logs for errors")
+
+def main():
+    """Main function"""
+    print("🧪 Android App Integration Test")
+    print("=" * 50)
+    print("Testing backend API endpoints and authentication")
+    print("Required for Android app family connection feature")
+    print()
+    
+    generate_test_report()
 
 if __name__ == "__main__":
-    test_android_memoir_endpoints() 
+    main() 
