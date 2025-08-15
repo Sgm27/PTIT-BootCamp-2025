@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <!-- Customize your theme here. -->
+        <item name="colorPrimary">@color/primary_500</item>
+        <item name="colorPrimaryDark">@color/primary_700</item>
+        <item name="colorAccent">@color/accent_500</item>
+        <item name="android:windowBackground">@color/background_primary</item>
+        <item name="android:statusBarColor">@color/surface_primary</item>
+        <item name="android:navigationBarColor">@color/surface_primary</item>
+    </style>
+
+    <!-- Switch theme for profile -->
+    <style name="SwitchTheme" parent="Theme.MaterialComponents.DayNight">
+        <item name="colorPrimary">@color/primary_500</item>
+        <item name="colorSurface">@color/primary_500</item>
+        <item name="colorOnSurface">@color/white</item>
+    </style>
+
+    <!-- Navigation Button Style -->
+    <style name="NavigationButtonStyle">
+        <item name="android:layout_width">@dimen/nav_button_size</item>
+        <item name="android:layout_height">@dimen/nav_button_size</item>
+        <item name="android:elevation">@dimen/elevation_md</item>
+        <item name="android:background">@drawable/primary_circle_button_background</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:foreground">?android:attr/selectableItemBackgroundBorderless</item>
+    </style>
+
+    <!-- Top Action Button Style -->
+    <style name="TopActionButtonStyle">
+        <item name="android:layout_width">@dimen/top_button_size</item>
+        <item name="android:layout_height">@dimen/top_button_size</item>
+        <item name="android:elevation">@dimen/elevation_lg</item>
+        <item name="android:background">@drawable/primary_circle_button_background</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:foreground">?android:attr/selectableItemBackgroundBorderless</item>
+    </style>
+
+    <!-- Scanner Button Style -->
+    <style name="ScannerButtonStyle">
+        <item name="android:layout_width">@dimen/scanner_button_size</item>
+        <item name="android:layout_height">@dimen/scanner_button_size</item>
+        <item name="android:elevation">@dimen/elevation_xl</item>
+        <item name="android:background">@drawable/scanner_button_background</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:foreground">?android:attr/selectableItemBackgroundBorderless</item>
+    </style>
+
+    <!-- Text Style for Navigation Labels -->
+    <style name="NavigationLabelStyle">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">@dimen/spacing_sm</item>
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:gravity">center</item>
+    </style>
+
+    <!-- Status Text Style -->
+    <style name="StatusTextStyle">
+        <item name="android:textSize">@dimen/text_caption</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:gravity">center_vertical</item>
+    </style>
+
+</resources> 
