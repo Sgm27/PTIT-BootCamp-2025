@@ -1,0 +1,284 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:background="@color/white">
+
+    <!-- Header -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Tạo lịch trình mới"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <!-- Schedule Name -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Tên lịch trình"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        app:boxCornerRadiusTopStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxStrokeColor="@color/primary_500"
+        app:hintTextColor="@color/primary_500">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/scheduleNameInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="VD: Uống thuốc huyết áp"
+            android:inputType="text"
+            android:minHeight="56dp" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Date and Time Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="20dp">
+
+        <!-- Date -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginEnd="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ngày"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/selectDateButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Chọn ngày"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/outline_button_background"
+                app:cornerRadius="12dp"
+                app:strokeColor="@color/gray_300"
+                app:strokeWidth="1dp" />
+
+        </LinearLayout>
+
+        <!-- Time -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Thời gian"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/text_primary"
+                android:layout_marginBottom="8dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/selectTimeButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:text="Chọn giờ"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/outline_button_background"
+                app:cornerRadius="12dp"
+                app:strokeColor="@color/gray_300"
+                app:strokeWidth="1dp" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Notes -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Ghi chú"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:layout_marginBottom="8dp" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="20dp"
+        app:boxCornerRadiusTopStart="12dp"
+        app:boxCornerRadiusTopEnd="12dp"
+        app:boxCornerRadiusBottomStart="12dp"
+        app:boxCornerRadiusBottomEnd="12dp"
+        app:boxStrokeColor="@color/primary_500"
+        app:hintTextColor="@color/primary_500">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/notesInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Thêm mô tả chi tiết..."
+            android:inputType="textMultiLine"
+            android:minHeight="80dp"
+            android:gravity="top" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Classification -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Phân loại"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:textColor="@color/text_primary"
+        android:layout_marginBottom="12dp" />
+
+    <!-- Classification Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginBottom="24dp">
+
+        <!-- Row 1 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/medicineButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="Uống thuốc"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/classification_button_background"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/baseline_medical_services_24"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconTint="@color/primary_500" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/appointmentButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="Khám bệnh"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/classification_button_background"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/baseline_people_24"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconTint="@color/primary_500" />
+
+        </LinearLayout>
+
+        <!-- Row 2 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="8dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/exerciseButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:text="Tập thể dục"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/classification_button_background"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/baseline_directions_walk_24"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconTint="@color/primary_500" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/mealButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:text="Ăn uống"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/classification_button_background"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/baseline_restaurant_24"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconTint="@color/primary_500" />
+
+        </LinearLayout>
+
+        <!-- Row 3 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/otherButton"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Khác"
+                android:textColor="@color/text_primary"
+                android:background="@drawable/classification_button_background"
+                app:cornerRadius="12dp"
+                app:icon="@drawable/baseline_more_horiz_24"
+                app:iconGravity="textStart"
+                app:iconSize="20dp"
+                app:iconTint="@color/primary_500" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Save Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/saveScheduleButton"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:text="Lưu Lịch Trình"
+        android:textColor="@color/white"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:background="@drawable/primary_button_background"
+        app:cornerRadius="16dp" />
+
+</LinearLayout> 

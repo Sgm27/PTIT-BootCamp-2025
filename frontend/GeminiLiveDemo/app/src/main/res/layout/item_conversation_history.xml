@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="8dp"
+    android:background="#FFFFFF"
+    android:clickable="true"
+    android:focusable="true"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <!-- Title and Date Row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Status Indicator -->
+        <View
+            android:id="@+id/statusIndicator"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:background="#4CAF50"
+            android:layout_marginRight="8dp" />
+
+        <TextView
+            android:id="@+id/conversationTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="#2D3748"
+            android:maxLines="1"
+            android:ellipsize="end"
+            tools:text="Cuộc trò chuyện về sức khỏe" />
+
+        <TextView
+            android:id="@+id/conversationDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#A0AEC0"
+            android:layout_marginStart="8dp"
+            tools:text="12/08/2024" />
+
+    </LinearLayout>
+
+    <!-- Summary -->
+    <TextView
+        android:id="@+id/conversationSummary"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textSize="14sp"
+        android:textColor="#4A5568"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:visibility="gone"
+        tools:text="Thảo luận về việc uống thuốc và tình trạng sức khỏe hiện tại" />
+
+    <!-- Message Count -->
+    <TextView
+        android:id="@+id/messageCount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textSize="12sp"
+        android:textColor="#A0AEC0"
+        tools:text="15 tin nhắn" />
+
+</LinearLayout> 

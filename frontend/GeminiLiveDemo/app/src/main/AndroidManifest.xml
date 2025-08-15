@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <application
+        android:name=".GeminiLiveApplication"
+        android:allowBackup="true"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.GeminiLiveDemo"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="31">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths"/>
+        </provider>
+        <!-- Login Activity - Launcher -->
+        <activity
+            android:name=".LoginActivity"
+            android:exported="true"
+            android:label="Đăng nhập"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        
+        <!-- Register Activity -->
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false"
+            android:label="Đăng ký"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait"
+            android:parentActivityName=".LoginActivity" />
+        
+        <!-- Main Activity -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+        
+        <activity
+            android:name=".ScannerActivity"
+            android:exported="false"
+            android:label="Medicine Scanner"
+            android:theme="@style/Theme.GeminiLiveDemo.Scanner"
+            android:screenOrientation="portrait" />
+            
+        <!-- Medicine Info Activity -->
+        <activity
+            android:name=".MedicineInfoActivity"
+            android:exported="false"
+            android:label="Thông tin thuốc"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <activity
+            android:name=".NotificationActivity"
+            android:exported="false"
+            android:label="Notifications"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <activity
+            android:name=".ProfileActivity"
+            android:exported="false"
+            android:label="Thông tin cá nhân"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <activity
+            android:name=".FamilyNotificationActivity"
+            android:exported="false"
+            android:label="Gửi Thông Báo"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <activity
+            android:name=".EditProfileActivity"
+            android:exported="false"
+            android:label="Chỉnh sửa thông tin"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <activity
+            android:name=".BackgroundServiceActivity"
+            android:exported="false"
+            android:label="Background Service"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Conversation History Activity -->
+        <activity
+            android:name=".ConversationHistoryActivity"
+            android:exported="false"
+            android:label="Lịch sử trò chuyện"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Conversation Detail Activity -->
+        <activity
+            android:name=".ConversationDetailActivity"
+            android:exported="false"
+            android:label="Chi tiết trò chuyện"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Life Memoir Activity -->
+        <activity
+            android:name=".LifeMemoirActivity"
+            android:exported="false"
+            android:label="Những câu chuyện đời"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Family Connection Activity -->
+        <activity
+            android:name=".FamilyConnectionActivity"
+            android:exported="false"
+            android:label="Kết nối yêu thương"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Create Schedule Activity -->
+        <activity
+            android:name=".CreateScheduleActivity"
+            android:exported="false"
+            android:label="Tạo lịch trình mới"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Memoir Detail Activity -->
+        <activity
+            android:name=".MemoirDetailActivity"
+            android:exported="false"
+            android:label="Chi tiết câu chuyện"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+
+            
+        <service
+            android:name=".GeminiListeningService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
+            
+        <!-- Schedule Notification Service -->
+        <service
+            android:name=".ScheduleNotificationService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+            
+        <!-- Schedule Notification Receiver -->
+        <receiver
+            android:name=".ScheduleNotificationReceiver"
+            android:exported="false" />
+    </application>
+
+</manifest>
