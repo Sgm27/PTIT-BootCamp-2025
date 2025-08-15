@@ -1,0 +1,1185 @@
+"""
+AI Healthcare Assistant API - Restructured Backend
+Main FastAPI application with separated services
+"""
+import datetime
+import base64
+import logging
+from fastapi import FastAPI, WebSocket, HTTPException, UploadFile, File, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from openai import AsyncOpenAI
+from google import genai
+import asyncio
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Import configurations
+from config.settings import settings
+
+# Import models
+from models.api_models import (
+    MedicineScanRequest, TextExtractRequest, HealthResponse,
+    ConversationCreateRequest, ConversationListResponse, ConversationDetailResponse,
+    MessageCreateRequest, MemoirListResponse, MemoirDetailResponse,
+    MemoirSearchRequest, MemoirExportRequest, UserStatsResponse,
+    ProfileUpdateRequest
+)
+
+# Import services
+from services.medicine_service import MedicineService
+from services.text_extraction_service import TextExtractionService
+from services.gemini_service import GeminiService
+from services.notification_voice_service import NotificationVoiceService
+from services.memoir_extraction_service import MemoirExtractionService
+from services.websocket_manager import websocket_manager
+
+# Import database services
+try:
+    from db.db_services import (
+        ConversationService, MemoirDBService, UserService
+    )
+    from db.models import ConversationRole
+    DATABASE_SERVICES_AVAILABLE = True
+    logger.info("Database services loaded successfully")
+except ImportError as e:
+    DATABASE_SERVICES_AVAILABLE = False
+    logger.warning(f"Database services not available: {e}")
+
+# Import authentication endpoints
+try:
+    from api_services.auth_service import add_auth_endpoints
+    AUTH_ENDPOINTS_AVAILABLE = True
+except ImportError:
+    AUTH_ENDPOINTS_AVAILABLE = False
+
+
+# Initialize FastAPI app
+app = FastAPI(
+    title=settings.APP_TITLE,
+    description=settings.APP_DESCRIPTION,
+    version=settings.APP_VERSION
+)
+
+# CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=settings.CORS_CREDENTIALS,
+    allow_methods=settings.CORS_METHODS,
+    allow_headers=settings.CORS_HEADERS,
+)
+
+# Initialize clients
+openai_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+gemini_client = genai.Client(api_key=settings.GOOGLE_API_KEY)
+
+# Initialize services
+medicine_service = MedicineService(openai_client)
+text_extraction_service = TextExtractionService(openai_client)
+gemini_service = GeminiService(gemini_client)
+notification_voice_service = NotificationVoiceService(gemini_client)
+memoir_extraction_service = MemoirExtractionService(openai_client)
+
+# Initialize database services
+if DATABASE_SERVICES_AVAILABLE:
+    conversation_service = ConversationService()
+    memoir_db_service = MemoirDBService()
+    user_service = UserService()
+    logger.info("Database services initialized")
+
+# Initialize notification_db_service variable
+notification_db_service = None
+
+# Add authentication endpoints
+if AUTH_ENDPOINTS_AVAILABLE:
+    add_auth_endpoints(app)
+    logger.info("Authentication endpoints loaded")
+
+# Add daily memoir endpoints
+try:
+    from api_services.daily_memoir_api import add_daily_memoir_endpoints
+    add_daily_memoir_endpoints(app)
+    logger.info("Daily memoir endpoints loaded")
+except ImportError:
+    logger.warning("Daily memoir endpoints not available")
+
+# Add notification endpoints
+try:
+    from api_services.notification_service import add_notification_endpoints
+    add_notification_endpoints(app, notification_voice_service, websocket_manager)
+    logger.info("Notification endpoints loaded")
+except ImportError:
+    logger.warning("Notification endpoints not available")
+
+# Add schedule endpoints
+try:
+    from api_services.schedule_service import add_schedule_endpoints
+    from db.db_services.notification_service import NotificationDBService
+    
+    if DATABASE_SERVICES_AVAILABLE:
+        notification_db_service = NotificationDBService()
+        add_schedule_endpoints(app, notification_db_service, notification_voice_service, websocket_manager)
+        logger.info("Schedule endpoints loaded")
+    else:
+        logger.warning("Schedule endpoints not available - database services required")
+except ImportError:
+    logger.warning("Schedule endpoints not available")
+
+# Initialize schedule notification service
+try:
+    from services.schedule_notification_service import get_schedule_notification_service
+    
+    if DATABASE_SERVICES_AVAILABLE and notification_db_service:
+        schedule_notification_service = get_schedule_notification_service(
+            notification_db_service,
+            notification_voice_service,
+            websocket_manager
+        )
+        logger.info("Schedule notification service initialized")
+    else:
+        logger.warning("Schedule notification service not available - database services required")
+except ImportError:
+    logger.warning("Schedule notification service not available")
+
+# Startup event to initialize async services
+@app.on_event("startup")
+async def startup_event():
+    """Initialize async services on startup"""
+    try:
+        # Start daily memoir scheduler in async context
+        from services.daily_memoir_scheduler import daily_memoir_scheduler
+        if hasattr(daily_memoir_scheduler, 'start_scheduler_async'):
+            success = await daily_memoir_scheduler.start_scheduler_async()
+            if success:
+                logger.info("✅ Daily memoir scheduler started successfully in async context")
+            else:
+                logger.warning("❌ Failed to start daily memoir scheduler in async context")
+        
+        # Start schedule notification service
+        if 'schedule_notification_service' in locals():
+            asyncio.create_task(schedule_notification_service.start_service())
+            logger.info("✅ Schedule notification service started successfully")
+        else:
+            logger.warning("⚠️ Schedule notification service not available")
+            
+    except Exception as e:
+        logger.error(f"Error starting async services: {e}")
+
+# Exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler to prevent dict object is not callable error."""
+    logger.error(f"Global exception handler caught: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "result": "Internal server error",
+            "error": str(exc)
+        }
+    )
+
+# API Routes
+@app.get("/")
+async def root():
+    """Root endpoint."""
+    return {
+        "message": settings.APP_TITLE, 
+        "version": settings.APP_VERSION,
+        "status": "running"
+    }
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    try:
+        # Get WebSocket connection stats
+        ws_stats = websocket_manager.get_connection_stats()
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "websocket_connections": ws_stats,
+            "database_available": DATABASE_SERVICES_AVAILABLE,
+            "services": {
+                "gemini_service": True,
+                "medicine_service": True,
+                "notification_service": True,
+                "memoir_service": True
+            }
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+
+@app.get("/api/websocket/status")
+async def websocket_status():
+    """Get WebSocket connection status"""
+    try:
+        # Cleanup dead connections first
+        cleaned_count = await websocket_manager.cleanup_dead_connections()
+        
+        return {
+            "success": True,
+            "data": {
+                "active_connections": websocket_manager.get_connection_count(),
+                "cleaned_connections": cleaned_count,
+                "timestamp": datetime.datetime.now().isoformat()
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting WebSocket status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ====== CONVERSATION API ENDPOINTS ======
+
+@app.post("/api/conversations", response_model=dict)
+async def create_conversation(request: ConversationCreateRequest):
+    """Create a new conversation"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        conversation = await conversation_service.create_conversation(
+            user_id=request.user_id,
+            session_id=request.session_id,
+            title=request.title
+        )
+        
+        if not conversation:
+            raise HTTPException(status_code=500, detail="Failed to create conversation")
+        
+        return {
+            "success": True,
+            "conversation_id": str(conversation.id),
+            "title": conversation.title,
+            "started_at": conversation.started_at.isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Error creating conversation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/conversations/{user_id}", response_model=ConversationListResponse)
+async def get_user_conversations(user_id: str, limit: int = 50, offset: int = 0):
+    """Get all conversations for a user"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        conversations = await conversation_service.get_user_conversations(
+            user_id=user_id, limit=limit, offset=offset, include_inactive=True
+        )
+        
+        # Convert to response format
+        conversation_list = []
+        for conv in conversations:
+            conversation_list.append({
+                "id": str(conv.id),
+                "title": conv.title,
+                "started_at": conv.started_at.isoformat(),
+                "ended_at": conv.ended_at.isoformat() if conv.ended_at else None,
+                "total_messages": conv.total_messages,
+                "is_active": conv.is_active,
+                "summary": conv.conversation_summary,
+                "topics": conv.topics_discussed or []
+            })
+        
+        return ConversationListResponse(
+            conversations=conversation_list,
+            total_count=len(conversation_list)
+        )
+    except Exception as e:
+        logger.error(f"Error getting conversations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/conversations/{user_id}/{conversation_id}", response_model=ConversationDetailResponse)
+async def get_conversation_detail(user_id: str, conversation_id: str):
+    """Get conversation detail with all messages"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        conversation = await conversation_service.get_conversation(conversation_id)
+        
+        if not conversation:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+            
+        # Check if conversation belongs to user
+        if str(conversation.user_id) != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get messages
+        messages = await conversation_service.get_conversation_messages(conversation_id)
+        
+        # Convert to response format
+        conversation_data = {
+            "id": str(conversation.id),
+            "title": conversation.title,
+            "started_at": conversation.started_at.isoformat(),
+            "ended_at": conversation.ended_at.isoformat() if conversation.ended_at else None,
+            "total_messages": conversation.total_messages,
+            "is_active": conversation.is_active,
+            "summary": conversation.conversation_summary,
+            "topics": conversation.topics_discussed or []
+        }
+        
+        message_list = []
+        for msg in messages:
+            message_list.append({
+                "id": str(msg.id),
+                "role": msg.role.value,
+                "content": msg.content,
+                "timestamp": msg.timestamp.isoformat(),
+                "message_order": msg.message_order,
+                "has_audio": msg.has_audio,
+                "audio_file_path": msg.audio_file_path
+            })
+        
+        return ConversationDetailResponse(
+            conversation=conversation_data,
+            messages=message_list
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting conversation detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/conversations/messages")
+async def add_message_to_conversation(request: MessageCreateRequest):
+    """Add a message to conversation"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        # Convert role string to enum
+        role_mapping = {
+            "user": ConversationRole.USER,
+            "assistant": ConversationRole.ASSISTANT,
+            "system": ConversationRole.SYSTEM
+        }
+        
+        role = role_mapping.get(request.role.lower())
+        if not role:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        
+        message = await conversation_service.add_message(
+            conversation_id=request.conversation_id,
+            role=role,
+            content=request.content,
+            has_audio=request.has_audio,
+            audio_file_path=request.audio_file_path
+        )
+        
+        if not message:
+            raise HTTPException(status_code=500, detail="Failed to add message")
+        
+        return {
+            "success": True,
+            "message_id": str(message.id),
+            "message_order": message.message_order,
+            "timestamp": message.timestamp.isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error adding message: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/conversations/{user_id}/search")
+async def search_conversations(user_id: str, query: str, limit: int = 20):
+    """Search conversations by content"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        results = await conversation_service.search_conversations(
+            user_id=user_id, query=query, limit=limit
+        )
+        
+        return {
+            "success": True,
+            "results": results,
+            "total_count": len(results)
+        }
+    except Exception as e:
+        logger.error(f"Error searching conversations: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ====== MEMOIR API ENDPOINTS ======
+
+@app.get("/api/memoirs/{user_id}", response_model=MemoirListResponse)
+async def get_user_memoirs(user_id: str, limit: int = 50, offset: int = 0, order_by: str = "extracted_at"):
+    """Get all memoirs for a user"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        # Get memoirs
+        memoirs = await memoir_db_service.get_user_memoirs(
+            user_id=user_id, limit=limit, offset=offset, order_by=order_by
+        )
+        
+        # Get metadata
+        categories = await memoir_db_service.get_memoir_categories(user_id)
+        people = await memoir_db_service.get_memoir_people(user_id)
+        places = await memoir_db_service.get_memoir_places(user_id)
+        
+        # Convert to response format
+        memoir_list = []
+        for memoir in memoirs:
+            memoir_list.append({
+                "id": memoir["id"],
+                "title": memoir["title"],
+                "content": memoir["content"],
+                "date_of_memory": memoir["date_of_memory"],
+                "extracted_at": memoir["extracted_at"],
+                "categories": memoir["categories"] or [],
+                "people_mentioned": memoir["people_mentioned"] or [],
+                "places_mentioned": memoir["places_mentioned"] or [],
+                "time_period": memoir["time_period"],
+                "emotional_tone": memoir["emotional_tone"],
+                "importance_score": memoir["importance_score"]
+            })
+        
+        return MemoirListResponse(
+            memoirs=memoir_list,
+            total_count=len(memoir_list),
+            categories=categories,
+            people=people,
+            places=places
+        )
+    except Exception as e:
+        logger.error(f"Error getting memoirs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/{memoir_id}", response_model=MemoirDetailResponse)
+async def get_memoir_detail(user_id: str, memoir_id: str):
+    """Get memoir detail"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        memoir = await memoir_db_service.get_memoir(memoir_id)
+        
+        if not memoir:
+            raise HTTPException(status_code=404, detail="Memoir not found")
+            
+        # Check if memoir belongs to user
+        if str(memoir["user_id"]) != user_id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        memoir_data = {
+            "id": memoir["id"],
+            "title": memoir["title"],
+            "content": memoir["content"],
+            "date_of_memory": memoir["date_of_memory"],
+            "extracted_at": memoir["extracted_at"],
+            "categories": memoir["categories"] or [],
+            "people_mentioned": memoir["people_mentioned"] or [],
+            "places_mentioned": memoir["places_mentioned"] or [],
+            "time_period": memoir["time_period"],
+            "emotional_tone": memoir["emotional_tone"],
+            "importance_score": memoir["importance_score"],
+            "conversation_id": memoir["conversation_id"]
+        }
+        
+        return MemoirDetailResponse(memoir=memoir_data)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting memoir detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/memoirs/{user_id}/search")
+async def search_memoirs(user_id: str, request: MemoirSearchRequest):
+    """Search memoirs by various criteria"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        memoirs = await memoir_db_service.search_memoirs(
+            user_id=user_id,
+            query=request.query,
+            categories=request.categories,
+            time_period=request.time_period,
+            emotional_tone=request.emotional_tone,
+            limit=request.limit
+        )
+        
+        # Convert to response format
+        memoir_list = []
+        for memoir in memoirs:
+            memoir_list.append({
+                "id": memoir["id"],
+                "title": memoir["title"],
+                "content": memoir["content"][:200] + "..." if len(memoir["content"]) > 200 else memoir["content"],
+                "date_of_memory": memoir["date_of_memory"],
+                "extracted_at": memoir["extracted_at"],
+                "categories": memoir["categories"] or [],
+                "time_period": memoir["time_period"],
+                "emotional_tone": memoir["emotional_tone"],
+                "importance_score": memoir["importance_score"]
+            })
+        
+        return {
+            "success": True,
+            "memoirs": memoir_list,
+            "total_count": len(memoir_list)
+        }
+    except Exception as e:
+        logger.error(f"Error searching memoirs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/memoirs/{user_id}/export")
+async def export_memoirs(user_id: str, request: MemoirExportRequest):
+    """Export memoirs for sharing with family"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        export_content = await memoir_db_service.export_memoirs_for_family(
+            user_id=user_id,
+            format_type=request.format_type
+        )
+        
+        if not export_content:
+            raise HTTPException(status_code=404, detail="No memoirs found to export")
+        
+        return {
+            "success": True,
+            "content": export_content,
+            "format": request.format_type,
+            "exported_at": datetime.datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error exporting memoirs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/timeline")
+async def get_memoir_timeline(user_id: str):
+    """Get memoirs organized by timeline"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        timeline = await memoir_db_service.get_memoir_timeline(user_id)
+        
+        return {
+            "success": True,
+            "timeline": timeline,
+            "total_periods": len(timeline)
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir timeline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/stats")
+async def get_memoir_stats(user_id: str):
+    """Get memoir statistics for a user"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        stats = await memoir_db_service.get_memoir_stats(user_id)
+        
+        return {
+            "success": True,
+            "memoir_stats": stats
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/categories")
+async def get_memoir_categories(user_id: str):
+    """Get all categories used in user's memoirs"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        categories = await memoir_db_service.get_memoir_categories(user_id)
+        
+        return {
+            "success": True,
+            "categories": categories
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir categories: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/people")
+async def get_memoir_people(user_id: str):
+    """Get all people mentioned in user's memoirs"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        people = await memoir_db_service.get_memoir_people(user_id)
+        
+        return {
+            "success": True,
+            "people": people
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir people: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memoirs/{user_id}/places")
+async def get_memoir_places(user_id: str):
+    """Get all places mentioned in user's memoirs"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        places = await memoir_db_service.get_memoir_places(user_id)
+        
+        return {
+            "success": True,
+            "places": places
+        }
+    except Exception as e:
+        logger.error(f"Error getting memoir places: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/users/{user_id}/stats", response_model=UserStatsResponse)
+async def get_user_stats(user_id: str):
+    """Get comprehensive user statistics"""
+    if not DATABASE_SERVICES_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Database services not available")
+    
+    try:
+        # Get conversation stats
+        conv_stats = await conversation_service.get_conversation_stats(user_id)
+        
+        # Get memoir stats
+        memoir_stats = await memoir_db_service.get_memoir_stats(user_id)
+        
+        # You could add user info here if needed
+        user_info = {
+            "user_id": user_id,
+            "stats_generated_at": datetime.datetime.now().isoformat()
+        }
+        
+        return UserStatsResponse(
+            conversation_stats=conv_stats,
+            memoir_stats=memoir_stats,
+            user_info=user_info
+        )
+    except Exception as e:
+        logger.error(f"Error getting user stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scan-medicine", response_model=HealthResponse)
+async def scan_medicine_endpoint(request: MedicineScanRequest):
+    """Scan medicine from image URL or base64 string.
+    
+    Args:
+        request: Request containing image URL or base64 string.
+        
+    Returns:
+        HealthResponse with scan results.
+        
+    Raises:
+        HTTPException: If scanning fails.
+    """
+    try:
+        result = await medicine_service.scan_medicine(request.input)
+        return HealthResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/analyze-medicine-gemini", response_model=HealthResponse)
+async def analyze_medicine_gemini_endpoint(request: MedicineScanRequest):
+    """Analyze medicine using OpenAI Vision Model for detailed information.
+    
+    Args:
+        request: Request containing image base64 string.
+        
+    Returns:
+        HealthResponse with detailed medicine analysis from OpenAI Vision.
+        
+    Raises:
+        HTTPException: If analysis fails.
+    """
+    try:
+        logger.info(f"Analyzing medicine with OpenAI Vision Model: {settings.OPENAI_VISION_MODEL}")
+        
+        # Use OpenAI Vision Model through medicine service
+        result = await medicine_service.scan_medicine(request.input)
+        
+        logger.info(f"Medicine analysis result: success={result.get('success')}")
+        
+        if result.get("success"):
+            analysis_result = result.get("result", "")
+            logger.info(f"Analysis completed successfully, result length: {len(analysis_result)}")
+            return HealthResponse(
+                success=True, 
+                result=analysis_result
+            )
+        else:
+            error_msg = result.get("result", "Không thể phân tích thuốc")
+            logger.error(f"Medicine analysis failed: {error_msg}")
+            return HealthResponse(
+                success=False, 
+                result=error_msg,
+                error=result.get("error", "Unknown error")
+            )
+            
+    except Exception as e:
+        logger.error(f"Error analyzing medicine with OpenAI Vision: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/scan-medicine-file")
+async def scan_medicine_file_endpoint(file: UploadFile = File(...)):
+    """Scan medicine from uploaded image file.
+    
+    Args:
+        file: Uploaded image file.
+        
+    Returns:
+        HealthResponse with scan results.
+        
+    Raises:
+        HTTPException: If scanning fails.
+    """
+    try:
+        # Read file content
+        content = await file.read()
+        
+        # Scan medicine using service
+        result = await medicine_service.scan_from_file_content(content)
+        return HealthResponse(**result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/extract-memoir-info", response_model=HealthResponse)
+async def extract_memoir_info_endpoint(request: TextExtractRequest):
+    """Extract information from text for memoir purposes.
+    
+    Args:
+        request: Request containing text to extract information from.
+        
+    Returns:
+        HealthResponse with extracted information.
+        
+    Raises:
+        HTTPException: If extraction fails.
+    """
+    try:
+        result = await text_extraction_service.extract_info_for_memoir(request.text)
+        return HealthResponse(success=True, result=result)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/generate-voice-notification")
+async def generate_voice_notification_endpoint(request: dict):
+    """Generate voice notification from text and broadcast to connected clients.
+    
+    Args:
+        request: Request containing notification text and type.
+        
+    Returns:
+        Response with voice notification data.
+        
+    Raises:
+        HTTPException: If generation fails.
+    """
+    try:
+        notification_text = request.get("text", "")
+        notification_type = request.get("type", "info")
+        
+        if not notification_text:
+            raise HTTPException(status_code=400, detail="Notification text is required")
+        
+        # Generate voice notification
+        if notification_type == "emergency":
+            audio_base64 = await notification_voice_service.generate_voice_notification_base64(
+                f"THÔNG BÁO KHẨN CẤP: {notification_text}"
+            )
+        else:
+            audio_base64 = await notification_voice_service.generate_voice_notification_base64(notification_text)
+        
+        if audio_base64:
+            response = notification_voice_service.create_notification_response(audio_base64, notification_text)
+            
+            # Try to broadcast to all connected WebSocket clients
+            try:
+                notification_data = {
+                    "message": response["message"],
+                    "notificationText": response["notificationText"],
+                    "audioBase64": response["audioBase64"],
+                    "audioFormat": response["audioFormat"],
+                    "timestamp": response["timestamp"],
+                    "service": response["service"]
+                }
+                
+                await websocket_manager.broadcast_voice_notification(notification_data)
+                logger.info(f"Voice notification broadcasted to {websocket_manager.get_connection_count()} clients")
+            except Exception as broadcast_error:
+                logger.error(f"Broadcast failed: {broadcast_error}")
+                # Continue anyway - API should still return the response
+            
+            return response
+        else:
+            error_response = notification_voice_service.create_error_response(
+                "Failed to generate voice notification", notification_text
+            )
+            raise HTTPException(status_code=500, detail=error_response["message"])
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/broadcast-voice-notification")
+async def broadcast_voice_notification_endpoint(request: dict):
+    """Endpoint để test broadcast voice notification từ Python script.
+    
+    Args:
+        request: Request containing notification text and type.
+        
+    Returns:
+        Response with broadcast status.
+    """
+    try:
+        notification_text = request.get("text", "")
+        notification_type = request.get("type", "info")
+        
+        if not notification_text:
+            raise HTTPException(status_code=400, detail="Notification text is required")
+        
+        # Generate voice notification
+        if notification_type == "emergency":
+            audio_base64 = await notification_voice_service.generate_voice_notification_base64(
+                f"THÔNG BÁO KHẨN CẤP: {notification_text}"
+            )
+        else:
+            audio_base64 = await notification_voice_service.generate_voice_notification_base64(notification_text)
+        
+        if audio_base64:
+            response = notification_voice_service.create_notification_response(audio_base64, notification_text)
+            
+            # Broadcast to all connected WebSocket clients
+            notification_data = {
+                "message": response["message"],
+                "notificationText": response["notificationText"],
+                "audioBase64": response["audioBase64"],
+                "audioFormat": response["audioFormat"],
+                "timestamp": response["timestamp"],
+                "service": response["service"]
+            }
+            
+            connection_count = websocket_manager.get_connection_count()
+            await websocket_manager.broadcast_voice_notification(notification_data)
+            
+            return {
+                "success": True,
+                "message": f"Voice notification broadcasted successfully",
+                "connectionCount": connection_count,
+                "notificationText": notification_text,
+                "timestamp": response["timestamp"]
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to generate voice notification")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/services/status")
+async def get_services_status():
+    """Get status of all services.
+    
+    Returns:
+        Dictionary containing status of all services.
+    """
+    return {
+        "timestamp": datetime.datetime.now().isoformat(),
+        "services": {
+            "medicine_service": {
+                "status": "active",
+                "model": medicine_service.model,
+                "temperature": medicine_service.temperature
+            },
+            "text_extraction_service": {
+                "status": "active", 
+                "model": text_extraction_service.model,
+                "temperature": text_extraction_service.temperature
+            },
+            "gemini_service": {
+                "status": "active",
+                "model": gemini_service.model
+            },
+            "notification_voice_service": {
+                "status": "active",
+                "model": notification_voice_service.model
+            },
+            "memoir_extraction_service": {
+                "status": "active",
+                "model": memoir_extraction_service.model,
+                "temperature": memoir_extraction_service.temperature
+            }
+        },
+        "configuration": {
+            "openai_model_vision": settings.OPENAI_VISION_MODEL,
+            "openai_model_text": settings.OPENAI_TEXT_MODEL,
+            "gemini_model": settings.GEMINI_MODEL
+        },
+        "websocket_settings": {
+            "ping_interval": settings.WEBSOCKET_PING_INTERVAL,
+            "ping_timeout": settings.WEBSOCKET_PING_TIMEOUT,
+            "close_timeout": settings.WEBSOCKET_CLOSE_TIMEOUT,
+            "session_timeout": settings.SESSION_TIMEOUT_SECONDS
+        }
+    }
+
+
+@app.get("/api/websocket/health")
+async def websocket_health_check():
+    """WebSocket health check endpoint.
+    
+    Returns:
+        WebSocket configuration and status.
+    """
+    return {
+        "status": "healthy",
+        "websocket_endpoint": "/gemini-live",
+        "ping_interval_seconds": settings.WEBSOCKET_PING_INTERVAL,
+        "session_timeout_seconds": settings.SESSION_TIMEOUT_SECONDS,
+        "timestamp": datetime.datetime.now().isoformat()
+    }
+
+
+@app.post("/api/memoir/extract-background")
+async def start_memoir_extraction_background():
+    """Start background memoir extraction from conversation history.
+    
+    Returns:
+        Status of background task initiation.
+    """
+    try:
+        result = memoir_extraction_service.start_background_extraction()
+        return {
+            "success": True,
+            "message": "Background memoir extraction initiated",
+            "task_status": result,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to start background extraction: {str(e)}")
+
+
+@app.get("/api/memoir/status")
+async def get_memoir_extraction_status():
+    """Get status of memoir extraction background task.
+    
+    Returns:
+        Current status of background extraction task.
+    """
+    try:
+        status = await memoir_extraction_service.get_background_task_status()
+        return {
+            "success": True,
+            "task_status": status,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get extraction status: {str(e)}")
+
+
+@app.get("/api/memoir/file-info")
+async def get_memoir_file_info():
+    """Get information about the memoir file.
+    
+    Returns:
+        Information about memoir file including size, last modified, etc.
+    """
+    try:
+        file_info = await memoir_extraction_service.get_memoir_file_info()
+        return {
+            "success": True,
+            "file_info": file_info,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get file info: {str(e)}")
+
+
+@app.post("/api/memoir/extract-manual")
+async def extract_memoir_manual():
+    """Manually extract important information from current conversation history.
+    
+    Returns:
+        Results of memoir extraction process.
+    """
+    try:
+        result = await memoir_extraction_service.process_conversation_history_background()
+        return {
+            "success": True,
+            "extraction_result": result,
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to extract memoir information: {str(e)}")
+
+
+@app.get("/api/memoir/auto-settings")
+async def get_memoir_auto_settings():
+    """Get current auto extraction settings.
+    
+    Returns:
+        Current auto extraction configuration.
+    """
+    try:
+        settings_info = memoir_extraction_service.get_auto_extraction_settings()
+        return {
+            "success": True,
+            "auto_settings": settings_info,
+            "timest4amp": datetime.datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get auto settings: {str(e)}")
+
+
+@app.post("/api/memoir/auto-settings")
+async def update_memoir_auto_settings(request: dict):
+    """Update auto extraction settings.
+    
+    Args:
+        request: Request containing new threshold value.
+        
+    Returns:
+        Status of settings update.
+    """
+    try:
+        threshold = request.get("threshold")
+        if not threshold or not isinstance(threshold, int):
+            raise HTTPException(status_code=400, detail="Valid threshold number is required")
+        
+        result = memoir_extraction_service.update_auto_extraction_threshold(threshold)
+        return {
+            "success": result["success"],
+            "message": result.get("message", result.get("error")),
+            "settings": memoir_extraction_service.get_auto_extraction_settings(),
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update auto settings: {str(e)}")
+
+
+@app.post("/api/memoir/update-conversation")
+async def update_conversation_with_memoir(request: dict):
+    """Update conversation history and potentially trigger auto extraction.
+    
+    Args:
+        request: Request containing new message data.
+        
+    Returns:
+        Status of conversation update and extraction.
+    """
+    try:
+        # Validate required fields
+        required_fields = ["role", "text"]
+        for field in required_fields:
+            if field not in request:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Create message with timestamp
+        new_message = {
+            "role": request["role"],
+            "text": request["text"], 
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+        
+        result = await memoir_extraction_service.update_conversation_and_extract(new_message)
+        return {
+            "success": result["success"],
+            "message": result.get("message"),
+            "conversation_info": {
+                "total_messages": result.get("total_messages"),
+                "auto_extract_triggered": result.get("auto_extract_triggered", False)
+            },
+            "timestamp": datetime.datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update conversation: {str(e)}")
+
+
+# WebSocket endpoint for Gemini Live
+@app.websocket("/gemini-live")
+async def gemini_live_websocket(websocket: WebSocket):
+    """WebSocket endpoint for Gemini Live chat with voice notification support.
+    
+    Args:
+        websocket: WebSocket connection.
+    """
+    try:
+        # Ensure the WebSocket connection is accepted before any operations
+        await websocket.accept()
+        
+        # Add connection to manager for voice notification broadcasting
+        websocket_manager.add_connection(websocket)
+        logger.info("WebSocket connection added to manager")
+        
+        # Handle Gemini Live websocket
+        await gemini_service.handle_websocket_connection(websocket)
+        
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected normally")
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        try:
+            await websocket.close(code=4002, reason="Internal server error")
+        except Exception:
+            pass  # WebSocket might already be closed
+    finally:
+        # Remove connection from manager
+        websocket_manager.remove_connection(websocket)
+        logger.info("WebSocket connection removed from manager")
+
+
+# Error handlers
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    """Handle 404 errors."""
+    return {"error": "Endpoint not found", "status_code": 404}
+
+
+@app.exception_handler(500)
+async def internal_error_handler(request, exc):
+    """Handle 500 errors."""
+    return {"error": "Internal server error", "status_code": 500}
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "backend:app", 
+        host="0.0.0.0", 
+        port=8000, 
+        reload=True,
+        log_level="info"
+    )

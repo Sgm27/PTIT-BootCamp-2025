@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Spacing System -->
+    <dimen name="spacing_xs">4dp</dimen>
+    <dimen name="spacing_sm">8dp</dimen>
+    <dimen name="spacing_md">16dp</dimen>
+    <dimen name="spacing_lg">24dp</dimen>
+    <dimen name="spacing_xl">32dp</dimen>
+    <dimen name="spacing_xxl">48dp</dimen>
+    
+    <!-- Component Sizes -->
+    <dimen name="button_height">48dp</dimen>
+    <dimen name="button_height_large">56dp</dimen>
+    <dimen name="input_height">56dp</dimen>
+    <dimen name="icon_size_sm">16dp</dimen>
+    <dimen name="icon_size_md">24dp</dimen>
+    <dimen name="icon_size_lg">32dp</dimen>
+    <dimen name="icon_size_xl">48dp</dimen>
+    
+    <!-- Border Radius -->
+    <dimen name="radius_sm">8dp</dimen>
+    <dimen name="radius_md">12dp</dimen>
+    <dimen name="radius_lg">16dp</dimen>
+    <dimen name="radius_xl">24dp</dimen>
+    <dimen name="radius_circle">50%</dimen>
+    
+    <!-- Elevation -->
+    <dimen name="elevation_sm">2dp</dimen>
+    <dimen name="elevation_md">4dp</dimen>
+    <dimen name="elevation_lg">8dp</dimen>
+    <dimen name="elevation_xl">16dp</dimen>
+    
+    <!-- Text Sizes -->
+    <dimen name="text_caption">12sp</dimen>
+    <dimen name="text_body_sm">14sp</dimen>
+    <dimen name="text_body">16sp</dimen>
+    <dimen name="text_body_lg">18sp</dimen>
+    <dimen name="text_title_sm">20sp</dimen>
+    <dimen name="text_title">24sp</dimen>
+    <dimen name="text_title_lg">28sp</dimen>
+    <dimen name="text_headline">32sp</dimen>
+    <dimen name="text_display">36sp</dimen>
+    
+    <!-- Layout Margins -->
+    <dimen name="margin_screen">16dp</dimen>
+    <dimen name="margin_screen_large">24dp</dimen>
+    <dimen name="margin_component">8dp</dimen>
+    <dimen name="margin_component_large">16dp</dimen>
+    
+    <!-- Padding -->
+    <dimen name="padding_screen">16dp</dimen>
+    <dimen name="padding_screen_large">24dp</dimen>
+    <dimen name="padding_component">12dp</dimen>
+    <dimen name="padding_component_large">16dp</dimen>
+    <dimen name="padding_component_xl">24dp</dimen>
+    
+    <!-- New UI Component Sizes -->
+    <dimen name="scanner_button_size">96dp</dimen>
+    <dimen name="nav_button_size">56dp</dimen>
+    <dimen name="top_button_size">52dp</dimen>
+    <dimen name="mic_button_size">68dp</dimen>
+    <dimen name="status_bar_height">56dp</dimen>
+    <dimen name="bottom_nav_height">120dp</dimen>
+    
+    <!-- Icon Sizes for New UI -->
+    <dimen name="scanner_icon_size">44dp</dimen>
+    <dimen name="nav_icon_size">28dp</dimen>
+    <dimen name="top_icon_size">26dp</dimen>
+    <dimen name="mic_icon_size">36dp</dimen>
+    <dimen name="status_icon_size">18dp</dimen>
+    <dimen name="ai_status_icon_size">20dp</dimen>
+</resources> 

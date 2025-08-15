@@ -1,0 +1,40 @@
+name: bootcamp2025
+description: "A new Flutter project."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  curved_navigation_bar: ^1.0.3
+  animated_bottom_navigation_bar: ^1.3.3
+  google_nav_bar: ^5.0.6
+  image_picker: ^1.0.7
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_svg: ^2.0.10+1
+  mobile_scanner: ^5.1.2
+  camera: ^0.10.5+9
+  google_fonts: ^6.2.1
+  intl: ^0.20.2
+  http: ^1.5.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/user_avatar.png
+    - assets/images/doctor_avatar.png
+    - assets/images/header_pattern.png
+    - assets/images/header_wave_painter.png
+    - assets/images/header_wave_painter.jpg
+    - assets/images/medical_history_icon.png
+    - assets/images/google_logo.png
+    - assets/images/no_data.jpg
