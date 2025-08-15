@@ -7,8 +7,10 @@ import base64
 import logging
 from fastapi import FastAPI, WebSocket, HTTPException, UploadFile, File, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from openai import AsyncOpenAI
 from google import genai
+import asyncio
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -88,6 +90,9 @@ if DATABASE_SERVICES_AVAILABLE:
     user_service = UserService()
     logger.info("Database services initialized")
 
+# Initialize notification_db_service variable
+notification_db_service = None
+
 # Add authentication endpoints
 if AUTH_ENDPOINTS_AVAILABLE:
     add_auth_endpoints(app)
@@ -97,9 +102,47 @@ if AUTH_ENDPOINTS_AVAILABLE:
 try:
     from api_services.daily_memoir_api import add_daily_memoir_endpoints
     add_daily_memoir_endpoints(app)
-    logger.info("Daily memoir API endpoints loaded")
-except ImportError as e:
-    logger.warning(f"Daily memoir API endpoints not available: {e}")
+    logger.info("Daily memoir endpoints loaded")
+except ImportError:
+    logger.warning("Daily memoir endpoints not available")
+
+# Add notification endpoints
+try:
+    from api_services.notification_service import add_notification_endpoints
+    add_notification_endpoints(app, notification_voice_service, websocket_manager)
+    logger.info("Notification endpoints loaded")
+except ImportError:
+    logger.warning("Notification endpoints not available")
+
+# Add schedule endpoints
+try:
+    from api_services.schedule_service import add_schedule_endpoints
+    from db.db_services.notification_service import NotificationDBService
+    
+    if DATABASE_SERVICES_AVAILABLE:
+        notification_db_service = NotificationDBService()
+        add_schedule_endpoints(app, notification_db_service, notification_voice_service, websocket_manager)
+        logger.info("Schedule endpoints loaded")
+    else:
+        logger.warning("Schedule endpoints not available - database services required")
+except ImportError:
+    logger.warning("Schedule endpoints not available")
+
+# Initialize schedule notification service
+try:
+    from services.schedule_notification_service import get_schedule_notification_service
+    
+    if DATABASE_SERVICES_AVAILABLE and notification_db_service:
+        schedule_notification_service = get_schedule_notification_service(
+            notification_db_service,
+            notification_voice_service,
+            websocket_manager
+        )
+        logger.info("Schedule notification service initialized")
+    else:
+        logger.warning("Schedule notification service not available - database services required")
+except ImportError:
+    logger.warning("Schedule notification service not available")
 
 # Startup event to initialize async services
 @app.on_event("startup")
@@ -114,8 +157,30 @@ async def startup_event():
                 logger.info("✅ Daily memoir scheduler started successfully in async context")
             else:
                 logger.warning("❌ Failed to start daily memoir scheduler in async context")
+        
+        # Start schedule notification service
+        if 'schedule_notification_service' in locals():
+            asyncio.create_task(schedule_notification_service.start_service())
+            logger.info("✅ Schedule notification service started successfully")
+        else:
+            logger.warning("⚠️ Schedule notification service not available")
+            
     except Exception as e:
         logger.error(f"Error starting async services: {e}")
+
+# Exception handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler to prevent dict object is not callable error."""
+    logger.error(f"Global exception handler caught: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "success": False,
+            "result": "Internal server error",
+            "error": str(exc)
+        }
+    )
 
 # API Routes
 @app.get("/")
@@ -636,6 +701,48 @@ async def scan_medicine_endpoint(request: MedicineScanRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.post("/api/analyze-medicine-gemini", response_model=HealthResponse)
+async def analyze_medicine_gemini_endpoint(request: MedicineScanRequest):
+    """Analyze medicine using OpenAI Vision Model for detailed information.
+    
+    Args:
+        request: Request containing image base64 string.
+        
+    Returns:
+        HealthResponse with detailed medicine analysis from OpenAI Vision.
+        
+    Raises:
+        HTTPException: If analysis fails.
+    """
+    try:
+        logger.info(f"Analyzing medicine with OpenAI Vision Model: {settings.OPENAI_VISION_MODEL}")
+        
+        # Use OpenAI Vision Model through medicine service
+        result = await medicine_service.scan_medicine(request.input)
+        
+        logger.info(f"Medicine analysis result: success={result.get('success')}")
+        
+        if result.get("success"):
+            analysis_result = result.get("result", "")
+            logger.info(f"Analysis completed successfully, result length: {len(analysis_result)}")
+            return HealthResponse(
+                success=True, 
+                result=analysis_result
+            )
+        else:
+            error_msg = result.get("result", "Không thể phân tích thuốc")
+            logger.error(f"Medicine analysis failed: {error_msg}")
+            return HealthResponse(
+                success=False, 
+                result=error_msg,
+                error=result.get("error", "Unknown error")
+            )
+            
+    except Exception as e:
+        logger.error(f"Error analyzing medicine with OpenAI Vision: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/scan-medicine-file")
 async def scan_medicine_file_endpoint(file: UploadFile = File(...)):
     """Scan medicine from uploaded image file.
@@ -1030,6 +1137,9 @@ async def gemini_live_websocket(websocket: WebSocket):
         websocket: WebSocket connection.
     """
     try:
+        # Ensure the WebSocket connection is accepted before any operations
+        await websocket.accept()
+        
         # Add connection to manager for voice notification broadcasting
         websocket_manager.add_connection(websocket)
         logger.info("WebSocket connection added to manager")

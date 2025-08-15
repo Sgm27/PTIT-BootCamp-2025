@@ -1,6 +1,6 @@
 # Core FastAPI and WebSocket dependencies
 fastapi
-uvicorn
+uvicorn[standard]
 websockets
 python-multipart
 pydantic

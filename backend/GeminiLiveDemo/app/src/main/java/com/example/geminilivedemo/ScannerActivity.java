@@ -3,6 +3,7 @@ package com.example.geminilivedemo;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import com.example.geminilivedemo.MedicineInfoActivity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -23,6 +24,7 @@ import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
+import androidx.camera.core.AspectRatio;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
@@ -87,6 +89,15 @@ public class ScannerActivity extends AppCompatActivity {
         }
         if (backButton == null) {
             throw new RuntimeException("BackButton not found in layout");
+        }
+
+        // Set up toolbar
+        androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
+        if (toolbar != null) {
+            setSupportActionBar(toolbar);
+            if (getSupportActionBar() != null) {
+                getSupportActionBar().setDisplayShowTitleEnabled(false);
+            }
         }
     }
 
@@ -160,12 +171,14 @@ public class ScannerActivity extends AppCompatActivity {
             return;
         }
 
-        // Preview use case
+        // Preview use case - Full screen
         Preview preview = new Preview.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                 .build();
 
-        // Image capture use case with rotation handling
+        // Image capture use case with rotation handling - Full screen
         imageCapture = new ImageCapture.Builder()
+                .setTargetAspectRatio(AspectRatio.RATIO_16_9)
                 .setTargetRotation(getWindowManager().getDefaultDisplay().getRotation())
                 .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
                 .build();
@@ -285,13 +298,6 @@ public class ScannerActivity extends AppCompatActivity {
 
             Log.d(TAG, "Image processed successfully, base64 length: " + base64Image.length());
 
-            // Return result to main activity
-            Intent resultIntent = new Intent();
-            resultIntent.putExtra("captured_image_base64", base64Image);
-            resultIntent.putExtra("scan_result",
-                    "Medicine image captured - " + bitmap.getWidth() + "x" + bitmap.getHeight());
-            setResult(RESULT_OK, resultIntent);
-
             // Clean up
             bitmap.recycle();
             byteArrayOutputStream.close();
@@ -303,9 +309,15 @@ public class ScannerActivity extends AppCompatActivity {
                 Log.w(TAG, "Failed to delete temporary file");
             }
 
-            // Show success message before finishing
-            Toast.makeText(this, "Image captured and processed!", Toast.LENGTH_SHORT).show();
+            // Navigate to MedicineInfoActivity
+            Intent medicineInfoIntent = new Intent(this, MedicineInfoActivity.class);
+            medicineInfoIntent.putExtra(MedicineInfoActivity.EXTRA_IMAGE_BASE64, base64Image);
+            medicineInfoIntent.putExtra(MedicineInfoActivity.EXTRA_MEDICINE_NAME,
+                    "Medicine image captured - " + bitmap.getWidth() + "x" + bitmap.getHeight());
 
+            Log.d(TAG, "Navigating to MedicineInfoActivity with image data length: " + base64Image.length());
+            Log.d(TAG, "Image dimensions: " + bitmap.getWidth() + "x" + bitmap.getHeight());
+            startActivity(medicineInfoIntent);
             finish();
 
         } catch (Exception e) {

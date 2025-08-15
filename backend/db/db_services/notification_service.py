@@ -543,3 +543,68 @@ class NotificationDBService:
         except Exception as e:
             self.logger.error(f"Failed to cleanup old notifications for user {user_id}: {e}")
             return 0 
+    
+    async def get_due_notifications(self, due_time: datetime) -> List[Notification]:
+        """Get notifications that are due for sending (for schedule notifications)
+        
+        Args:
+            due_time: Time threshold - notifications scheduled before this time are due
+            
+        Returns:
+            List of due notifications
+        """
+        try:
+            with get_db() as db:
+                notifications = db.query(Notification).filter(
+                    and_(
+                        Notification.scheduled_at <= due_time,
+                        Notification.is_sent == False,
+                        Notification.has_voice == True
+                    )
+                ).order_by(Notification.scheduled_at).all()
+                
+                self.logger.info(f"Found {len(notifications)} due notifications")
+                return notifications
+                
+        except Exception as e:
+            self.logger.error(f"Failed to get due notifications: {e}")
+            return []
+    
+    async def update_notification_voice(
+        self,
+        notification_id: str,
+        voice_file_path: str,
+        voice_text: str
+    ) -> bool:
+        """Update notification with voice file information"""
+        try:
+            return await self.update_notification(
+                notification_id,
+                voice_file_path=voice_file_path,
+                voice_generated_at=datetime.utcnow()
+            )
+        except Exception as e:
+            self.logger.error(f"Failed to update notification voice {notification_id}: {e}")
+            return False
+    
+    async def update_notification_status(
+        self,
+        notification_id: str,
+        is_sent: bool = None,
+        is_read: bool = None,
+        sent_at: datetime = None
+    ) -> bool:
+        """Update notification status (sent/read)"""
+        try:
+            updates = {}
+            if is_sent is not None:
+                updates['is_sent'] = is_sent
+            if is_read is not None:
+                updates['is_read'] = is_read
+            if sent_at is not None:
+                updates['sent_at'] = sent_at
+            
+            return await self.update_notification(notification_id, **updates)
+        except Exception as e:
+            self.logger.error(f"Failed to update notification status {notification_id}: {e}")
+            return False 

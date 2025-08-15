@@ -61,6 +61,7 @@ class GeminiService:
     6. Nhận diện các dấu hiệu cần khám bác sĩ
     
     HƯỚNG DẪN TRUYỀN ĐẠT:
+    - LUÔN LUÔN trả lời bằng tiếng Việt, không được sử dụng tiếng Anh hoặc ngôn ngữ khác
     - Luôn trả lời bằng tiếng Việt với giọng điệu thân thiện và tự nhiên
     - Chia nhỏ thông tin thành các phần dễ hiểu nhưng vẫn đầy đủ
     - Sử dụng ví dụ cụ thể và gần gũi
@@ -69,6 +70,7 @@ class GeminiService:
     - Nói như đang trò chuyện face-to-face, không như đọc kịch bản
     - Kết thúc câu trả lời một cách tự nhiên với thông tin đầy đủ
     - LUÔN đưa ra câu trả lời hoàn chỉnh, không để người dùng chờ đợi
+    - Nếu có thuật ngữ y tế, hãy giải thích bằng tiếng Việt đơn giản
     
     KHI NÓI VỀ THUỐC:
     - Giải thích tên thuốc, công dụng một cách dễ hiểu
@@ -77,6 +79,16 @@ class GeminiService:
     - Lưu ý về tương tác thuốc
     - Luôn khuyên tham khảo ý kiến bác sĩ/dược sĩ
     - Đưa ra thông tin đầy đủ trong một lần trả lời
+    - QUAN TRỌNG: Khi thấy ảnh thuốc, hãy phân tích chi tiết và trả lời bằng tiếng Việt
+    - Nếu người dùng hỏi về thuốc trong ảnh, hãy cung cấp thông tin chi tiết về:
+      + Tên thuốc (tên gốc và tên thương mại)
+      + Thành phần hoạt chất chính
+      + Công dụng và chỉ định
+      + Liều lượng và cách sử dụng
+      + Tác dụng phụ thường gặp
+      + Lưu ý khi sử dụng
+      + Tương tác thuốc (nếu có)
+      + Đối tượng cần thận trọng
     
     KHI TRÒ CHUYỆN:
     - Lắng nghe và thể hiện sự quan tâm
@@ -180,7 +192,7 @@ class GeminiService:
             ),
             output_audio_transcription=types.AudioTranscriptionConfig(),
             input_audio_transcription=types.AudioTranscriptionConfig(),
-            temperature=0.7,
+            temperature=0.3,
             top_p=0.9,
         )
     
@@ -190,7 +202,7 @@ class GeminiService:
         Args:
             websocket: FastAPI WebSocket instance.
         """
-        await websocket.accept()
+        # WebSocket is already accepted in the main endpoint
         
         # Load previous session if available
         previous_session_handle = self.session_service.load_previous_session_handle()
@@ -332,20 +344,24 @@ class GeminiService:
         Note: FastAPI WebSocket doesn't have ping() method, so we send keepalive messages instead.
         """
         try:
+            keepalive_count = 0
             while True:
                 await asyncio.sleep(settings.WEBSOCKET_PING_INTERVAL)
                 try:
-                    # Check if WebSocket is still connected
-                    if websocket.client_state.name == 'CONNECTED':
+                    # Check if WebSocket is still connected safely
+                    if hasattr(websocket, 'client_state') and websocket.client_state.name == 'CONNECTED':
                         # Send a keepalive message instead of ping
-                        await asyncio.wait_for(
-                            websocket.send_text(json.dumps({
-                                "type": "keepalive", 
-                                "timestamp": datetime.datetime.now().isoformat()
-                            })),
-                            timeout=settings.WEBSOCKET_PING_TIMEOUT
-                        )
-                        logger.debug("Sent WebSocket keepalive")
+                        keepalive_data = {
+                            "type": "keepalive", 
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "count": keepalive_count,
+                            "server_time": datetime.datetime.now().strftime("%H:%M:%S")
+                        }
+                        
+                        # Use _send_safely method for consistent error handling
+                        await self._send_safely(websocket, keepalive_data)
+                        keepalive_count += 1
+                        logger.debug(f"Sent WebSocket keepalive #{keepalive_count}")
                     else:
                         logger.warning("WebSocket not connected, stopping keepalive")
                         break
@@ -396,6 +412,12 @@ class GeminiService:
                     # Handle keepalive messages
                     if data.get("type") == "keepalive":
                         logger.debug("Received keepalive from client")
+                        # Send keepalive response to maintain connection
+                        await self._send_safely(websocket, {
+                            "type": "keepalive_response",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "server_time": datetime.datetime.now().strftime("%H:%M:%S")
+                        })
                         continue
                 
                     if "realtime_input" in data:
@@ -424,8 +446,9 @@ class GeminiService:
                         await self._handle_voice_notification_request(websocket, data["voice_notification_request"])
                 
                 except asyncio.TimeoutError:
-                    logger.warning("Timeout waiting for message from client")
-                    break
+                    logger.warning("Timeout waiting for message from client - continuing to maintain connection")
+                    # Don't break on timeout, just continue to maintain connection
+                    continue
                 except WebSocketDisconnect:
                     logger.info("Client disconnected")
                     break
@@ -434,7 +457,10 @@ class GeminiService:
                     continue
                 except Exception as e:
                     logger.error(f"Error sending to Gemini: {e}")
-                    break
+                    # Only break on critical errors, not on temporary issues
+                    if "connection" in str(e).lower() or "disconnect" in str(e).lower():
+                        break
+                    continue
                     
         except asyncio.CancelledError:
             logger.info("Send task cancelled")
@@ -598,13 +624,15 @@ class GeminiService:
             data: Data to send.
         """
         try:
-            if websocket.client_state.name == 'CONNECTED':
+            # Check if WebSocket is still connected before sending
+            if hasattr(websocket, 'client_state') and websocket.client_state.name == 'CONNECTED':
                 await websocket.send_text(json.dumps(data))
             else:
                 logger.warning("Attempted to send data to disconnected WebSocket")
         except Exception as e:
             logger.error(f"Error sending data to WebSocket: {e}")
-            raise  # Re-raise to let calling function handle
+            # Don't re-raise for non-critical errors to maintain connection stability
+            pass
 
     def _append_to_conversation_history(self, role: str, text: str):
         """Append a new message to the conversation history and persist it.
@@ -758,3 +786,48 @@ class GeminiService:
                 "error": str(e),
                 "request_id": request_data.get("request_id", "")
             })
+
+    async def analyze_image_with_text(self, image_base64: str, prompt: str) -> str:
+        """Analyze an image with text prompt using Gemini.
+        
+        Args:
+            image_base64: Base64 encoded image string.
+            prompt: Text prompt for image analysis.
+            
+        Returns:
+            Analysis result as string.
+        """
+        try:
+            if not self.client:
+                raise Exception("Gemini client not initialized")
+            
+            # Create content parts for the request
+            content_parts = [
+                types.Part.from_text(prompt),
+                types.Part.from_data(
+                    data=base64.b64decode(image_base64),
+                    mime_type="image/jpeg"
+                )
+            ]
+            
+            # Generate content
+            response = self.client.generate_content(
+                model=self.model,
+                contents=types.Content(parts=content_parts),
+                generation_config=types.GenerationConfig(
+                    temperature=0.3,
+                    top_p=0.8,
+                    top_k=40,
+                    max_output_tokens=2048,
+                )
+            )
+            
+            if response.text:
+                logger.info(f"Image analysis completed successfully")
+                return response.text
+            else:
+                raise Exception("No response from Gemini")
+                
+        except Exception as e:
+            logger.error(f"Error analyzing image with Gemini: {e}")
+            raise e

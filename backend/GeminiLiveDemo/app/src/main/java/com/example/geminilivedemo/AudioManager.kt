@@ -145,7 +145,12 @@ class AudioManager(private val context: Context) {
             val byteArray = buffer.array()
             val base64 = Base64.encodeToString(byteArray, Base64.DEFAULT or Base64.NO_WRAP)
             Log.d("AudioManager", "Sending audio chunk, base64 length: ${base64.length}")
-            callback?.onAudioChunkReady(base64)
+            
+            // Switch to main thread for callback to ensure UI safety
+            withContext(Dispatchers.Main) {
+                callback?.onAudioChunkReady(base64)
+            }
+            
             pcmData.clear()
         }
     }
@@ -212,7 +217,10 @@ class AudioManager(private val context: Context) {
 
                 if (!isPlayingAudio) {
                     isPlayingAudio = true
-                    callback?.onAudioPlaybackStarted()
+                    // Switch to main thread for callback
+                    withContext(Dispatchers.Main) {
+                        callback?.onAudioPlaybackStarted()
+                    }
                 }
                 playAudio(chunk)
             }
@@ -220,7 +228,11 @@ class AudioManager(private val context: Context) {
             // Audio playback finished
             isPlayingAudio = false
             lastPlaybackEndTime = System.currentTimeMillis()
-            callback?.onAudioPlaybackStopped()
+            
+            // Switch to main thread for callback
+            withContext(Dispatchers.Main) {
+                callback?.onAudioPlaybackStopped()
+            }
             
             Log.d("AudioManager", "AI finished speaking, cooldown started")
             

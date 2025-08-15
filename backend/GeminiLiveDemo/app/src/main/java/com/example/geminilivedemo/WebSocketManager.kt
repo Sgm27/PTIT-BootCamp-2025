@@ -195,8 +195,21 @@ class WebSocketManager {
     }
     
     fun sendVoiceMessage(b64PCM: String?, currentFrameB64: String? = null) {
+        // Check if WebSocket exists and is open
+        if (webSocket == null) {
+            Log.w("WebSocketManager", "WebSocket is null, attempting to connect...")
+            connect()
+            return
+        }
+        
         if (webSocket?.isOpen == false) {
-            Log.d("WebSocketManager", "websocket not open")
+            Log.w("WebSocketManager", "WebSocket is not open, current state: ${webSocket?.readyState}")
+            
+            // Try to reconnect if not already connecting
+            if (!isConnecting) {
+                Log.d("WebSocketManager", "Attempting to reconnect...")
+                connect()
+            }
             return
         }
         
@@ -208,33 +221,39 @@ class WebSocketManager {
 
         Log.d("WebSocketManager", "Sending message - Audio: ${b64PCM != null}, Image: ${currentFrameB64 != null}")
 
-        val payload = JSONObject()
-        val realtimeInput = JSONObject()
-        val mediaChunks = org.json.JSONArray()
-        
-        // Add audio chunk if available
-        b64PCM?.let { audioData ->
-            val audioChunk = JSONObject()
-            audioChunk.put("mime_type", "audio/pcm")
-            audioChunk.put("data", audioData)
-            mediaChunks.put(audioChunk)
-            Log.d("WebSocketManager", "Added audio chunk")
+        try {
+            val payload = JSONObject()
+            val realtimeInput = JSONObject()
+            val mediaChunks = org.json.JSONArray()
+            
+            // Add audio chunk if available
+            b64PCM?.let { audioData ->
+                val audioChunk = JSONObject()
+                audioChunk.put("mime_type", "audio/pcm")
+                audioChunk.put("data", audioData)
+                mediaChunks.put(audioChunk)
+                Log.d("WebSocketManager", "Added audio chunk")
+            }
+
+            // Add image chunk if available
+            currentFrameB64?.let { imageData ->
+                val imageChunk = JSONObject()
+                imageChunk.put("mime_type", "image/jpeg")
+                imageChunk.put("data", imageData)
+                mediaChunks.put(imageChunk)
+                Log.d("WebSocketManager", "Added image chunk, size: ${imageData.length}")
+            }
+
+            realtimeInput.put("media_chunks", mediaChunks)
+            payload.put("realtime_input", realtimeInput)
+
+            Log.d("WebSocketManager", "Sending payload with ${mediaChunks.length()} chunks")
+            webSocket?.send(payload.toString())
+        } catch (e: Exception) {
+            Log.e("WebSocketManager", "Error sending voice message: ${e.message}", e)
+            // Notify callback about the error
+            callback?.onError(e)
         }
-
-        // Add image chunk if available
-        currentFrameB64?.let { imageData ->
-            val imageChunk = JSONObject()
-            imageChunk.put("mime_type", "image/jpeg")
-            imageChunk.put("data", imageData)
-            mediaChunks.put(imageChunk)
-            Log.d("WebSocketManager", "Added image chunk, size: ${imageData.length}")
-        }
-
-        realtimeInput.put("media_chunks", mediaChunks)
-        payload.put("realtime_input", realtimeInput)
-
-        Log.d("WebSocketManager", "Sending payload with ${mediaChunks.length()} chunks")
-        webSocket?.send(payload.toString())
     }
     
     fun sendEndOfStreamMessage() {
@@ -361,6 +380,24 @@ class WebSocketManager {
     }
     
     fun sendAudioChunk(base64Audio: String) {
+        // Check if WebSocket exists and is open
+        if (webSocket == null) {
+            Log.w("WebSocketManager", "WebSocket is null, attempting to connect...")
+            connect()
+            return
+        }
+        
+        if (webSocket?.isOpen == false) {
+            Log.w("WebSocketManager", "WebSocket is not open, cannot send audio chunk")
+            
+            // Try to reconnect if not already connecting
+            if (!isConnecting) {
+                Log.d("WebSocketManager", "Attempting to reconnect...")
+                connect()
+            }
+            return
+        }
+        
         sendVoiceMessage(base64Audio, null)
     }
     

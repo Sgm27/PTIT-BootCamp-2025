@@ -172,7 +172,7 @@ class UserService:
                 if not user:
                     return None
                 
-                # Create detached copy to avoid session issues
+                # Create a dictionary with user data to avoid session issues
                 user_data = {
                     'id': user.id,
                     'user_type': user.user_type,
@@ -189,12 +189,7 @@ class UserService:
                     'last_login': user.last_login
                 }
                 
-                # Create detached user object
-                detached_user = User(**user_data)
-                detached_user.id = user.id
-                detached_user.created_at = user.created_at
-                detached_user.updated_at = user.updated_at
-                return detached_user
+                return user_data
                 
         except Exception as e:
             self.logger.error(f"Failed to get user by contact: {e}")
@@ -620,4 +615,17 @@ class UserService:
                 
         except Exception as e:
             self.logger.error(f"Failed to search users: {e}")
+            return []
+    
+    def get_users_by_type(self, user_type: str) -> List[User]:
+        """Get all users of a specific type"""
+        try:
+            with get_db() as db:
+                users = db.query(User).filter(
+                    User.user_type == user_type,
+                    User.is_active == True
+                ).all()
+                return users
+        except Exception as e:
+            self.logger.error(f"Failed to get users by type {user_type}: {e}")
             return [] 

@@ -5,7 +5,7 @@ Handles user registration, login, and profile management
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 import hashlib
 import secrets
 import logging
@@ -177,46 +177,55 @@ def add_auth_endpoints(app: FastAPI):
             user_service = UserService()
             
             # Try to find user by email or phone
-            user = None
+            user_data = None
             if "@" in request.identifier:
-                user = user_service.get_user_by_contact(email=request.identifier)
+                user_data = user_service.get_user_by_contact(email=request.identifier)
             else:
-                user = user_service.get_user_by_contact(phone=request.identifier)
+                user_data = user_service.get_user_by_contact(phone=request.identifier)
             
-            if not user:
+            if not user_data:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             
             # Check password
             hashed_password = hash_password(request.password)
-            stored_hash = getattr(user, 'password_hash', None)
+            stored_hash = user_data.get('password_hash')
             
             if not stored_hash or stored_hash != hashed_password:
                 raise HTTPException(status_code=401, detail="Invalid credentials")
             
-            if not user.is_active:
+            if not user_data.get('is_active', True):
                 raise HTTPException(status_code=401, detail="Account is deactivated")
             
             # Update last login
-            user_service.update_user(str(user.id), last_login=datetime.utcnow())
+            user_service.update_user(str(user_data['id']), last_login=datetime.now(timezone.utc))
+            
+            # Prepare user data for response
+            try:
+                user_type = user_data['user_type'].lower() if isinstance(user_data['user_type'], str) else user_data['user_type'].value.lower()
+                created_at = user_data['created_at'].isoformat() if user_data['created_at'] else None
+                date_of_birth = user_data['date_of_birth'].isoformat() if user_data['date_of_birth'] else None
+            except Exception as e:
+                logger.error(f"Error processing user data: {e}")
+                raise HTTPException(status_code=500, detail="Internal server error")
             
             # Generate session token
             session_token = generate_session_token()
             
             # Create response
             user_response = UserResponse(
-                user_id=str(user.id),
-                user_type=user.user_type.lower() if isinstance(user.user_type, str) else user.user_type.value.lower(),  # Convert to lowercase for Android compatibility
-                full_name=user.full_name,
-                email=user.email,
-                phone=user.phone,
-                date_of_birth=user.date_of_birth.isoformat() if user.date_of_birth else None,
-                gender=user.gender,
-                address=user.address,
-                created_at=user.created_at.isoformat(),
-                is_active=user.is_active
+                user_id=str(user_data['id']),
+                user_type=user_type,  # Use pre-loaded value
+                full_name=user_data['full_name'],
+                email=user_data['email'],
+                phone=user_data['phone'],
+                date_of_birth=date_of_birth,  # Use pre-loaded value
+                gender=user_data['gender'],
+                address=user_data['address'],
+                created_at=created_at,  # Use pre-loaded value
+                is_active=user_data['is_active']
             )
             
-            logger.info(f"User logged in successfully: {user.id}")
+            logger.info(f"User logged in successfully: {user_data['id']}")
             
             return LoginResponse(
                 success=True,
@@ -302,6 +311,64 @@ def add_auth_endpoints(app: FastAPI):
             raise
         except Exception as e:
             logger.error(f"Create relationship error: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    @app.get("/api/family/elderly-list")
+    async def get_elderly_list():
+        """Get list of elderly users for family members"""
+        if not DATABASE_AVAILABLE:
+            raise HTTPException(status_code=503, detail="Database not available")
+        
+        try:
+            user_service = UserService()
+            # For now, return all elderly users (in production, filter by family relationship)
+            elderly_users = user_service.get_users_by_type(UserType.ELDERLY.value)
+            
+            elderly_list = []
+            for user in elderly_users:
+                elderly_list.append({
+                    "elderly_id": str(user.id),
+                    "full_name": user.full_name,
+                    "email": user.email,
+                    "relationship_type": "family"  # Default relationship
+                })
+            
+            return {
+                "success": True,
+                "elderly_list": elderly_list
+            }
+            
+        except Exception as e:
+            logger.error(f"Get elderly list error: {e}")
+            raise HTTPException(status_code=500, detail="Internal server error")
+    
+    @app.post("/api/family/send-notification")
+    async def send_family_notification(notification_data: dict):
+        """Send notification to elderly user from family member"""
+        if not DATABASE_AVAILABLE:
+            raise HTTPException(status_code=503, detail="Database not available")
+        
+        try:
+            # Extract notification data
+            elderly_user_id = notification_data.get("elderly_user_id")
+            notification_info = notification_data.get("notification_data", {})
+            
+            if not elderly_user_id:
+                raise HTTPException(status_code=400, detail="Elderly user ID is required")
+            
+            # For now, just return success (in production, implement actual notification logic)
+            logger.info(f"Family notification sent to elderly user {elderly_user_id}: {notification_info}")
+            
+            return {
+                "success": True,
+                "message": "Notification sent successfully",
+                "notification_id": f"temp_{elderly_user_id}_{datetime.now(timezone.utc).timestamp()}"
+            }
+            
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Send family notification error: {e}")
             raise HTTPException(status_code=500, detail="Internal server error")
     
     @app.get("/api/auth/family-members/{elderly_user_id}")

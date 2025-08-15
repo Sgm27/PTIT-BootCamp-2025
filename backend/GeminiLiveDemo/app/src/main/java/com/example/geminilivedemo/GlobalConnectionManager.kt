@@ -67,12 +67,14 @@ class GlobalConnectionManager private constructor() {
         currentActivity = activity
         isAppInBackground = false
         
-        // Nếu đây là MainActivity, cho phép chat
-        val isChatAvailable = activity is MainActivity
+        // Nếu đây là MainActivity hoặc MedicineInfoActivity, cho phép chat và duy trì connection
+        val isChatAvailable = activity is MainActivity || activity is MedicineInfoActivity
         notifyChatAvailabilityChanged(isChatAvailable)
         
-        // Kết nối nếu chưa có connection
-        ensureConnection()
+        // Đảm bảo kết nối khi ở MainActivity hoặc MedicineInfoActivity
+        if (activity is MainActivity || activity is MedicineInfoActivity) {
+            ensureConnection()
+        }
     }
     
     fun unregisterActivity(activity: Activity) {
@@ -110,12 +112,14 @@ class GlobalConnectionManager private constructor() {
         currentActivity = activity
         isAppInBackground = false
         
-        // Enable chat nếu là MainActivity
-        val isChatAvailable = activity is MainActivity
+        // Enable chat nếu là MainActivity hoặc MedicineInfoActivity
+        val isChatAvailable = activity is MainActivity || activity is MedicineInfoActivity
         notifyChatAvailabilityChanged(isChatAvailable)
         
-        // Đảm bảo connection
-        ensureConnection()
+        // Đảm bảo kết nối khi ở MainActivity hoặc MedicineInfoActivity
+        if (activity is MainActivity || activity is MedicineInfoActivity) {
+            ensureConnection()
+        }
     }
     
     private fun ensureConnection() {
@@ -159,8 +163,10 @@ class GlobalConnectionManager private constructor() {
             serviceManager?.pauseListeningService()
         }
         
-        // Reconnect WebSocket
-        ensureConnection()
+        // Reconnect WebSocket khi MainActivity hoặc MedicineInfoActivity là activity hiện tại
+        if (currentActivity is MainActivity || currentActivity is MedicineInfoActivity) {
+            ensureConnection()
+        }
     }
     
     private fun notifyConnectionStateChanged(isConnected: Boolean) {
@@ -186,7 +192,7 @@ class GlobalConnectionManager private constructor() {
     fun getCurrentActivity(): Activity? = currentActivity
     
     fun isChatAvailable(): Boolean {
-        return currentActivity is MainActivity && !isAppInBackground
+        return (currentActivity is MainActivity || currentActivity is MedicineInfoActivity) && !isAppInBackground
     }
     
     fun cleanup() {

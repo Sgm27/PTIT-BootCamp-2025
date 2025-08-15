@@ -1,117 +1,105 @@
 #!/usr/bin/env python3
 """
-Test production API endpoints
+Test script for production API endpoint
 """
-import requests
+import asyncio
+import base64
 import json
-import sys
-import os
+import logging
+import httpx
+from pathlib import Path
 
-# Load environment variables
-from dotenv import load_dotenv
-load_dotenv()
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def test_production_api():
+async def test_production_api():
+    """Test the production API endpoint with real image."""
+    
+    logger.info("🧪 Testing Production API Endpoint")
+    
     # Production API URL
-    base_url = "https://backend-bootcamp.sonktx.online"
+    api_url = "https://backend-bootcamp.sonktx.online/api/analyze-medicine-gemini"
     
-    print(f"🚀 Testing Production API: {base_url}")
-    print("=" * 50)
+    # Test with a sample image (if available)
+    test_image_path = Path("thuoc-panadol.jpg")
     
-    # Test 1: Health check
-    print("\n1. 🔍 Health Check:")
-    try:
-        response = requests.get(f"{base_url}/", timeout=10)
-        print(f"   Status: {response.status_code}")
-        if response.status_code == 200:
-            data = response.json()
-            print(f"   Response: {json.dumps(data, indent=2)}")
-            print("   ✅ Backend is running!")
-        else:
-            print(f"   ❌ Failed: {response.text}")
-    except Exception as e:
-        print(f"   ❌ Error: {e}")
-    
-    # Test 2: Login endpoint
-    print("\n2. 🔐 Login API Test:")
-    login_data = {
-        "identifier": "sondaitai27@gmail.com",
-        "password": "sonktx12345"
-    }
-    
-    try:
-        response = requests.post(
-            f"{base_url}/api/auth/login",
-            json=login_data,
-            headers={"Content-Type": "application/json"},
-            timeout=10
-        )
-        print(f"   Status: {response.status_code}")
+    if test_image_path.exists():
+        logger.info(f"📸 Found test image: {test_image_path}")
         
-        if response.status_code == 200:
-            data = response.json()
-            print(f"   ✅ Login successful!")
-            print(f"   User: {data.get('user', {}).get('full_name')}")
-            print(f"   User Type: {data.get('user', {}).get('user_type')}")
-            print(f"   Session Token: {data.get('session_token', 'N/A')[:20]}...")
+        try:
+            # Encode image to base64
+            with open(test_image_path, "rb") as f:
+                image_data = f.read()
+                base64_image = base64.b64encode(image_data).decode("utf-8")
             
-            # Test 3: Profile endpoint
-            user_id = data.get('user', {}).get('user_id')
-            if user_id:
-                print(f"\n3. 👤 Profile API Test:")
-                try:
-                    profile_response = requests.get(
-                        f"{base_url}/api/auth/profile/{user_id}",
-                        timeout=10
-                    )
-                    print(f"   Status: {profile_response.status_code}")
-                    if profile_response.status_code == 200:
-                        profile_data = profile_response.json()
-                        print(f"   ✅ Profile retrieved!")
-                        print(f"   Name: {profile_data.get('full_name')}")
-                        print(f"   Email: {profile_data.get('email')}")
-                    else:
-                        print(f"   ❌ Profile failed: {profile_response.text}")
-                except Exception as e:
-                    print(f"   ❌ Profile error: {e}")
-        else:
-            print(f"   ❌ Login failed: {response.text}")
-    except Exception as e:
-        print(f"   ❌ Login error: {e}")
-    
-    # Test 4: Database connection through API
-    print(f"\n4. 🗄️  Database Connection Test:")
-    print(f"   Database host: {os.getenv('DB_HOST', 'Not set')}")
-    print(f"   Database port: {os.getenv('DB_PORT', 'Not set')}")
-    
-    # Test if we can connect to database directly
-    try:
-        import psycopg2
-        db_config = {
-            'host': os.getenv('DB_HOST', '13.216.164.63'),
-            'port': int(os.getenv('DB_PORT', 5432)),
-            'database': os.getenv('DB_NAME', 'healthcare_ai'),
-            'user': os.getenv('DB_USER', 'postgres'),
-            'password': os.getenv('DB_PASSWORD', 'postgres')
-        }
+            logger.info(f"📊 Image encoded: {len(base64_image)} characters")
+            
+            # Prepare request data
+            request_data = {
+                "input": base64_image
+            }
+            
+            # Test API
+            logger.info(f"📡 Calling production API: {api_url}")
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                response = await client.post(
+                    api_url,
+                    json=request_data,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                logger.info(f"📊 Response Status: {response.status_code}")
+                
+                if response.status_code == 200:
+                    try:
+                        response_data = response.json()
+                        logger.info("✅ Production API call successful!")
+                        logger.info(f"📄 Response: {json.dumps(response_data, indent=2, ensure_ascii=False)}")
+                        
+                        if response_data.get("success"):
+                            result = response_data.get("result", "")
+                            logger.info(f"📋 Analysis result length: {len(result)}")
+                            logger.info("📋 Analysis result:")
+                            print("-" * 50)
+                            print(result)
+                            print("-" * 50)
+                        else:
+                            logger.error(f"❌ API returned success=false: {response_data.get('result', 'Unknown error')}")
+                            
+                    except json.JSONDecodeError as e:
+                        logger.error(f"❌ Failed to parse JSON response: {e}")
+                        logger.info(f"📄 Raw response: {response.text}")
+                else:
+                    logger.error(f"❌ API call failed with status {response.status_code}")
+                    logger.info(f"📄 Error response: {response.text}")
+                    
+        except Exception as e:
+            logger.error(f"❌ Error during API test: {e}")
+    else:
+        logger.warning("⚠️ No test image found. Testing with dummy base64...")
         
-        conn = psycopg2.connect(**db_config)
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM users")
-        user_count = cur.fetchone()[0]
-        cur.close()
-        conn.close()
-        
-        print(f"   ✅ Database connection successful!")
-        print(f"   Total users: {user_count}")
-    except Exception as e:
-        print(f"   ❌ Database connection failed: {e}")
-    
-    print("\n" + "=" * 50)
-    print("🎯 Production API Test Complete!")
-    print("\n📱 Android App should now be able to connect to:")
-    print(f"   • API: {base_url}")
-    print(f"   • Database: {os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}")
+        # Test with dummy data
+        try:
+            request_data = {
+                "input": "dGVzdA=="  # base64 for "test"
+            }
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    api_url,
+                    json=request_data,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                logger.info(f"📊 Response Status: {response.status_code}")
+                logger.info(f"📄 Response: {response.text}")
+                
+        except Exception as e:
+            logger.error(f"Error with dummy test: {e}")
 
 if __name__ == "__main__":
-    test_production_api() 
+    logger.info("🚀 Starting Production API Test")
+    asyncio.run(test_production_api())
+    logger.info("�� Test completed") 

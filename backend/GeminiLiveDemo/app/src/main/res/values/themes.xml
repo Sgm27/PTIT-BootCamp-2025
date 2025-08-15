@@ -100,4 +100,11 @@
         <item name="boxCornerRadiusBottomStart">12dp</item>
         <item name="boxCornerRadiusBottomEnd">12dp</item>
     </style>
+
+    <!-- Scanner Activity Theme -->
+    <style name="Theme.GeminiLiveDemo.Scanner" parent="Theme.GeminiLiveDemo">
+        <item name="android:statusBarColor">@color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/white</item>
+    </style>
 </resources>

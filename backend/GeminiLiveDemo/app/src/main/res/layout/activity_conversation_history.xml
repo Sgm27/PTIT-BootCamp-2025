@@ -66,12 +66,32 @@
 
     </LinearLayout>
 
-    <!-- Loading indicator -->
-    <ProgressBar
-        android:id="@+id/loadingProgress"
+    <!-- Enhanced Loading indicator with text -->
+    <LinearLayout
+        android:id="@+id/loadingContainer"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_centerInParent="true"
-        android:visibility="gone" />
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone">
+
+        <ProgressBar
+            android:id="@+id/loadingProgress"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/primary_500" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Đang tải lịch sử trò chuyện..."
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginTop="16dp"
+            android:gravity="center" />
+
+    </LinearLayout>
 
 </RelativeLayout> 

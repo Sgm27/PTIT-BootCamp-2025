@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ProgressBar
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -16,6 +17,7 @@ import com.example.geminilivedemo.data.UserPreferences
 import com.example.geminilivedemo.data.UserResponse
 import com.example.geminilivedemo.data.LoginResponse
 import com.example.geminilivedemo.adapters.ConversationHistoryAdapter
+import com.example.geminilivedemo.data.DataCacheManager
 import kotlinx.coroutines.*
 import android.content.Context
 import java.net.URL
@@ -27,16 +29,19 @@ import androidx.lifecycle.lifecycleScope
 class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStateCallback {
     
     private lateinit var userPreferences: UserPreferences
-    private lateinit var apiClient: ApiClient
+
     private lateinit var globalConnectionManager: GlobalConnectionManager
+    private lateinit var dataCacheManager: DataCacheManager
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: ConversationHistoryAdapter
     private lateinit var emptyView: TextView
     private lateinit var emptyViewContainer: android.widget.LinearLayout
     private lateinit var loadingView: ProgressBar
+    private lateinit var loadingContainer: android.widget.LinearLayout
     
     private val conversations = mutableListOf<Map<String, Any>>()
     private var loadingJob: Job? = null
+    private var isDataFromCache = false
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,10 +65,13 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
             Log.d("ConversationHistory", "UserPreferences initialized")
             
             Log.d("ConversationHistory", "Initializing ApiClient...")
-            apiClient = ApiClient()
+
             Log.d("ConversationHistory", "ApiClient initialized successfully")
-            Log.d("ConversationHistory", "ApiClient instance: $apiClient")
             Log.d("ConversationHistory", "ApiService instance: ${ApiClient.apiService}")
+            
+            Log.d("ConversationHistory", "Initializing DataCacheManager...")
+            dataCacheManager = DataCacheManager.getInstance(this)
+            Log.d("ConversationHistory", "DataCacheManager initialized successfully")
             
             // Setup UI
             Log.d("ConversationHistory", "Setting up UI...")
@@ -93,6 +101,14 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
             loadConversations()
             
             Log.d("ConversationHistory", "=== ConversationHistoryActivity onCreate COMPLETED ===")
+        
+        // Log cache status
+        try {
+            val cacheStatus = dataCacheManager.getCacheStatus()
+            Log.d("ConversationHistory", "Cache status: $cacheStatus")
+        } catch (e: Exception) {
+            Log.w("ConversationHistory", "Could not get cache status", e)
+        }
         } catch (e: Exception) {
             Log.e("ConversationHistory", "=== CRITICAL ERROR in onCreate ===", e)
             Log.e("ConversationHistory", "Error message: ${e.message}")
@@ -143,6 +159,13 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
                 ?: ProgressBar(this).apply {
                     visibility = View.GONE
                     Log.w("ConversationHistory", "loadingProgress not found, created programmatically")
+                }
+            
+            // Add loading container if exists in layout
+            loadingContainer = findViewById<android.widget.LinearLayout>(R.id.loadingContainer)
+                ?: android.widget.LinearLayout(this).apply {
+                    visibility = View.GONE
+                    Log.w("ConversationHistory", "loadingContainer not found, created programmatically")
                 }
             
             Log.d("ConversationHistory", "UI setup completed successfully")
@@ -224,6 +247,34 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
         Log.d("ConversationHistory", "API Base URL: ${ApiConfig.BASE_URL}")
         Log.d("ConversationHistory", "Using userId: $userId")
         
+        // Kiểm tra cache trước
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val cachedData = dataCacheManager.getCachedConversations(userId)
+                if (cachedData != null) {
+                    Log.d("ConversationHistory", "Found ${cachedData.size} conversations in cache")
+                    
+                    withContext(Dispatchers.Main) {
+                        // Hiển thị data từ cache ngay lập tức
+                        conversations.clear()
+                        conversations.addAll(cachedData)
+                        adapter.updateData(cachedData)
+                        
+                        if (cachedData.isEmpty()) {
+                            showEmptyState("Chưa có cuộc trò chuyện nào")
+                        } else {
+                            showConversations()
+                        }
+                        
+                        isDataFromCache = true
+                        Log.d("ConversationHistory", "Displayed conversations from cache")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("ConversationHistory", "Error loading from cache", e)
+            }
+        }
+        
         // Show loading state
         showLoading(true)
         
@@ -237,7 +288,7 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
                 Log.d("ConversationHistory", "Making API call to get conversations for userId: $userId")
                 Log.d("ConversationHistory", "Full API URL: ${ApiConfig.BASE_URL}api/conversations/$userId")
                 
-                val response = apiClient.getUserConversations(userId)
+                val response = ApiClient.getUserConversations(userId)
                 
                 Log.d("ConversationHistory", "=== API CALL COMPLETED ===")
                 Log.d("ConversationHistory", "Response is null: ${response == null}")
@@ -282,6 +333,14 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
                             Log.d("ConversationHistory", "First conversation: ${conversationList[0]}")
                         }
                         
+                        // Cache data mới
+                        try {
+                            dataCacheManager.cacheConversations(userId, conversationList)
+                            Log.d("ConversationHistory", "Cached ${conversationList.size} conversations")
+                        } catch (e: Exception) {
+                            Log.w("ConversationHistory", "Error caching conversations", e)
+                        }
+                        
                         // Update adapter with new data
                         Log.d("ConversationHistory", "=== UPDATING ADAPTER ===")
                         adapter.updateData(conversationList)
@@ -304,6 +363,8 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
                                 Log.d("ConversationHistory", "Conversation $index: ID=$id, Title=$title")
                             }
                         }
+                        
+                        isDataFromCache = false
                     } else {
                         Log.e("ConversationHistory", "=== INVALID API RESPONSE - NO CONVERSATIONS KEY ===")
                         Log.e("ConversationHistory", "Available keys: ${response.keys.toList()}")
@@ -334,11 +395,27 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
     
     private fun showLoading(show: Boolean) {
         if (show) {
-            loadingView.visibility = View.VISIBLE
+            loadingContainer.visibility = View.VISIBLE
             recyclerView.visibility = View.GONE
             emptyViewContainer.visibility = View.GONE
+            
+            // Add loading animation - ProgressBar is always indeterminate by default
+            // Add shimmer animation to loading container
+            try {
+                val animator = android.animation.ObjectAnimator.ofFloat(loadingContainer, "alpha", 0.3f, 1.0f)
+                animator.duration = 1500
+                animator.repeatCount = android.animation.ObjectAnimator.INFINITE
+                animator.repeatMode = android.animation.ObjectAnimator.REVERSE
+                animator.start()
+            } catch (e: Exception) {
+                Log.w("ConversationHistory", "Could not start loading animation", e)
+            }
+            
+            Log.d("ConversationHistory", "Loading state: SHOWING with animation")
         } else {
-            loadingView.visibility = View.GONE
+            loadingContainer.visibility = View.GONE
+            loadingContainer.alpha = 1.0f // Reset alpha
+            Log.d("ConversationHistory", "Loading state: HIDDEN")
         }
     }
     
@@ -370,6 +447,17 @@ class ConversationHistoryActivity : AppCompatActivity(), GlobalConnectionManager
     override fun onResume() {
         super.onResume()
         // Refresh conversations when returning from detail view
+        // Chỉ refresh nếu data không phải từ cache hoặc cache đã cũ
+        if (!isDataFromCache) {
+            loadConversations()
+        }
+    }
+    
+    /**
+     * Force refresh data từ server (bỏ qua cache)
+     */
+    fun forceRefresh() {
+        isDataFromCache = false
         loadConversations()
     }
     

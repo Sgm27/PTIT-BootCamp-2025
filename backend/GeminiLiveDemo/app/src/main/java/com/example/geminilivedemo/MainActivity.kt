@@ -24,6 +24,8 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
     private lateinit var voiceNotificationManager: VoiceNotificationManager
     private lateinit var voiceNotificationWebSocketManager: VoiceNotificationWebSocketManager
     
+
+    
     // State variables
     private var currentFrameB64: String? = null
     private var lastImageSendTime: Long = 0
@@ -67,6 +69,9 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         
         // GlobalConnectionManager sẽ tự động quản lý WebSocket connection
         Log.d("MainActivity", "MainActivity initialized - GlobalConnectionManager will handle connection")
+        
+        // Show connecting status initially
+        uiManager.updateConnectionStatusConnecting()
     }
     
     private fun initializeManagers() {
@@ -83,6 +88,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         voiceNotificationWebSocketManager = VoiceNotificationWebSocketManager(webSocketManager)
     }
     
+    
     private fun setupCallbacks() {
         // Setup AudioManager callbacks
         audioManager.setCallback(object : AudioManager.AudioManagerCallback {
@@ -94,11 +100,13 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             override fun onAudioRecordingStarted() {
                 uiManager.updateMicIcon(true)
                 uiManager.setSpeakingStatus(true)
+                uiManager.setAIListening()
             }
             
             override fun onAudioRecordingStopped() {
                 uiManager.updateMicIcon(false)
                 uiManager.setSpeakingStatus(false)
+                uiManager.setAIThinking()
                 webSocketManager.sendEndOfStreamMessage()
             }
             
@@ -106,6 +114,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 // Audio playback started -> AI is speaking
                 Log.d("MainActivity", "Audio playback started")
                 uiManager.setAIPlayingStatus(true)
+                uiManager.setAISpeaking()
                 // Hiển thị tín hiệu màu tím khi AI đang phát âm thanh
                 uiManager.setAIRespondingStatus(true)
             }
@@ -114,6 +123,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 // Audio playback stopped -> AI finished speaking
                 Log.d("MainActivity", "Audio playback stopped")
                 uiManager.setAIPlayingStatus(false)
+                uiManager.setAIIdle()
                 // Tắt hiển thị tín hiệu màu tím
                 uiManager.setAIRespondingStatus(false)
             }
@@ -123,10 +133,12 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         webSocketManager.setCallback(object : WebSocketManager.WebSocketCallback {
             override fun onConnected() {
                 uiManager.setConnectionStatus(true)
+                uiManager.updateConnectionStatusDisplay(true)
             }
             
             override fun onDisconnected() {
                 uiManager.setConnectionStatus(false)
+                uiManager.updateConnectionStatusDisplay(false)
                 uiManager.showToast("Connection closed")
             }
             
@@ -135,6 +147,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 // Update UI only if the WebSocket is no longer open
                 if (!webSocketManager.isWebSocketConnected()) {
                     uiManager.setConnectionStatus(false)
+                    uiManager.updateConnectionStatusDisplay(false)
                 }
             }
             
@@ -304,6 +317,8 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 openProfileActivity()
             }
             
+
+            
             override fun onHistoryButtonClicked() {
                 openConversationHistoryActivity()
             }
@@ -387,6 +402,8 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         val intent = Intent(this, ProfileActivity::class.java)
         startActivity(intent)
     }
+    
+
 
     private fun openConversationHistoryActivity() {
         try {
@@ -430,6 +447,8 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         
         // Hủy đăng ký callback
         globalConnectionManager.unregisterCallback(this)
+        
+        // battery receiver removed
         
         // Cleanup local managers only
         // cameraManager doesn't have cleanup method
@@ -478,6 +497,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         runOnUiThread {
             // Cập nhật UI dựa trên trạng thái connection
             uiManager.updateConnectionStatus(isConnected)
+            uiManager.updateConnectionStatusDisplay(isConnected)
         }
     }
     

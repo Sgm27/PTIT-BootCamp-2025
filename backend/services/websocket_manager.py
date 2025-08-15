@@ -53,8 +53,8 @@ class WebSocketConnectionManager:
         # Send message to all active connections with better error handling
         for connection in list(self.active_connections):  # Create a copy to avoid modification during iteration
             try:
-                # Check connection state before sending
-                if connection.client_state.name == 'CONNECTED':
+                # Check connection state before sending safely
+                if hasattr(connection, 'client_state') and connection.client_state.name == 'CONNECTED':
                     await asyncio.wait_for(
                         connection.send_text(json.dumps(message)),
                         timeout=10.0  # 10 second timeout for send
@@ -101,12 +101,22 @@ class WebSocketConnectionManager:
         
         for connection in list(self.active_connections):
             try:
-                # Check if connection is still valid
+                # Check if connection is still alive
                 if connection.client_state.name != 'CONNECTED':
                     dead_connections.append(connection)
-                    logger.debug("Marking dead connection for cleanup")
+                    continue
+                
+                # Try to send a ping to check connection health
+                try:
+                    await asyncio.wait_for(
+                        connection.send_text(json.dumps({"type": "ping"})),
+                        timeout=5.0
+                    )
+                except (asyncio.TimeoutError, Exception):
+                    dead_connections.append(connection)
+                    
             except Exception as e:
-                logger.error(f"Error checking connection state: {e}")
+                logger.warning(f"Error checking connection health: {e}")
                 dead_connections.append(connection)
         
         # Remove dead connections
@@ -114,16 +124,46 @@ class WebSocketConnectionManager:
             self.remove_connection(connection)
         
         if dead_connections:
-            logger.info(f"Cleaned up {len(dead_connections)} dead connections")
+            logger.info(f"Cleaned up {len(dead_connections)} dead WebSocket connections")
         
         return len(dead_connections)
     
     def get_connection_stats(self) -> dict:
-        """Get connection statistics for monitoring"""
+        """Get detailed connection statistics"""
         return {
             "total_connections": len(self.active_connections),
-            "timestamp": datetime.datetime.now().isoformat()
+            "timestamp": datetime.datetime.now().isoformat(),
+            "status": "healthy" if self.active_connections else "no_connections"
         }
+    
+    async def broadcast_keepalive(self):
+        """Send keepalive messages to all connections to maintain stability"""
+        if not self.active_connections:
+            return
+        
+        keepalive_message = {
+            "type": "keepalive",
+            "timestamp": datetime.datetime.now().isoformat(),
+            "connection_count": len(self.active_connections)
+        }
+        
+        failed_connections = []
+        
+        for connection in list(self.active_connections):
+            try:
+                if connection.client_state.name == 'CONNECTED':
+                    await asyncio.wait_for(
+                        connection.send_text(json.dumps(keepalive_message)),
+                        timeout=5.0
+                    )
+                else:
+                    failed_connections.append(connection)
+            except Exception:
+                failed_connections.append(connection)
+        
+        # Remove failed connections
+        for connection in failed_connections:
+            self.remove_connection(connection)
 
 
 # Global instance để sử dụng trong toàn bộ application

@@ -1,244 +1,218 @@
 #!/usr/bin/env python3
 """
-Test script để kiểm tra tính ổn định kết nối WebSocket và HTTP API
+Test script for WebSocket connection stability
 """
 import asyncio
 import websockets
 import json
-import time
-import requests
 import logging
+import time
 from datetime import datetime
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Configuration
-BACKEND_URL = "https://backend-bootcamp.sonktx.online"
-WEBSOCKET_URL = "wss://backend-bootcamp.sonktx.online/gemini-live"
-TEST_DURATION = 300  # 5 minutes
-HEALTH_CHECK_INTERVAL = 30  # 30 seconds
-
-class ConnectionTester:
-    def __init__(self):
+class WebSocketStabilityTester:
+    def __init__(self, uri="ws://localhost:8000/gemini-live"):
+        self.uri = uri
         self.websocket = None
-        self.connection_stats = {
-            "start_time": None,
-            "end_time": None,
-            "total_connections": 0,
-            "successful_connections": 0,
-            "failed_connections": 0,
-            "total_messages_sent": 0,
-            "total_messages_received": 0,
-            "connection_durations": [],
-            "errors": []
-        }
+        self.connection_start_time = None
+        self.keepalive_count = 0
+        self.message_count = 0
+        self.last_activity = None
+        
+    async def connect(self):
+        """Establish WebSocket connection"""
+        try:
+            logger.info(f"🔌 Connecting to {self.uri}")
+            self.websocket = await websockets.connect(self.uri)
+            self.connection_start_time = time.time()
+            self.last_activity = time.time()
+            logger.info("✅ WebSocket connected successfully")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to connect: {e}")
+            return False
     
-    async def test_websocket_connection(self):
-        """Test WebSocket connection stability"""
-        logger.info("🔌 Starting WebSocket connection test...")
+    async def send_config(self):
+        """Send initial configuration"""
+        try:
+            config = {
+                "user_id": "test_user_123",
+                "session_type": "conversation"
+            }
+            await self.websocket.send(json.dumps(config))
+            logger.info("📤 Sent configuration")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to send config: {e}")
+            return False
+    
+    async def send_keepalive(self):
+        """Send keepalive message"""
+        try:
+            keepalive_data = {
+                "type": "keepalive",
+                "timestamp": datetime.now().isoformat(),
+                "count": self.keepalive_count
+            }
+            await self.websocket.send(json.dumps(keepalive_data))
+            self.keepalive_count += 1
+            self.last_activity = time.time()
+            logger.debug(f"📤 Sent keepalive #{self.keepalive_count}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to send keepalive: {e}")
+            return False
+    
+    async def send_test_message(self):
+        """Send a test message"""
+        try:
+            test_message = {
+                "text": f"Test message #{self.message_count} at {datetime.now().strftime('%H:%M:%S')}"
+            }
+            await self.websocket.send(json.dumps(test_message))
+            self.message_count += 1
+            self.last_activity = time.time()
+            logger.info(f"📤 Sent test message #{self.message_count}")
+            return True
+        except Exception as e:
+            logger.error(f"❌ Failed to send test message: {e}")
+            return False
+    
+    async def listen_for_messages(self):
+        """Listen for incoming messages"""
+        try:
+            while True:
+                try:
+                    # Set timeout for receiving messages
+                    message = await asyncio.wait_for(
+                        self.websocket.recv(),
+                        timeout=60  # 1 minute timeout
+                    )
+                    
+                    data = json.loads(message)
+                    self.last_activity = time.time()
+                    
+                    # Handle different message types
+                    if "type" in data:
+                        if data["type"] == "keepalive":
+                            logger.debug(f"📥 Received keepalive from server")
+                        elif data["type"] == "keepalive_response":
+                            logger.debug(f"📥 Received keepalive response from server")
+                        elif data["type"] == "transcription":
+                            if data.get("text"):
+                                logger.info(f"📥 Transcription: {data['text']}")
+                        else:
+                            logger.info(f"📥 Received message: {data['type']}")
+                    elif "text" in data:
+                        logger.info(f"📥 Text response: {data['text']}")
+                    else:
+                        logger.debug(f"📥 Received data: {str(data)[:100]}...")
+                        
+                except asyncio.TimeoutError:
+                    logger.warning("⏰ Timeout waiting for message - connection may be idle")
+                    # Don't break, just continue listening
+                    continue
+                except websockets.exceptions.ConnectionClosed:
+                    logger.error("🔌 WebSocket connection closed by server")
+                    break
+                except Exception as e:
+                    logger.error(f"❌ Error receiving message: {e}")
+                    break
+                    
+        except Exception as e:
+            logger.error(f"❌ Error in message listener: {e}")
+    
+    async def monitor_connection(self):
+        """Monitor connection health"""
+        try:
+            while True:
+                await asyncio.sleep(30)  # Check every 30 seconds
+                
+                if not self.websocket or self.websocket.closed:
+                    logger.error("🔌 WebSocket is closed")
+                    break
+                
+                # Check if connection has been idle too long
+                idle_time = time.time() - self.last_activity
+                if idle_time > 300:  # 5 minutes
+                    logger.warning(f"⚠️ Connection idle for {idle_time:.1f} seconds")
+                
+                # Log connection status
+                uptime = time.time() - self.connection_start_time
+                logger.info(f"📊 Connection status: {uptime:.1f}s uptime, {self.keepalive_count} keepalives, {self.message_count} messages")
+                
+        except Exception as e:
+            logger.error(f"❌ Error in connection monitor: {e}")
+    
+    async def run_stability_test(self, duration_minutes=10):
+        """Run comprehensive stability test"""
+        logger.info(f"🚀 Starting WebSocket stability test for {duration_minutes} minutes")
+        
+        # Connect
+        if not await self.connect():
+            return False
+        
+        # Send initial config
+        if not await self.send_config():
+            return False
+        
+        # Start background tasks
+        listener_task = asyncio.create_task(self.listen_for_messages())
+        monitor_task = asyncio.create_task(self.monitor_connection())
         
         try:
-            # Test initial connection
-            logger.info(f"Connecting to {WEBSOCKET_URL}")
-            self.websocket = await websockets.connect(WEBSOCKET_URL)
-            logger.info("✅ WebSocket connected successfully")
-            
-            # Send initial config with valid UUID
-            config_message = {
-                "user_id": "550e8400-e29b-41d4-a716-446655440000"  # Valid UUID format
-            }
-            await self.websocket.send(json.dumps(config_message))
-            logger.info("📤 Sent initial config message")
-            
-            # Start connection monitoring
             start_time = time.time()
-            self.connection_stats["start_time"] = datetime.now()
+            keepalive_interval = 20  # Send keepalive every 20 seconds
+            message_interval = 60    # Send test message every 60 seconds
             
-            while time.time() - start_time < TEST_DURATION:
-                try:
-                    # Send ping message
-                    ping_message = {"type": "ping"}
-                    await self.websocket.send(json.dumps(ping_message))
-                    self.connection_stats["total_messages_sent"] += 1
-                    
-                    # Wait for response
-                    response = await asyncio.wait_for(
-                        self.websocket.recv(), 
-                        timeout=10.0
-                    )
-                    self.connection_stats["total_messages_received"] += 1
-                    
-                    logger.info(f"📡 Ping successful - Messages: {self.connection_stats['total_messages_sent']} sent, {self.connection_stats['total_messages_received']} received")
-                    
-                    # Wait before next ping
-                    await asyncio.sleep(HEALTH_CHECK_INTERVAL)
-                    
-                except asyncio.TimeoutError:
-                    logger.warning("⚠️ Timeout waiting for response")
-                    self.connection_stats["errors"].append({
-                        "time": datetime.now().isoformat(),
-                        "type": "timeout",
-                        "message": "No response received within 10 seconds"
-                    })
-                except Exception as e:
-                    logger.error(f"❌ Error during connection test: {e}")
-                    self.connection_stats["errors"].append({
-                        "time": datetime.now().isoformat(),
-                        "type": "error",
-                        "message": str(e)
-                    })
+            while True:
+                current_time = time.time()
+                elapsed = current_time - start_time
+                
+                # Check if test duration exceeded
+                if elapsed > duration_minutes * 60:
+                    logger.info(f"⏰ Test duration ({duration_minutes} minutes) completed")
                     break
-            
-            # Calculate connection duration
-            connection_duration = time.time() - start_time
-            self.connection_stats["connection_durations"].append(connection_duration)
-            self.connection_stats["successful_connections"] += 1
-            
-            logger.info(f"✅ WebSocket test completed - Duration: {connection_duration:.2f}s")
-            
+                
+                # Send keepalive periodically
+                if int(elapsed) % keepalive_interval == 0:
+                    await self.send_keepalive()
+                
+                # Send test message periodically
+                if int(elapsed) % message_interval == 0 and int(elapsed) > 0:
+                    await self.send_test_message()
+                
+                await asyncio.sleep(1)
+                
+        except KeyboardInterrupt:
+            logger.info("🛑 Test interrupted by user")
         except Exception as e:
-            logger.error(f"❌ Failed to establish WebSocket connection: {e}")
-            self.connection_stats["failed_connections"] += 1
-            self.connection_stats["errors"].append({
-                "time": datetime.now().isoformat(),
-                "type": "connection_failed",
-                "message": str(e)
-            })
+            logger.error(f"❌ Test error: {e}")
         finally:
+            # Cancel background tasks
+            listener_task.cancel()
+            monitor_task.cancel()
+            
+            # Close connection
             if self.websocket:
                 await self.websocket.close()
                 logger.info("🔌 WebSocket connection closed")
-    
-    def test_http_api(self):
-        """Test HTTP API endpoints"""
-        logger.info("🌐 Starting HTTP API test...")
-        
-        try:
-            # Test health endpoint
-            health_url = f"{BACKEND_URL}/health"
-            response = requests.get(health_url, timeout=30)
             
-            if response.status_code == 200:
-                logger.info("✅ Health endpoint working")
-                health_data = response.json()
-                logger.info(f"📊 Health data: {health_data}")
-            else:
-                logger.error(f"❌ Health endpoint failed: {response.status_code}")
-                self.connection_stats["errors"].append({
-                    "time": datetime.now().isoformat(),
-                    "type": "health_check_failed",
-                    "message": f"Status code: {response.status_code}"
-                })
-                
-        except requests.exceptions.Timeout:
-            logger.error("❌ Health endpoint timeout")
-            self.connection_stats["errors"].append({
-                "time": datetime.now().isoformat(),
-                "type": "health_timeout",
-                "message": "Health check timed out after 30 seconds"
-            })
-        except Exception as e:
-            logger.error(f"❌ HTTP API test failed: {e}")
-            self.connection_stats["errors"].append({
-                "time": datetime.now().isoformat(),
-                "type": "http_error",
-                "message": str(e)
-            })
-    
-    def print_summary(self):
-        """Print test summary"""
-        self.connection_stats["end_time"] = datetime.now()
-        
-        logger.info("\n" + "="*60)
-        logger.info("📊 CONNECTION STABILITY TEST SUMMARY")
-        logger.info("="*60)
-        
-        # Test duration
-        if self.connection_stats["start_time"] and self.connection_stats["end_time"]:
-            duration = self.connection_stats["end_time"] - self.connection_stats["start_time"]
-            logger.info(f"⏱️  Test Duration: {duration}")
-        
-        # Connection stats
-        total_connections = self.connection_stats["successful_connections"] + self.connection_stats["failed_connections"]
-        success_rate = (self.connection_stats["successful_connections"] / total_connections * 100) if total_connections > 0 else 0
-        
-        logger.info(f"🔌 Total Connection Attempts: {total_connections}")
-        logger.info(f"✅ Successful Connections: {self.connection_stats['successful_connections']}")
-        logger.info(f"❌ Failed Connections: {self.connection_stats['failed_connections']}")
-        logger.info(f"📈 Success Rate: {success_rate:.1f}%")
-        
-        # Message stats
-        logger.info(f"📤 Messages Sent: {self.connection_stats['total_messages_sent']}")
-        logger.info(f"📥 Messages Received: {self.connection_stats['total_messages_received']}")
-        
-        if self.connection_stats["total_messages_sent"] > 0:
-            response_rate = (self.connection_stats["total_messages_received"] / self.connection_stats["total_messages_sent"] * 100)
-            logger.info(f"📊 Response Rate: {response_rate:.1f}%")
-        
-        # Connection durations
-        avg_duration = 0
-        if self.connection_stats["connection_durations"]:
-            avg_duration = sum(self.connection_stats["connection_durations"]) / len(self.connection_stats["connection_durations"])
-            max_duration = max(self.connection_stats["connection_durations"])
-            min_duration = min(self.connection_stats["connection_durations"])
-            
-            logger.info(f"⏱️  Average Connection Duration: {avg_duration:.2f}s")
-            logger.info(f"⏱️  Max Connection Duration: {max_duration:.2f}s")
-            logger.info(f"⏱️  Min Connection Duration: {min_duration:.2f}s")
-        
-        # Errors
-        if self.connection_stats["errors"]:
-            logger.info(f"⚠️  Total Errors: {len(self.connection_stats['errors'])}")
-            error_types = {}
-            for error in self.connection_stats["errors"]:
-                error_type = error["type"]
-                error_types[error_type] = error_types.get(error_type, 0) + 1
-            
-            logger.info("🔍 Error Breakdown:")
-            for error_type, count in error_types.items():
-                logger.info(f"   - {error_type}: {count}")
-        else:
-            logger.info("✅ No errors encountered")
-        
-        # Recommendations
-        logger.info("\n💡 RECOMMENDATIONS:")
-        
-        if success_rate < 90:
-            logger.info("   ⚠️  Connection success rate is low - check network stability")
-        
-        if self.connection_stats["errors"]:
-            logger.info("   ⚠️  Errors detected - review error types above")
-        
-        if avg_duration > 0 and avg_duration < TEST_DURATION * 0.8:
-            logger.info("   ⚠️  Connections are dropping early - check timeout settings")
-        
-        if response_rate < 90:
-            logger.info("   ⚠️  Low response rate - check server responsiveness")
-        
-        logger.info("="*60)
+            # Log final statistics
+            total_time = time.time() - self.connection_start_time
+            logger.info(f"📈 Test completed:")
+            logger.info(f"   - Total time: {total_time:.1f} seconds")
+            logger.info(f"   - Keepalives sent: {self.keepalive_count}")
+            logger.info(f"   - Messages sent: {self.message_count}")
+            logger.info(f"   - Average keepalive interval: {total_time/max(1, self.keepalive_count):.1f}s")
 
 async def main():
     """Main test function"""
-    logger.info("🚀 Starting Connection Stability Test")
-    logger.info(f"🎯 Target: {BACKEND_URL}")
-    logger.info(f"⏱️  Duration: {TEST_DURATION} seconds")
-    logger.info(f"📡 Health Check Interval: {HEALTH_CHECK_INTERVAL} seconds")
-    
-    tester = ConnectionTester()
-    
-    # Test HTTP API first
-    tester.test_http_api()
-    
-    # Test WebSocket connection
-    await tester.test_websocket_connection()
-    
-    # Print summary
-    tester.print_summary()
+    tester = WebSocketStabilityTester()
+    await tester.run_stability_test(duration_minutes=15)  # Test for 15 minutes
 
 if __name__ == "__main__":
     asyncio.run(main()) 

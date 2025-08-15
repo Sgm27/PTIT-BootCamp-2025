@@ -6,18 +6,21 @@ import android.view.View
 import android.widget.TextView
 import android.widget.Toast
 import android.widget.ProgressBar
+import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.geminilivedemo.data.ApiClient
 import com.example.geminilivedemo.data.UserPreferences
 import com.example.geminilivedemo.adapters.MessageAdapter
+import com.example.geminilivedemo.data.DataCacheManager
 import kotlinx.coroutines.*
 
 class ConversationDetailActivity : AppCompatActivity() {
     
     private lateinit var userPreferences: UserPreferences
-    private lateinit var apiClient: ApiClient
+
+    private lateinit var dataCacheManager: DataCacheManager
     private lateinit var recyclerView: RecyclerView
     private lateinit var adapter: MessageAdapter
     private lateinit var emptyView: TextView
@@ -27,6 +30,7 @@ class ConversationDetailActivity : AppCompatActivity() {
     private var conversationId: String? = null
     private var conversationTitle: String? = null
     private var loadingJob: Job? = null
+    private var isDataFromCache = false
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,7 +49,8 @@ class ConversationDetailActivity : AppCompatActivity() {
             
             // Initialize components
             userPreferences = UserPreferences(this)
-            apiClient = ApiClient()
+
+            dataCacheManager = DataCacheManager.getInstance(this)
             
             // Setup UI
             setupUI()
@@ -94,13 +99,43 @@ class ConversationDetailActivity : AppCompatActivity() {
             return
         }
         
+        // Kiểm tra cache trước
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val cachedData = dataCacheManager.getCachedConversationMessages(conversationId!!)
+                if (cachedData != null) {
+                    Log.d("ConversationDetail", "Found ${cachedData.size} messages in cache")
+                    
+                    withContext(Dispatchers.Main) {
+                        // Hiển thị data từ cache ngay lập tức
+                        messages.clear()
+                        messages.addAll(cachedData)
+                        adapter.notifyDataSetChanged()
+                        
+                        if (cachedData.isEmpty()) {
+                            showEmptyState("Cuộc trò chuyện này chưa có tin nhắn nào")
+                        } else {
+                            showMessages()
+                            // Scroll to bottom (latest message)
+                            recyclerView.scrollToPosition(messages.size - 1)
+                        }
+                        
+                        isDataFromCache = true
+                        Log.d("ConversationDetail", "Displayed messages from cache")
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w("ConversationDetail", "Error loading from cache", e)
+            }
+        }
+        
         // Show loading state
         showLoading(true)
         
         loadingJob = CoroutineScope(Dispatchers.IO).launch {
             try {
                 Log.d("ConversationDetail", "Loading conversation detail for userId: $userId, conversationId: $conversationId")
-                val response = apiClient.getConversationDetail(userId, conversationId!!)
+                val response = ApiClient.getConversationDetail(userId, conversationId!!)
                 
                 withContext(Dispatchers.Main) {
                     showLoading(false)
@@ -108,6 +143,14 @@ class ConversationDetailActivity : AppCompatActivity() {
                     if (response != null && response.containsKey("messages")) {
                         @Suppress("UNCHECKED_CAST")
                         val messageList = response["messages"] as? List<Map<String, Any>> ?: emptyList()
+                        
+                        // Cache data mới
+                        try {
+                            dataCacheManager.cacheConversationMessages(conversationId!!, messageList)
+                            Log.d("ConversationDetail", "Cached ${messageList.size} messages")
+                        } catch (e: Exception) {
+                            Log.w("ConversationDetail", "Error caching messages", e)
+                        }
                         
                         messages.clear()
                         messages.addAll(messageList)
@@ -133,6 +176,8 @@ class ConversationDetailActivity : AppCompatActivity() {
                             
                             updateConversationInfo(summary, topics)
                         }
+                        
+                        isDataFromCache = false
                         
                     } else {
                         Log.e("ConversationDetail", "Invalid API response: $response")

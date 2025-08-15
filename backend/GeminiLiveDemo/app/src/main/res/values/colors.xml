@@ -10,12 +10,13 @@
     <color name="white">#FFFFFFFF</color>
     
     <!-- Primary Brand Colors - Consistent Blue Theme -->
-    <color name="primary_500">#3B82F6</color>
-    <color name="primary_600">#2563EB</color>
-    <color name="primary_700">#1D4ED8</color>
-    <color name="primary_50">#EFF6FF</color>
-    <color name="primary_100">#DBEAFE</color>
-    <color name="primary_200">#BFDBFE</color>
+    <color name="primary_500">#7A6CEA</color>
+    <color name="primary_600">#6B5CE0</color>
+    <color name="primary_700">#5C4DD6</color>
+    <color name="primary_800">#4D3ECC</color>
+    <color name="primary_50">#F4F6FD</color>
+    <color name="primary_100">#E8ECFB</color>
+    <color name="primary_200">#D1D9F7</color>
     
     <!-- Secondary Colors -->
     <color name="secondary_500">#10B981</color>
@@ -39,6 +40,17 @@
     <color name="neutral_800">#1F2937</color>
     <color name="neutral_900">#111827</color>
     
+    <!-- Gray Colors for backward compatibility -->
+    <color name="gray_300">@color/neutral_300</color>
+    
+    <!-- Background Colors -->
+    <color name="background_primary">#F4F6FD</color>
+    <color name="background_secondary">#F9FAFB</color>
+    <color name="background_tertiary">#F3F4F6</color>
+    <color name="background_light_blue">#F0F8FF</color>
+    <color name="surface_primary">#FFFFFF</color>
+    <color name="surface_secondary">#F9FAFB</color>
+    
     <!-- Semantic Colors -->
     <color name="success_500">#10B981</color>
     <color name="success_50">#ECFDF5</color>
@@ -48,13 +60,6 @@
     <color name="error_50">#FEF2F2</color>
     <color name="info_500">#3B82F6</color>
     <color name="info_50">#EFF6FF</color>
-    
-    <!-- Background Colors -->
-    <color name="background_primary">#FFFFFF</color>
-    <color name="background_secondary">#F9FAFB</color>
-    <color name="background_tertiary">#F3F4F6</color>
-    <color name="surface_primary">#FFFFFF</color>
-    <color name="surface_secondary">#F9FAFB</color>
     
     <!-- Text Colors -->
     <color name="text_primary">#111827</color>
@@ -96,4 +101,30 @@
     <!-- Transparent -->
     <color name="transparent">#00000000</color>
     <color name="semi_transparent">#80000000</color>
+    
+    <!-- Additional Colors for Medicine Info -->
+    <color name="light_gray">#F5F5F5</color>
+    <color name="border_color">#E0E0E0</color>
+    <color name="error_color">#EF4444</color>
+    
+    <!-- Missing Colors for Family Notification -->
+    <color name="background_color">@color/background_primary</color>
+    <color name="success_color">@color/success_500</color>
+    
+    <!-- Status Bar Colors -->
+    <color name="status_bar_background">#F4F6FD</color>
+    <color name="connection_online">#10B981</color>
+    <color name="connection_offline">#EF4444</color>
+    <color name="connection_connecting">#F59E0B</color>
+    <color name="battery_full">#10B981</color>
+    <color name="battery_medium">#F59E0B</color>
+    <color name="battery_low">#EF4444</color>
+    <color name="battery_charging">#3B82F6</color>
+    
+    <!-- New Enhanced Colors for UI -->
+    <color name="scanner_gradient_start">#7A6CEA</color>
+    <color name="scanner_gradient_center">#6B5CE0</color>
+    <color name="scanner_gradient_end">#5C4DD6</color>
+    <color name="button_shadow">#00000015</color>
+    <color name="card_elevation">#00000008</color>
 </resources>

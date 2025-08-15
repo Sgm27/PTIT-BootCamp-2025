@@ -105,4 +105,40 @@ interface ApiService {
     suspend fun getUserStats(
         @Path("user_id") userId: String
     ): Response<Map<String, Any>>
+    
+    // ====== FAMILY NOTIFICATION ENDPOINTS ======
+    
+    @GET("api/family/elderly-list")
+    suspend fun getElderlyList(): Response<Map<String, Any>>
+    
+    @POST("api/family/send-notification")
+    suspend fun sendFamilyNotification(@Body notificationData: String): Response<Map<String, Any>>
+    
+    // ====== FAMILY MEMBERS & REMINDERS ENDPOINTS ======
+    
+    @GET("api/family/members")
+    suspend fun getFamilyMembers(): Response<Map<String, Any>>
+    
+    @GET("api/family/reminders")
+    suspend fun getUserReminders(): Response<Map<String, Any>>
+    
+    // ====== SCHEDULE MANAGEMENT ENDPOINTS ======
+    
+    @POST("api/schedules")
+    suspend fun createSchedule(@Body scheduleData: Map<String, Any>): Response<Map<String, Any>>
+    
+    @GET("api/schedules")
+    suspend fun getUserSchedules(@Query("user_id") userId: String? = null): Response<Map<String, Any>>
+    
+    @PUT("api/schedules/{schedule_id}")
+    suspend fun updateSchedule(
+        @Path("schedule_id") scheduleId: String,
+        @Body updateData: Map<String, Any>
+    ): Response<Map<String, Any>>
+    
+    @DELETE("api/schedules/{schedule_id}")
+    suspend fun deleteSchedule(@Path("schedule_id") scheduleId: String): Response<Map<String, Any>>
+    
+    @POST("api/schedules/{schedule_id}/complete")
+    suspend fun markScheduleComplete(@Path("schedule_id") scheduleId: String): Response<Map<String, Any>>
 } 

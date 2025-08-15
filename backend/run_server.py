@@ -29,6 +29,24 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+# Reload configuration - ENABLED FOR DEVELOPMENT
+RELOAD_ENABLED = True  # Enable reload for development stability
+RELOAD_DIRS = [
+    str(Path(__file__).parent),
+    str(Path(__file__).parent / "services"),
+    str(Path(__file__).parent / "api_services"),
+]
+
+# Try to import settings for consistent WebSocket tuning
+try:
+    from config.settings import settings as app_settings
+    WS_PING_INTERVAL = app_settings.WEBSOCKET_PING_INTERVAL
+    WS_PING_TIMEOUT = app_settings.WEBSOCKET_PING_TIMEOUT
+except Exception:
+    app_settings = None
+    WS_PING_INTERVAL = 20
+    WS_PING_TIMEOUT = 30
+
 # Import database components
 try:
     from db.db_config import init_database, check_database_connection
@@ -80,7 +98,7 @@ def initialize_database():
         return False
 
 def initialize_daily_memoir_scheduler():
-    """Initialize and start the daily memoir extraction scheduler"""
+    """Initialize and configure the daily memoir extraction scheduler"""
     if not DAILY_MEMOIR_SCHEDULER_AVAILABLE:
         logger.info("Daily memoir scheduler not available - skipping scheduler initialization")
         return False
@@ -90,22 +108,19 @@ def initialize_daily_memoir_scheduler():
         return False
     
     try:
-        logger.info("Starting daily memoir extraction scheduler...")
-        daily_memoir_scheduler.start_scheduler()
-        
-        # Get scheduler status
-        status = daily_memoir_scheduler.get_scheduler_status()
-        if status.get("running"):
-            logger.info("✅ Daily memoir scheduler started successfully")
-            for job in status.get("jobs", []):
-                logger.info(f"   - Job: {job['name']} | Next run: {job['next_run']}")
+        logger.info("Configuring daily memoir extraction scheduler...")
+        # Configure the scheduler (jobs will be added but not started yet)
+        # Add safety check before calling start_scheduler
+        if hasattr(daily_memoir_scheduler, 'start_scheduler'):
+            daily_memoir_scheduler.start_scheduler()
+            logger.info("📅 Daily memoir scheduler configured (will start with FastAPI event loop)")
             return True
         else:
-            logger.error("❌ Failed to start daily memoir scheduler")
+            logger.warning("Daily memoir scheduler missing start_scheduler method")
             return False
             
     except Exception as e:
-        logger.error(f"Failed to initialize daily memoir scheduler: {e}")
+        logger.error(f"Failed to configure daily memoir scheduler: {e}")
         return False
 
 def run_server():
@@ -125,13 +140,15 @@ def run_server():
         logger.info("  ❤️ Health check: /health")
         logger.info("  📚 API documentation: /docs")
         logger.info("  🗄️ Database: " + ("✅ Connected" if db_status else "❌ File-based mode"))
-        logger.info("  📅 Daily Memoir Scheduler: " + ("✅ Running" if scheduler_status else "❌ Disabled"))
+        logger.info("  📅 Daily Memoir Scheduler: " + ("✅ Configured (starts with event loop)" if scheduler_status else "❌ Disabled"))
+        logger.info("  🔄 Auto-reload: " + ("✅ Enabled" if RELOAD_ENABLED else "❌ Disabled"))
         logger.info("  🎭 Memoir extraction: DAILY AUTOMATED PROCESSING")
         logger.info("     - Schedule: Daily at 23:59")
         logger.info("     - Trigger: DAILY BATCH PROCESSING")
         logger.info("     - Mode: All conversations from previous day")
         logger.info("     - Storage: " + ("Database (life_memoirs table)" if db_status else "File (my_life_stories.txt)"))
         logger.info("     - User-specific: ✅ Each user's conversations processed separately")
+        logger.info("     - Startup: Scheduler starts with FastAPI event loop")
         
         if DATABASE_AVAILABLE and db_status:
             logger.info("🎯 Features enabled:")
@@ -148,24 +165,61 @@ def run_server():
         
         logger.info("Starting server...")
         
-        uvicorn.run(
-            "backend:app",
-            host="0.0.0.0",
-            port=8000,
-            reload=False,  # Tắt reload để tránh ngắt kết nối
-            log_level="info",
-            access_log=True,
-            ws_ping_interval=30,  # Ping every 30 seconds (tăng từ 15s)
-            ws_ping_timeout=45,   # Wait 45 seconds for pong (tăng từ 20s)
-            ws_max_size=33554432, # 32MB max message size (tăng từ 16MB)
-            ws_max_queue=128,     # Message queue size (tăng từ 64)
-            timeout_keep_alive=120, # Keep alive timeout (tăng từ 65s)
-            h11_max_incomplete_event_size=131072, # Increased for large audio chunks
-            limit_concurrency=1000,  # Limit concurrent connections
-            limit_max_requests=10000,  # Limit max requests per worker
-        )
+        # Fix module path - use correct module reference for different run locations
+        # Try different module paths based on where the script is run from
+        try:
+            uvicorn.run(
+                "backend:app",  # Try this first (when running from project root)
+                host="0.0.0.0",
+                port=8000,
+                reload=RELOAD_ENABLED,
+                reload_dirs=RELOAD_DIRS,
+                log_level="info",
+                access_log=True,
+                # WebSocket stability settings - OPTIMIZED FOR LONG CONNECTIONS
+                ws_ping_interval=WS_PING_INTERVAL,
+                ws_ping_timeout=WS_PING_TIMEOUT,
+                ws_max_size=67108864, # 64MB max message size (increased for large audio/video)
+                ws_max_queue=256,     # Message queue size (increased for better buffering)
+                timeout_keep_alive=300, # Keep alive timeout 5 minutes (increased significantly)
+                h11_max_incomplete_event_size=262144, # Increased for large audio chunks
+                limit_concurrency=2000,  # Increased concurrent connections
+                limit_max_requests=50000,  # Increased max requests per worker
+                # Additional stability settings
+                timeout_graceful_shutdown=30,  # Graceful shutdown timeout
+                backlog=2048,  # Connection backlog
+            )
+        except ModuleNotFoundError:
+            # If backend:app fails, try alternative module paths
+            logger.warning("Failed to import 'backend:app', trying alternative module paths...")
+            try:
+                uvicorn.run(
+                    "run_server:app",  # Try this when running from backend directory
+                    host="0.0.0.0",
+                    port=8000,
+                    reload=RELOAD_ENABLED,
+                    reload_dirs=RELOAD_DIRS,
+                    log_level="info",
+                    access_log=True,
+                    # WebSocket stability settings
+                    ws_ping_interval=WS_PING_INTERVAL,
+                    ws_ping_timeout=WS_PING_TIMEOUT,
+                    ws_max_size=67108864,
+                    ws_max_queue=256,
+                    timeout_keep_alive=300,
+                    h11_max_incomplete_event_size=262144,
+                    limit_concurrency=2000,
+                    limit_max_requests=50000,
+                    timeout_graceful_shutdown=30,
+                    backlog=2048,
+                )
+            except Exception as e2:
+                logger.error(f"All module paths failed: {e2}")
+                raise e2
     except Exception as e:
         logger.error(f"Failed to start server: {e}")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error details: {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":

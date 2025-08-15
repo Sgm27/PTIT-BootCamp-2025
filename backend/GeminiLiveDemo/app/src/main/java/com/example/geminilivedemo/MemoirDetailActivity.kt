@@ -12,7 +12,7 @@ import kotlinx.coroutines.*
 class MemoirDetailActivity : AppCompatActivity() {
     
     private lateinit var userPreferences: UserPreferences
-    private lateinit var apiClient: ApiClient
+
     
     private lateinit var memoirTitle: TextView
     private lateinit var memoirContent: TextView
@@ -41,7 +41,7 @@ class MemoirDetailActivity : AppCompatActivity() {
         
         // Initialize components
         userPreferences = UserPreferences(this)
-        apiClient = ApiClient.instance
+
         
         // Setup UI
         setupUI()
@@ -73,7 +73,7 @@ class MemoirDetailActivity : AppCompatActivity() {
         
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                val response = apiClient.getMemoirDetail(userId, memoirId!!)
+                val response = ApiClient.getMemoirDetail(userId, memoirId!!)
                 
                 withContext(Dispatchers.Main) {
                     if (response != null && response.containsKey("memoir")) {

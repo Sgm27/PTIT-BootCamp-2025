@@ -72,6 +72,14 @@
             android:name=".ScannerActivity"
             android:exported="false"
             android:label="Medicine Scanner"
+            android:theme="@style/Theme.GeminiLiveDemo.Scanner"
+            android:screenOrientation="portrait" />
+            
+        <!-- Medicine Info Activity -->
+        <activity
+            android:name=".MedicineInfoActivity"
+            android:exported="false"
+            android:label="Thông tin thuốc"
             android:theme="@style/Theme.GeminiLiveDemo"
             android:screenOrientation="portrait" />
             
@@ -86,6 +94,13 @@
             android:name=".ProfileActivity"
             android:exported="false"
             android:label="Thông tin cá nhân"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <activity
+            android:name=".FamilyNotificationActivity"
+            android:exported="false"
+            android:label="Gửi Thông Báo"
             android:theme="@style/Theme.GeminiLiveDemo"
             android:screenOrientation="portrait" />
             
@@ -127,6 +142,22 @@
             android:theme="@style/Theme.GeminiLiveDemo"
             android:screenOrientation="portrait" />
             
+        <!-- Family Connection Activity -->
+        <activity
+            android:name=".FamilyConnectionActivity"
+            android:exported="false"
+            android:label="Kết nối yêu thương"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
+        <!-- Create Schedule Activity -->
+        <activity
+            android:name=".CreateScheduleActivity"
+            android:exported="false"
+            android:label="Tạo lịch trình mới"
+            android:theme="@style/Theme.GeminiLiveDemo"
+            android:screenOrientation="portrait" />
+            
         <!-- Memoir Detail Activity -->
         <activity
             android:name=".MemoirDetailActivity"
@@ -135,10 +166,23 @@
             android:theme="@style/Theme.GeminiLiveDemo"
             android:screenOrientation="portrait" />
             
+
+            
         <service
             android:name=".GeminiListeningService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+            
+        <!-- Schedule Notification Service -->
+        <service
+            android:name=".ScheduleNotificationService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+            
+        <!-- Schedule Notification Receiver -->
+        <receiver
+            android:name=".ScheduleNotificationReceiver"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -2,18 +2,33 @@
 Medicine scanning service using OpenAI's vision model
 """
 import base64
+import logging
 from typing import Dict, Any
 from openai import AsyncOpenAI
 from config.settings import settings
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
 class MedicineService:
     """A service for scanning and identifying medicines from images using OpenAI's vision model."""
     
     SYSTEM_PROMPT = """
-    Bạn là một chuyên gia trong việc nhận diện và cung cấp thông tin về thuốc.
-    Bạn sẽ nhận được một hình ảnh hoặc URL của một hình ảnh thuốc và trả về tên thuốc đó
-    Không cần trả lời thêm bất kỳ thông tin nào khác ngoài tên thuốc.
+    Bạn là một chuyên gia dược sĩ có kinh nghiệm. Hãy phân tích hình ảnh thuốc này và cung cấp thông tin chi tiết về:
+    
+    1. Tên thuốc (tên gốc và tên thương mại)
+    2. Thành phần hoạt chất chính
+    3. Công dụng và chỉ định
+    4. Liều lượng và cách sử dụng
+    5. Tác dụng phụ thường gặp
+    6. Lưu ý khi sử dụng
+    7. Tương tác thuốc (nếu có)
+    8. Đối tượng cần thận trọng
+    
+    QUAN TRỌNG: Bạn PHẢI LUÔN LUÔN trả lời bằng tiếng Việt, không được sử dụng tiếng Anh hoặc ngôn ngữ khác. 
+    Hãy trả lời rõ ràng, dễ hiểu và phù hợp cho người cao tuổi Việt Nam.
+    Nếu có thuật ngữ y tế, hãy giải thích bằng tiếng Việt đơn giản.
     """
     
     def __init__(self, client: AsyncOpenAI = None, model: str = None, temperature: float = 0.2):
@@ -61,6 +76,8 @@ class MedicineService:
             Dictionary containing result, success status, and optional error.
         """
         try:
+            logger.info(f"Calling OpenAI Vision API with model: {self.model}")
+            
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -70,11 +87,15 @@ class MedicineService:
                 temperature=self.temperature,
             )
             
+            result = response.choices[0].message.content.strip()
+            logger.info(f"OpenAI Vision API response received, length: {len(result)}")
+            
             return {
-                "result": response.choices[0].message.content.strip(),
+                "result": result,
                 "success": True
             }
         except Exception as e:
+            logger.error(f"Error calling OpenAI Vision API: {e}")
             return {
                 "result": f"Lỗi khi gọi API: {str(e)}",
                 "success": False,
@@ -123,6 +144,25 @@ class MedicineService:
             }
         
         try:
+            logger.info(f"Processing base64 image, length: {len(base64_string)}")
+            
+            # Clean the base64 string (remove data:image/jpeg;base64, prefix if present)
+            if base64_string.startswith("data:image"):
+                base64_string = base64_string.split(",")[1]
+                logger.info("Removed data:image prefix from base64 string")
+            
+            # Validate base64 string
+            try:
+                decoded_data = base64.b64decode(base64_string)
+                logger.info(f"Base64 validation successful, decoded size: {len(decoded_data)} bytes")
+            except Exception as decode_error:
+                logger.error(f"Base64 validation failed: {decode_error}")
+                return {
+                    "result": f"Chuỗi base64 không hợp lệ: {str(decode_error)}",
+                    "success": False,
+                    "error": f"Invalid base64: {str(decode_error)}"
+                }
+            
             content_list = [
                 {
                     "type": "image_url",
@@ -132,6 +172,7 @@ class MedicineService:
                 }
             ]
             
+            logger.info("Calling OpenAI Vision API for medicine analysis")
             return await self._create_completion(content_list)
         except Exception as e:
             return {

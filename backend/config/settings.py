@@ -35,12 +35,14 @@ class Settings:
     SESSION_FILE: str = "session_handle.json"
     SESSION_TIMEOUT_SECONDS: int = 60  # 1 minute
     
-    # WebSocket settings - Improved for stability
-    WEBSOCKET_PING_INTERVAL: int = 30  # Send ping every 30 seconds (tăng từ 15s)
-    WEBSOCKET_PING_TIMEOUT: int = 45   # Wait 45 seconds for pong (tăng từ 20s)
-    WEBSOCKET_CLOSE_TIMEOUT: int = 30  # Wait 30 seconds for close (tăng từ 20s)
-    WEBSOCKET_MESSAGE_TIMEOUT: int = 600  # 10 minutes timeout for messages (tăng từ 300s)
-    WEBSOCKET_CONFIG_TIMEOUT: int = 120  # 2 minutes timeout for config (tăng từ 60s)
+    # WebSocket settings - OPTIMIZED FOR STABLE CONNECTIONS
+    WEBSOCKET_PING_INTERVAL: int = 30  # Send ping every 30 seconds (increased for stability)
+    WEBSOCKET_PING_TIMEOUT: int = 45   # Wait 45 seconds for pong (increased timeout)
+    WEBSOCKET_CLOSE_TIMEOUT: int = 90  # Wait 90 seconds for close (increased for graceful shutdown)
+    WEBSOCKET_MESSAGE_TIMEOUT: int = 3600  # 1 hour timeout for messages (increased for long sessions)
+    WEBSOCKET_CONFIG_TIMEOUT: int = 600  # 10 minutes timeout for config (increased for slow connections)
+    WEBSOCKET_KEEPALIVE_INTERVAL: int = 30  # Send keepalive every 30 seconds
+    WEBSOCKET_CONNECTION_TIMEOUT: int = 120  # 2 minutes timeout for new connections
     
     def __init__(self):
         """Validate required environment variables."""

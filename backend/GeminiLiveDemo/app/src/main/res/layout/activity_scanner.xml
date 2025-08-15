@@ -4,64 +4,92 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFFFFF"
+    android:background="@color/white"
     tools:context=".ScannerActivity">
 
-    <!-- Back Button -->
-    <ImageView
-        android:id="@+id/backButton"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginTop="16dp"
-        android:background="?android:attr/selectableItemBackgroundBorderless"
-        android:clickable="true"
-        android:focusable="true"
-        android:padding="8dp"
-        android:src="@drawable/baseline_arrow_back_24"
-        app:tint="#000000"
-        android:contentDescription="Back"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+    <!-- AppBar -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="@color/white"
+        android:elevation="0dp"
+        app:layout_constraintTop_toTopOf="parent">
 
-    <!-- Hidden Title (removed as requested) -->
-    <View
-        android:id="@+id/titleText"
+        <!-- Back Button -->
+        <ImageView
+            android:id="@+id/backButton"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:focusable="true"
+            android:src="@drawable/baseline_arrow_back_24"
+            app:tint="@color/text_primary"
+            android:contentDescription="Back" />
+
+        <!-- Title -->
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:text="Nhận dạng thuốc"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+    </androidx.appcompat.widget.Toolbar>
+
+    <!-- Instruction Text -->
+    <TextView
+        android:id="@+id/instructionText"
         android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:layout_marginTop="60dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginTop="20dp"
+        android:gravity="center"
+        android:text="Đưa thuốc vào khung hình"
+        android:textColor="@color/text_primary"
+        android:textSize="16sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/toolbar" />
 
-    <!-- Camera Preview Container -->
+    <!-- Full Screen Camera Preview Container -->
     <FrameLayout
         android:id="@+id/cameraPreviewContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
         android:layout_marginTop="20dp"
         android:layout_marginBottom="20dp"
-        app:layout_constraintBottom_toTopOf="@id/captureButtonContainer"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/titleText">
+        app:layout_constraintTop_toBottomOf="@id/instructionText"
+        app:layout_constraintBottom_toTopOf="@id/captureButtonContainer">
 
-        <!-- Camera Viewfinder Frame - Increased size -->
+        <!-- Camera preview will be shown here - Full screen -->
+        <androidx.camera.view.PreviewView
+            android:id="@+id/cameraPreviewView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@color/white"
+            app:implementationMode="performance"
+            app:scaleType="fillCenter" />
+
+        <!-- Dark overlay for better contrast -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/camera_overlay_dark" />
+
+        <!-- Overlay frame for guidance -->
         <FrameLayout
-            android:layout_width="350dp"
-            android:layout_height="350dp"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
             android:layout_gravity="center"
-            android:background="@drawable/camera_viewfinder_border">
-
-            <!-- Camera preview will be shown here -->
-            <androidx.camera.view.PreviewView
-                android:id="@+id/cameraPreviewView"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:layout_margin="6dp"
-                android:background="#000000" />
+            android:background="@drawable/camera_viewfinder_border_overlay">
 
             <!-- Corner indicators for camera frame -->
             <View
@@ -96,43 +124,33 @@
 
     </FrameLayout>
 
-    <!-- Beautiful Capture Button -->
-    <FrameLayout
+    <!-- Capture Button Container -->
+    <LinearLayout
         android:id="@+id/captureButtonContainer"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:layout_marginBottom="60dp"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="24dp"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="40dp"
+        android:orientation="vertical"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <!-- Outer ring -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/camera_capture_outer_ring" />
-
-        <!-- Inner button -->
-        <Button
+        <!-- Capture Button -->
+        <com.google.android.material.button.MaterialButton
             android:id="@+id/captureButton"
-            android:layout_width="70dp"
-            android:layout_height="70dp"
-            android:layout_gravity="center"
-            android:background="@drawable/camera_capture_inner_button"
-            android:elevation="8dp"
-            android:text=""
-            android:stateListAnimator="@null" />
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:text="Chụp và nhận dạng"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            app:icon="@drawable/baseline_camera_alt_24"
+            app:iconSize="30dp"
+            app:iconGravity="textStart"
+            app:cornerRadius="16dp"
+            app:backgroundTint="@color/primary_500" />
 
-        <!-- Camera icon -->
-        <ImageView
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_gravity="center"
-            android:src="@drawable/baseline_camera_alt_24"
-            app:tint="#FFFFFF"
-            android:elevation="10dp"
-            android:contentDescription="Capture Photo" />
-
-    </FrameLayout>
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

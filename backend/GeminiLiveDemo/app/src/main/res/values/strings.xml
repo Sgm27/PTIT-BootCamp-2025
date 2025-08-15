@@ -1,3 +1,98 @@
 <resources>
     <string name="app_name">Smart Scanner</string>
+    
+    <!-- Main Activity Navigation -->
+    <string name="nav_home">Trang chủ</string>
+    <string name="nav_scanner">Quyết thuốc</string>
+    <string name="nav_profile">Hồ sơ</string>
+    <string name="nav_history">Lịch sử</string>
+    <string name="nav_notifications">Thông báo</string>
+    
+    <!-- Status Messages -->
+    <string name="status_ai_ready">AI: Rảnh</string>
+    <string name="status_ai_busy">AI: Bận</string>
+    <string name="status_ai_processing">AI: Đang xử lý</string>
+    <string name="status_offline">Offline</string>
+    <string name="status_online">Online</string>
+    <string name="status_connecting">Đang kết nối...</string>
+    
+    <!-- Button Labels -->
+    <string name="btn_start">Bắt đầu</string>
+    <string name="btn_stop">Dừng</string>
+    <string name="btn_capture">Chụp ảnh</string>
+    <string name="btn_mic">Microphone</string>
+    
+    <!-- Medicine Info Activity -->
+    <string name="medicine_information">Thông tin thuốc</string>
+    <string name="medicine_image">Hình ảnh thuốc</string>
+    <string name="medicine_name">Tên thuốc</string>
+    <string name="loading_medicine_name">Đang tải tên thuốc...</string>
+    <string name="analyzing_medicine">Đang phân tích thuốc...</string>
+    <string name="error_analyzing_medicine">Không thể phân tích thuốc</string>
+    <string name="try_again">Thử lại</string>
+    <string name="save_medicine">Lưu thuốc</string>
+    <string name="share">Chia sẻ</string>
+    <string name="back">Quay lại</string>
+        <string name="error_icon">Biểu tượng lỗi</string>
+    <string name="voice_chat">Trò chuyện bằng giọng nói</string>
+    <string name="voice_chat_disabled">Đã tắt trò chuyện bằng giọng nói</string>
+    
+    <!-- Content Descriptions -->
+    <string name="cd_home_button">Nút trang chủ</string>
+    <string name="cd_scanner_button">Nút quyết thuốc</string>
+    <string name="cd_profile_button">Nút hồ sơ</string>
+    <string name="cd_history_button">Nút lịch sử</string>
+    <string name="cd_notification_button">Nút thông báo</string>
+    <string name="cd_mic_button">Nút microphone</string>
+    <string name="cd_avatar">Ảnh đại diện</string>
+    
+    <!-- Family Connection Activity -->
+    <string name="family_connection_title">Kết nối yêu thương</string>
+    <string name="tab_family_members">Thành viên</string>
+    <string name="tab_reminders">Nhắc nhở</string>
+    <string name="add_reminder">Thêm nhắc nhở mới</string>
+    <string name="reminder_type">Loại nhắc nhở</string>
+    <string name="reminder_title">Tiêu đề nhắc nhở</string>
+    <string name="reminder_description">Mô tả chi tiết</string>
+    <string name="family_member">Thành viên gia đình</string>
+    <string name="add">Thêm</string>
+    <string name="cancel">Hủy</string>
+    <string name="reminder_added">Đã thêm nhắc nhở mới!</string>
+    <string name="family_member_details">Chi tiết %1$s</string>
+    <string name="name_label">Tên</string>
+    <string name="relation_label">Quan hệ</string>
+    <string name="close">Đóng</string>
+    <string name="error_loading_user_data">Lỗi tải dữ liệu người dùng</string>
+    
+    <!-- New Schedule Interface -->
+    <string name="add_schedule">Thêm</string>
+    <string name="schedule_title">Lịch trình</string>
+    <string name="today_date">Hôm nay, 07 tháng 8</string>
+    <string name="yesterday_date">Hôm qua, 06 tháng 8</string>
+    
+    <!-- Create Schedule Dialog -->
+    <string name="create_schedule_title">Tạo lịch trình mới</string>
+    <string name="schedule_name_label">Tên lịch trình</string>
+    <string name="schedule_name_hint">VD: Uống thuốc huyết áp</string>
+    <string name="date_label">Ngày</string>
+    <string name="time_label">Thời gian</string>
+    <string name="select_date">Chọn ngày</string>
+    <string name="select_time">Chọn giờ</string>
+    <string name="notes_label">Ghi chú</string>
+    <string name="notes_hint">Thêm mô tả chi tiết...</string>
+    <string name="classification_label">Phân loại</string>
+    <string name="medicine_category">Uống thuốc</string>
+    <string name="appointment_category">Khám bệnh</string>
+    <string name="exercise_category">Tập thể dục</string>
+    <string name="meal_category">Ăn uống</string>
+    <string name="other_category">Khác</string>
+    <string name="save_schedule">Lưu Lịch Trình</string>
+    
+    <!-- Schedule Status -->
+    <string name="schedule_completed">Đã hoàn thành</string>
+    <string name="schedule_pending">Đang chờ</string>
+    
+    <!-- AppBar Scrolling Behavior -->
+    <string name="appbar_scrolling_view_behavior">com.google.android.material.appbar.AppBarLayout$ScrollingViewBehavior</string>
+    
 </resources>

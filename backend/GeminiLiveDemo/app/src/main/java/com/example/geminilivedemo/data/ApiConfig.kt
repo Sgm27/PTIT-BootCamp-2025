@@ -55,6 +55,12 @@ object ApiConfig {
         
         // User stats
         const val USER_STATS = "api/users/{user_id}/stats"
+        
+        // Medicine analysis
+        const val ANALYZE_MEDICINE = "api/analyze-medicine-gemini"
+        
+        // Voice notification
+        const val VOICE_NOTIFICATION = "api/generate-voice-notification"
     }
     
     // Database Configuration (EC2 AWS - chỉ dùng cho backend, không dùng trực tiếp từ Android)
