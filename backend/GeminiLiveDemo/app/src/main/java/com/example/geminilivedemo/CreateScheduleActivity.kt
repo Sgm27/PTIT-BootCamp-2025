@@ -3,6 +3,15 @@ package com.example.geminilivedemo
 import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import android.os.Bundle
+import android.content.Intent
+import android.provider.MediaStore
+import androidx.activity.result.contract.ActivityResultContracts
+import android.net.Uri
+import java.io.InputStream
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import android.util.Log
 import android.view.View
 import android.widget.ImageView
@@ -33,6 +42,7 @@ class CreateScheduleActivity : AppCompatActivity() {
     private lateinit var selectTimeButton: MaterialButton
     private lateinit var notesInput: TextInputEditText
     private lateinit var saveScheduleButton: MaterialButton
+    private lateinit var createFromPrescriptionButton: MaterialButton
     
     // Category buttons
     private lateinit var medicineButton: MaterialButton
@@ -68,6 +78,7 @@ class CreateScheduleActivity : AppCompatActivity() {
         selectTimeButton = findViewById(R.id.selectTimeButton)
         notesInput = findViewById(R.id.notesInput)
         saveScheduleButton = findViewById(R.id.saveScheduleButton)
+        createFromPrescriptionButton = findViewById(R.id.createFromPrescriptionButton)
         
         // Category buttons
         medicineButton = findViewById(R.id.medicineButton)
@@ -91,6 +102,143 @@ class CreateScheduleActivity : AppCompatActivity() {
         
         saveScheduleButton.setOnClickListener {
             saveSchedule()
+        }
+
+        createFromPrescriptionButton.setOnClickListener {
+            openImagePicker()
+        }
+    }
+
+    private val pickImageLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            try {
+                val data: Intent? = result.data
+                val imageUri: Uri? = data?.data
+                if (imageUri != null) {
+                    processPrescriptionImage(imageUri)
+                } else {
+                    Toast.makeText(this, "Không tìm thấy ảnh đã chọn", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error handling picked image: ${e.message}", e)
+                Toast.makeText(this, "Lỗi xử lý ảnh: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun openImagePicker() {
+        try {
+            val intent = Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+            intent.type = "image/*"
+            pickImageLauncher.launch(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error opening image picker: ${e.message}", e)
+            Toast.makeText(this, "Không thể mở thư viện ảnh", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun processPrescriptionImage(imageUri: Uri) {
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                Toast.makeText(this@CreateScheduleActivity, "Đang trích xuất từ đơn thuốc...", Toast.LENGTH_SHORT).show()
+                val base64Image = withContext(Dispatchers.IO) {
+                    val inputStream: InputStream? = contentResolver.openInputStream(imageUri)
+                    val bytes = inputStream?.readBytes()
+                    inputStream?.close()
+                    if (bytes != null) android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP) else null
+                }
+
+                if (base64Image.isNullOrEmpty()) {
+                    Toast.makeText(this@CreateScheduleActivity, "Không thể đọc ảnh", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+
+                // Call backend to analyze prescription (using existing medicine analysis endpoint)
+                val extraction = withContext(Dispatchers.IO) {
+                    analyzePrescriptionViaBackend(base64Image)
+                }
+
+                if (extraction != null && extraction.optBoolean("success", false)) {
+                    val result = extraction.optString("result", "")
+                    // Expect result to be JSON as per your guidance
+                    try {
+                        val json = org.json.JSONObject(result)
+                        applyExtractedSchedule(json)
+                    } catch (_: Exception) {
+                        // Try array of schedules
+                        try {
+                            val arr = org.json.JSONArray(result)
+                            if (arr.length() > 0) {
+                                val json = arr.getJSONObject(0)
+                                applyExtractedSchedule(json)
+                            } else {
+                                Toast.makeText(this@CreateScheduleActivity, "Không có dữ liệu hợp lệ trong đơn thuốc", Toast.LENGTH_SHORT).show()
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Extraction result is not valid JSON: ${e.message}")
+                            Toast.makeText(this@CreateScheduleActivity, "Định dạng đơn thuốc không hợp lệ", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } else {
+                    val err = extraction?.optString("error") ?: "Không thể trích xuất thông tin"
+                    Toast.makeText(this@CreateScheduleActivity, err, Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing prescription image: ${e.message}", e)
+                Toast.makeText(this@CreateScheduleActivity, "Lỗi: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun analyzePrescriptionViaBackend(base64Image: String): org.json.JSONObject? {
+        // Reuse medicine analysis endpoint which uses OpenAI Vision on backend
+        // Returns JSON: { success: bool, result: string/json, error?: string }
+        return try {
+            val client = okhttp3.OkHttpClient()
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+            val body = org.json.JSONObject().apply { put("input", base64Image) }.toString().toRequestBody(mediaType)
+            val request = okhttp3.Request.Builder()
+                .url("${com.example.geminilivedemo.data.ApiConfig.BASE_URL}${com.example.geminilivedemo.data.ApiConfig.Endpoints.ANALYZE_MEDICINE}")
+                .post(body)
+                .addHeader("Content-Type", "application/json")
+                .build()
+            client.newCall(request).execute().use { resp ->
+                val txt = resp.body?.string()
+                if (resp.isSuccessful && txt != null) org.json.JSONObject(txt) else null
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "analyzePrescriptionViaBackend failed: ${e.message}", e)
+            null
+        }
+    }
+
+    private fun applyExtractedSchedule(json: org.json.JSONObject) {
+        // Expected fields from backend-required format
+        // title, message, scheduled_at (unix), notification_type, category
+        val title = json.optString("title").ifEmpty { json.optString("medicine_name", "Uống thuốc") }
+        val message = json.optString("message").ifEmpty { json.optString("instruction", "Uống thuốc theo chỉ định") }
+        val scheduledAtUnix = json.optLong("scheduled_at", 0L)
+        val category = json.optString("category", "medicine")
+        val notificationType = json.optString("notification_type", if (category == "medicine") "medicine_reminder" else getNotificationType(category))
+
+        // Fill UI fields
+        scheduleNameInput.setText(title)
+        notesInput.setText(message)
+
+        if (scheduledAtUnix > 0) {
+            val cal = Calendar.getInstance().apply { timeInMillis = scheduledAtUnix * 1000 }
+            selectedDate = (cal.clone() as Calendar)
+            selectedTime = (cal.clone() as Calendar)
+            updateDateTimeDisplay()
+        }
+
+        // Also directly create schedule after extraction
+        val elderlyId = intent.getStringExtra(EXTRA_ELDERLY_ID) ?: ""
+        if (elderlyId.isNotEmpty()) {
+            val scheduledCal = Calendar.getInstance().apply {
+                if (scheduledAtUnix > 0) timeInMillis = scheduledAtUnix * 1000
+            }
+            createScheduleViaAPI(elderlyId, title, message, scheduledCal, category)
         }
     }
     

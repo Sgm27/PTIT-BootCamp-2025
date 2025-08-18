@@ -71,7 +71,7 @@ class VoiceNotificationTester:
         return [
             # Medicine reminders
             {
-                "text": "Nhắc nhở uống thuốc: Đã đến giờ uống 2 viên hoạt huyết dưỡng não. Nhớ uống thuốc đúng giờ để đảm bảo hiệu quả điều trị nhé.",
+                "text": "Chị Huyền ngủ ngon",
                 "type": "medicine",
                 "description": "Medicine Reminder - Hoạt huyết dưỡng não"
             }

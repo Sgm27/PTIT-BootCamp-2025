@@ -141,6 +141,22 @@
 
     </LinearLayout>
 
+    <!-- Create From Prescription Button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/createFromPrescriptionButton"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginBottom="24dp"
+        android:text="Tạo từ đơn thuốc (tải ảnh)"
+        android:textSize="14sp"
+        android:textColor="@color/white"
+        android:backgroundTint="@color/primary_500"
+        app:cornerRadius="12dp"
+        app:icon="@drawable/baseline_photo_library_24"
+        app:iconTint="@color/white"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp" />
+
     <!-- Notes -->
     <TextView
         android:layout_width="wrap_content"

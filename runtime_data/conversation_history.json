@@ -1,12 +1,32 @@
 [
   {
     "role": "user",
-    "text": "A đồ bạn nghe thì nó chót.",
-    "timestamp": "2025-08-18T15:08:51.479132"
+    "text": ". Alo alo, mấy ông.",
+    "timestamp": "2025-08-18T20:41:34.177181"
   },
   {
     "role": "assistant",
-    "text": "Chào bác ạ, cháu nghe rõ ạ. Bác cứ nói đi ạ, cháu sẵn sàng lắng nghe và hỗ trợ bác đây ạ.",
-    "timestamp": "2025-08-18T15:08:51.480640"
+    "text": "Chào bác ạ, cháu nghe rõ đây. Bác có khỏe không ạ? Bác cần cháu giúp gì không nè?",
+    "timestamp": "2025-08-18T20:41:34.178298"
+  },
+  {
+    "role": "user",
+    "text": "con. cảm ơn con. Có cần đi.",
+    "timestamp": "2025-08-18T20:41:41.961424"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ, bác cứ nói đi ạ, cháu đang lắng nghe đây. Bác cứ chia sẻ nhé.",
+    "timestamp": "2025-08-18T20:41:41.962543"
+  },
+  {
+    "role": "user",
+    "text": "Bác đang cảm thấy chán quá.",
+    "timestamp": "2025-08-18T20:42:00.398438"
+  },
+  {
+    "role": "assistant",
+    "text": "À, cháu hiểu rồi. Bác đang cảm thấy chán hả? Cháu rất tiếc khi nghe bác nói vậy. Bác có muốn trò chuyện một chút không ạ? Hay là mình cùng tìm một vài hoạt động nhẹ nhàng để bác thấy vui hơn nhé. Cháu luôn ở đây lắng nghe bác đó.",
+    "timestamp": "2025-08-18T20:42:00.399186"
   }
 ]
