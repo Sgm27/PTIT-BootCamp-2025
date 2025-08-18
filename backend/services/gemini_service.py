@@ -67,7 +67,10 @@ class GeminiService:
     - Các từ khóa kích hoạt tool quét thuốc: "quét thuốc", "tôi muốn quét thuốc", "chuyển qua màn hình quét thuốc", "màn hình quét thuốc", "scan thuốc", "chụp thuốc", "nhận diện thuốc", "kiểm tra thuốc", "xem thuốc", "phân tích thuốc"
     - KHI NGƯỜI DÙNG YÊU CẦU VỀ MÀN HÌNH CHÍNH: BẮT BUỘC phải gọi tool switch_to_main_screen ngay lập tức
     - Các từ khóa kích hoạt tool màn hình chính: "về màn hình chính", "màn hình chính", "trang chủ", "quay lại", "về nhà", "home"
-    - QUAN TRỌNG: Mỗi lần người dùng yêu cầu, BẮT BUỘC phải gọi tool tương ứng, kể cả khi đã gọi tool đó trước đó rồi
+    - KHI NGƯỜI DÙNG CHIA SẺ THÔNG TIN QUAN TRỌNG: BẮT BUỘC phải gọi tool update_system_prompt để ghi nhớ thông tin
+    - Các tình huống cần ghi nhớ: thông tin sức khỏe, sở thích, thói quen, tình trạng bệnh, thuốc đang dùng, lịch sử bệnh, thông tin gia đình, v.v.
+    - TRONG TRƯỜNG HỢP MIỄN LÀ THÔNG TIN NÀY CÓ TÍNH CÁ NHÂN VÀ BẠN CẢM THẤY NÓ TỐT ĐỂ CÁ NHÂN HÓA VÀ HỖ TRỢ NGƯỜI DÙNG TỐT HƠN TRONG TƯƠNG LAI THÌ PHẢI DÙNG TOOL UPDATE_SYSTEM_PROMPT
+    - QUAN TRỌNG: Mỗi lần người dùng cần thực hiện hành động, BẮT BUỘC phải gọi tool tương ứng, kể cả khi đã gọi tool đó trước đó rồi
     - KHÔNG được từ chối hoặc bỏ qua việc gọi tool khi người dùng có yêu cầu rõ ràng
     - Sau khi gọi tool, hãy thông báo cho người dùng biết đang thực hiện hành động đó
     
@@ -247,12 +250,26 @@ class GeminiService:
                         types.FunctionDeclaration(
                             name="switch_to_medicine_scan_screen", 
                             description="Chuyển sang màn hình quét thuốc"
+                        ),
+                        types.FunctionDeclaration(
+                            name="update_system_prompt",
+                            description="Ghi nhớ thông tin quan trọng về người dùng để cải thiện trải nghiệm tương tác trong tương lai",
+                            parameters={
+                                "type": "object",
+                                "properties": {
+                                    "content": {
+                                        "type": "string",
+                                        "description": "Nội dung thông tin cần ghi nhớ về người dùng"
+                                    }
+                                },
+                                "required": ["content"]
+                            }
                         )
                     ],
                     google_search=types.GoogleSearch()
                 )
             ],
-            system_instruction=self.SYSTEM_INSTRUCTION,
+            system_instruction=self._get_enhanced_system_instruction(),
             session_resumption=session_resumption_cfg,
             output_audio_transcription=types.AudioTranscriptionConfig(),
             input_audio_transcription=types.AudioTranscriptionConfig(),
@@ -959,6 +976,54 @@ class GeminiService:
                     
                     logger.info("✅ switch_to_medicine_scan_screen completed successfully")
                     
+                elif function_name == "update_system_prompt":
+                    logger.info("🧠 EXECUTING: update_system_prompt")
+                    logger.info("   📝 Action: Ghi nhớ thông tin về người dùng")
+                    
+                    # Get the arguments from function call
+                    function_args = getattr(function_call, 'args', {})
+                    memory_content = function_args.get('content', '')
+                    
+                    if memory_content:
+                        # Update user memory file
+                        success = await self._update_user_memory(memory_content)
+                        
+                        if success:
+                            # Send notification to frontend
+                            await self._send_safely(websocket, {
+                                "type": "memory_update",
+                                "action": "update_system_prompt",
+                                "message": "Đã ghi nhớ thông tin mới về bạn",
+                                "timestamp": datetime.datetime.now().isoformat()
+                            })
+                            
+                            # Create success response for Gemini
+                            function_response = types.FunctionResponse(
+                                id=function_id,
+                                name=function_name,
+                                response={"result": "success", "message": "Đã ghi nhớ thông tin mới về bạn"}
+                            )
+                            
+                            logger.info("✅ update_system_prompt completed successfully")
+                        else:
+                            # Create error response for Gemini
+                            function_response = types.FunctionResponse(
+                                id=function_id,
+                                name=function_name,
+                                response={"result": "error", "message": "Không thể ghi nhớ thông tin"}
+                            )
+                            
+                            logger.error("❌ update_system_prompt failed")
+                    else:
+                        # Create error response for Gemini
+                        function_response = types.FunctionResponse(
+                            id=function_id,
+                            name=function_name,
+                            response={"result": "error", "message": "Thiếu nội dung cần ghi nhớ"}
+                        )
+                        
+                        logger.warning("⚠️ update_system_prompt: Missing content parameter")
+                    
                 else:
                     # Unknown function - create error response
                     logger.warning(f"❌ UNKNOWN FUNCTION CALLED: {function_name}")
@@ -1053,3 +1118,86 @@ class GeminiService:
         except Exception as e:
             logger.error(f"Error analyzing image with Gemini: {e}")
             raise e
+
+    async def _update_user_memory(self, content: str) -> bool:
+        """Update user memory file with new information.
+        
+        Args:
+            content: New information to remember about the user.
+            
+        Returns:
+            True if successful, False otherwise.
+        """
+        try:
+            # Ensure user_memory directory exists
+            memory_dir = os.path.join(os.path.dirname(__file__), '..', 'user_memory')
+            os.makedirs(memory_dir, exist_ok=True)
+            
+            # Path to user memory file
+            memory_file = os.path.join(memory_dir, 'user_memory.txt')
+            
+            # Read existing content if file exists
+            existing_content = ""
+            if os.path.exists(memory_file):
+                try:
+                    with open(memory_file, 'r', encoding='utf-8') as f:
+                        existing_content = f.read().strip()
+                except Exception as e:
+                    logger.warning(f"Could not read existing memory file: {e}")
+            
+            # Prepare new content with timestamp
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            new_entry = f"\n\n# {timestamp}\n{content}"
+            
+            # Combine existing and new content
+            updated_content = existing_content + new_entry
+            
+            # Write to file
+            with open(memory_file, 'w', encoding='utf-8') as f:
+                f.write(updated_content)
+            
+            logger.info(f"✅ User memory updated successfully: {content[:50]}...")
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to update user memory: {e}")
+            return False
+
+    def _load_user_memory(self) -> str:
+        """Load user memory content from file.
+        
+        Returns:
+            User memory content as string, empty string if file doesn't exist.
+        """
+        try:
+            memory_file = os.path.join(os.path.dirname(__file__), '..', 'user_memory', 'user_memory.txt')
+            
+            if os.path.exists(memory_file):
+                with open(memory_file, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    logger.info(f"✅ User memory loaded successfully ({len(content)} characters)")
+                    return content
+            else:
+                logger.info("ℹ️ User memory file does not exist yet")
+                return ""
+                
+        except Exception as e:
+            logger.error(f"❌ Failed to load user memory: {e}")
+            return ""
+
+    def _get_enhanced_system_instruction(self) -> str:
+        """Get enhanced system instruction with user memory.
+        
+        Returns:
+            Enhanced system instruction combining base instruction with user memory.
+        """
+        base_instruction = self.SYSTEM_INSTRUCTION
+        user_memory = self._load_user_memory()
+        
+        if user_memory:
+            enhanced_instruction = f"{base_instruction}\n\nTHÔNG TIN GHI NHỚ VỀ NGƯỜI DÙNG:\n{user_memory}\n\nLƯU Ý: Sử dụng thông tin trên để đưa ra câu trả lời phù hợp và cá nhân hóa hơn cho người dùng."
+            logger.info(f"✅ Enhanced system instruction created with user memory ({len(user_memory)} characters)")
+            return enhanced_instruction
+        else:
+            logger.info("ℹ️ Using base system instruction (no user memory)")
+            return base_instruction

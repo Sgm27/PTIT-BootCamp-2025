@@ -1,0 +1,15 @@
+# Thông tin ghi nhớ về người dùng
+# File này được tự động cập nhật bởi AI để ghi nhớ thông tin quan trọng về người dùng
+# Mỗi dòng mới sẽ được thêm vào cuối file này
+
+# Khởi tạo file ghi nhớ người dùng
+# Ngày tạo: 2025-01-27
+
+# 2025-08-19 03:58:59
+Người dùng thích uống trà xanh vào buổi sáng và có tiền sử bệnh tiểu đường
+
+# 2025-08-19 04:05:05
+Người dùng là Nguồn Gốc Số
+
+# 2025-08-19 04:07:21
+Người dùng thích đi dạo và muốn được nhắc nhở đi dạo thường xuyên.
