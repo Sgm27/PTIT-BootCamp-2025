@@ -290,7 +290,7 @@ class UIManager(private val activity: AppCompatActivity) {
         }
         
         activity.runOnUiThread {
-            imageView.setImageResource(R.drawable.doctor_avatar)
+            imageView.setImageResource(R.drawable.friend_avatar)
         }
     }
     

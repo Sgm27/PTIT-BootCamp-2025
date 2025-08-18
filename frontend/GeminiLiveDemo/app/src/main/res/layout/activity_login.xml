@@ -14,12 +14,12 @@
         android:layout_height="120dp"
         android:src="@drawable/app_logo"
         android:layout_marginBottom="@dimen/spacing_md"
-        android:contentDescription="Healthcare AI Logo" />
+        android:contentDescription="VCareMind Logo" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Healthcare AI"
+        android:text="VCareMind"
         android:textSize="@dimen/text_title_lg"
         android:textStyle="bold"
         android:textColor="@color/text_primary"

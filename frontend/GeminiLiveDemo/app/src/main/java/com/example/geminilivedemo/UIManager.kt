@@ -259,7 +259,7 @@ class UIManager(private val activity: AppCompatActivity) {
     
     private fun setDefaultAvatar() {
         activity.runOnUiThread {
-            imageView.setImageResource(R.drawable.doctor_avatar)
+            imageView.setImageResource(R.drawable.friend_avatar)
         }
     }
     

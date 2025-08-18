@@ -19,7 +19,7 @@
             android:src="@drawable/app_logo"
             android:layout_marginTop="16dp"
             android:layout_marginBottom="16dp"
-            android:contentDescription="Healthcare AI Logo" />
+            android:contentDescription="VCareMind Logo" />
 
         <TextView
             android:layout_width="wrap_content"

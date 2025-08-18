@@ -42,7 +42,7 @@
         <activity
             android:name=".LoginActivity"
             android:exported="true"
-            android:label="Đăng nhập"
+            android:label="@string/app_name"
             android:theme="@style/Theme.GeminiLiveDemo"
             android:screenOrientation="portrait">
             <intent-filter>

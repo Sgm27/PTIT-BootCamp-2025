@@ -11,8 +11,8 @@ android {
         applicationId = "com.example.geminilivedemo"
         minSdk = 24  // Giảm xuống 24 để hỗ trợ nhiều thiết bị hơn
         targetSdk = 34  // Giảm xuống 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 6
+        versionName = "3.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

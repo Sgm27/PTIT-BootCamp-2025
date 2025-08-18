@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Smart Scanner</string>
+    <string name="app_name">VCareMind</string>
     
     <!-- Main Activity Navigation -->
     <string name="nav_home">Trang chủ</string>
