@@ -29,7 +29,7 @@
         <item name="android:statusBarColor">@color/primary_500</item>
         <item name="android:navigationBarColor">@color/background_primary</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <!-- windowLightNavigationBar requires API 27+, handled in v27/themes.xml -->
         
         <!-- Typography -->
         <item name="android:textColorPrimary">@color/text_primary</item>
@@ -106,7 +106,7 @@
         <item name="android:statusBarColor">@color/primary_500</item>
         <item name="android:navigationBarColor">@color/background_primary</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">true</item>
+        <!-- windowLightNavigationBar requires API 27+, handled in v27/themes.xml -->
         <item name="android:windowTranslucentStatus">false</item>
         <item name="android:windowTranslucentNavigation">false</item>
         <item name="android:windowFullscreen">false</item>

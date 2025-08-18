@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.*
 import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
+import java.util.concurrent.atomic.AtomicBoolean
 
 
 class UIManager(private val activity: AppCompatActivity) {
@@ -66,6 +67,11 @@ class UIManager(private val activity: AppCompatActivity) {
     private var isBackgroundServiceRunning = false
     private var isCurrentlyPlayingTalking = false // Track current video state
     
+    // Video switching synchronization
+    private val isVideoSwitching = AtomicBoolean(false)
+    private var lastVideoSwitchTime = 0L
+    private val VIDEO_SWITCH_COOLDOWN_MS = 500L // 500ms cooldown between video switches
+    
     fun setCallback(callback: UICallback) {
         this.callback = callback
     }
@@ -100,37 +106,30 @@ class UIManager(private val activity: AppCompatActivity) {
         aiStatusIcon = activity.findViewById(R.id.aiStatusIcon)
         aiStatusText = activity.findViewById(R.id.aiStatusText)
         
-        setupClickListeners()
-        
-        // Set default avatar video
-        setDefaultAvatarVideo()
-        
         // Initialize status bar
         initializeStatusBar()
         
-        // Default AI status
-        setAIIdle()
+        // Setup click listeners
+        setupClickListeners()
+        
+        // Start with waiting avatar
+        playWaitingAvatar()
     }
     
     private fun setupClickListeners() {
-        captureButton.setOnClickListener {
-            // Open scanner activity instead of camera
-            openScannerActivity()
-        }
-        
+        // Setup button click listeners
         micButton.setOnClickListener {
-            Log.d("UIManager", "Mic button clicked! Callback is: ${callback != null}")
             callback?.onMicButtonClicked()
         }
         
         homeButton.setOnClickListener {
             callback?.onHomeButtonClicked()
         }
-
+        
         historyButton.setOnClickListener {
             callback?.onHistoryButtonClicked()
         }
-
+        
         notificationButton.setOnClickListener {
             callback?.onNotificationButtonClicked()
         }
@@ -139,13 +138,14 @@ class UIManager(private val activity: AppCompatActivity) {
             callback?.onProfileButtonClicked()
         }
         
+        captureButton.setOnClickListener {
+            callback?.onCaptureButtonClicked()
+        }
         
-
-        // Keep old button listeners for backward compatibility
         startButton.setOnClickListener {
             callback?.onStartButtonClicked()
         }
-
+        
         stopButton.setOnClickListener {
             callback?.onStopButtonClicked()
         }
@@ -216,10 +216,23 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     fun setAIPlayingStatus(playing: Boolean) {
+        Log.d("UIManager", "setAIPlayingStatus called: playing=$playing")
         isAIPlaying = playing
-        updateMicButtonState()
-        // Chỉ chuyển đổi video khi trạng thái phát âm thanh thay đổi
-        updateAvatarVideo()
+        
+        // Only update video if we're not currently switching
+        if (!isVideoSwitching.get()) {
+            updateAvatarVideo()
+        } else {
+            Log.d("UIManager", "Video switching in progress, deferring updateAvatarVideo")
+            // Schedule update after switching completes
+            activity.runOnUiThread {
+                android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                    if (!isVideoSwitching.get()) {
+                        updateAvatarVideo()
+                    }
+                }, 100) // Small delay to ensure switching completes
+            }
+        }
     }
     
     fun setAIRespondingStatus(responding: Boolean) {
@@ -296,21 +309,52 @@ class UIManager(private val activity: AppCompatActivity) {
             return
         }
         
+        // Check if we're already switching or in cooldown
+        if (!canSwitchVideo()) {
+            Log.d("UIManager", "Video switching blocked - already switching or in cooldown")
+            return
+        }
+        
         try {
+            isVideoSwitching.set(true)
+            lastVideoSwitchTime = System.currentTimeMillis()
+            
             val videoPath = "android.resource://${activity.packageName}/raw/waiting_avatar"
-            avatarVideoView.setVideoURI(android.net.Uri.parse(videoPath))
-            avatarVideoView.setOnPreparedListener { mediaPlayer ->
-                mediaPlayer.isLooping = true
-                mediaPlayer.setVolume(0f, 0f) // Tắt âm thanh
+            
+            activity.runOnUiThread {
+                try {
+                    // Stop current video first
+                    if (avatarVideoView.isPlaying) {
+                        avatarVideoView.stopPlayback()
+                    }
+                    
+                    avatarVideoView.setVideoURI(android.net.Uri.parse(videoPath))
+                    avatarVideoView.setOnPreparedListener { mediaPlayer ->
+                        mediaPlayer.isLooping = true
+                        mediaPlayer.setVolume(0f, 0f) // Tắt âm thanh
+                        avatarVideoView.start()
+                        Log.d("UIManager", "Started playing waiting avatar video")
+                        isVideoSwitching.set(false)
+                    }
+                    avatarVideoView.setOnCompletionListener { mediaPlayer ->
+                        // Tự động phát lại khi kết thúc
+                        if (!isVideoSwitching.get()) {
+                            mediaPlayer.start()
+                        }
+                    }
+                    avatarVideoView.setOnErrorListener { mp, what, extra ->
+                        Log.e("UIManager", "Error playing waiting avatar video: what=$what, extra=$extra")
+                        isVideoSwitching.set(false)
+                        true
+                    }
+                } catch (e: Exception) {
+                    Log.e("UIManager", "Error in playWaitingAvatar UI thread", e)
+                    isVideoSwitching.set(false)
+                }
             }
-            avatarVideoView.setOnCompletionListener { mediaPlayer ->
-                // Tự động phát lại khi kết thúc
-                mediaPlayer.start()
-            }
-            avatarVideoView.start()
-            Log.d("UIManager", "Started playing waiting avatar video")
         } catch (e: Exception) {
             Log.e("UIManager", "Error playing waiting avatar video", e)
+            isVideoSwitching.set(false)
         }
     }
     
@@ -320,22 +364,70 @@ class UIManager(private val activity: AppCompatActivity) {
             return
         }
         
+        // Check if we're already switching or in cooldown
+        if (!canSwitchVideo()) {
+            Log.d("UIManager", "Video switching blocked - already switching or in cooldown")
+            return
+        }
+        
         try {
+            isVideoSwitching.set(true)
+            lastVideoSwitchTime = System.currentTimeMillis()
+            
             val videoPath = "android.resource://${activity.packageName}/raw/talking_avatar"
-            avatarVideoView.setVideoURI(android.net.Uri.parse(videoPath))
-            avatarVideoView.setOnPreparedListener { mediaPlayer ->
-                mediaPlayer.isLooping = true
-                mediaPlayer.setVolume(0f, 0f) // Tắt âm thanh
+            
+            activity.runOnUiThread {
+                try {
+                    // Stop current video first
+                    if (avatarVideoView.isPlaying) {
+                        avatarVideoView.stopPlayback()
+                    }
+                    
+                    avatarVideoView.setVideoURI(android.net.Uri.parse(videoPath))
+                    avatarVideoView.setOnPreparedListener { mediaPlayer ->
+                        mediaPlayer.isLooping = true
+                        mediaPlayer.setVolume(0f, 0f) // Tắt âm thanh
+                        avatarVideoView.start()
+                        Log.d("UIManager", "Started playing talking avatar video")
+                        isVideoSwitching.set(false)
+                    }
+                    avatarVideoView.setOnCompletionListener { mediaPlayer ->
+                        // Tự động phát lại khi kết thúc
+                        if (!isVideoSwitching.get()) {
+                            mediaPlayer.start()
+                        }
+                    }
+                    avatarVideoView.setOnErrorListener { mp, what, extra ->
+                        Log.e("UIManager", "Error playing talking avatar video: what=$what, extra=$extra")
+                        isVideoSwitching.set(false)
+                        true
+                    }
+                } catch (e: Exception) {
+                    Log.e("UIManager", "Error in playTalkingAvatar UI thread", e)
+                    isVideoSwitching.set(false)
+                }
             }
-            avatarVideoView.setOnCompletionListener { mediaPlayer ->
-                // Tự động phát lại khi kết thúc
-                mediaPlayer.start()
-            }
-            avatarVideoView.start()
-            Log.d("UIManager", "Started playing talking avatar video")
         } catch (e: Exception) {
             Log.e("UIManager", "Error playing talking avatar video", e)
+            isVideoSwitching.set(false)
         }
+    }
+    
+    private fun canSwitchVideo(): Boolean {
+        val currentTime = System.currentTimeMillis()
+        val timeSinceLastSwitch = currentTime - lastVideoSwitchTime
+        
+        // Check if we're already switching
+        if (isVideoSwitching.get()) {
+            return false
+        }
+        
+        // Check cooldown period
+        if (timeSinceLastSwitch < VIDEO_SWITCH_COOLDOWN_MS) {
+            return false
+        }
+        
+        return true
     }
     
     fun switchToTalkingAvatar() {
@@ -356,19 +448,35 @@ class UIManager(private val activity: AppCompatActivity) {
         
         // Tránh chuyển đổi video không cần thiết
         if (shouldPlayTalking == isCurrentlyPlayingTalking) {
+            Log.d("UIManager", "Video already in correct state, skipping switch")
             return // Video đã đang phát đúng trạng thái
         }
         
+        // Check if we can switch video
+        if (!canSwitchVideo()) {
+            Log.d("UIManager", "Video switching blocked - already switching or in cooldown")
+            return
+        }
+        
+        Log.d("UIManager", "Switching video: talking=$shouldPlayTalking, current=$isCurrentlyPlayingTalking")
+        
+        // Update state immediately to prevent race conditions
+        isCurrentlyPlayingTalking = shouldPlayTalking
+        
         // Thêm delay nhỏ để tránh chuyển đổi quá nhanh
         activity.runOnUiThread {
-            if (shouldPlayTalking) {
-                // AI đang phát âm thanh - phát video talking
-                playTalkingAvatar()
-                isCurrentlyPlayingTalking = true
-            } else {
-                // AI không phát âm thanh - phát video waiting
-                playWaitingAvatar()
-                isCurrentlyPlayingTalking = false
+            try {
+                if (shouldPlayTalking) {
+                    // AI đang phát âm thanh - phát video talking
+                    playTalkingAvatar()
+                } else {
+                    // AI không phát âm thanh - phát video waiting
+                    playWaitingAvatar()
+                }
+            } catch (e: Exception) {
+                Log.e("UIManager", "Error in updateAvatarVideo", e)
+                // Reset state on error
+                isCurrentlyPlayingTalking = !shouldPlayTalking
             }
         }
     }
@@ -521,5 +629,56 @@ class UIManager(private val activity: AppCompatActivity) {
         }
         // Không chuyển đổi video khi AI suy nghĩ - giữ nguyên video hiện tại
         // updateAvatarVideo()
+    }
+
+    private fun safelyStopVideo() {
+        if (!::avatarVideoView.isInitialized) {
+            return
+        }
+        
+        try {
+            activity.runOnUiThread {
+                try {
+                    if (avatarVideoView.isPlaying) {
+                        avatarVideoView.stopPlayback()
+                    }
+                } catch (e: Exception) {
+                    Log.e("UIManager", "Error stopping video playback", e)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("UIManager", "Error in safelyStopVideo", e)
+        }
+    }
+    
+    fun cleanup() {
+        Log.d("UIManager", "Cleaning up UIManager")
+        safelyStopVideo()
+        isVideoSwitching.set(false)
+    }
+    
+    fun resetVideoState() {
+        Log.d("UIManager", "Resetting video state")
+        isVideoSwitching.set(false)
+        isCurrentlyPlayingTalking = false
+        lastVideoSwitchTime = 0L
+    }
+    
+    fun forceVideoSwitch(playTalking: Boolean) {
+        Log.d("UIManager", "Force video switch: talking=$playTalking")
+        resetVideoState()
+        isCurrentlyPlayingTalking = playTalking
+        
+        activity.runOnUiThread {
+            try {
+                if (playTalking) {
+                    playTalkingAvatar()
+                } else {
+                    playWaitingAvatar()
+                }
+            } catch (e: Exception) {
+                Log.e("UIManager", "Error in forceVideoSwitch", e)
+            }
+        }
     }
 }

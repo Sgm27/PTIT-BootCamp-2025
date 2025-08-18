@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Theme for API level 27+ with windowLightNavigationBar support -->
+    <style name="Theme.GeminiLiveDemo" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- Status bar and navigation bar for API 27+ -->
+        <item name="android:statusBarColor">@color/primary_500</item>
+        <item name="android:navigationBarColor">@color/background_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+
+    <!-- Scanner Activity Theme for API 27+ -->
+    <style name="Theme.GeminiLiveDemo.Scanner" parent="Theme.GeminiLiveDemo">
+        <item name="android:statusBarColor">@color/primary_500</item>
+        <item name="android:navigationBarColor">@color/background_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+        <item name="android:windowFullscreen">false</item>
+    </style>
+</resources> 

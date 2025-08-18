@@ -131,10 +131,16 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 // Audio playback started -> AI is speaking
                 Log.d("MainActivity", "Audio playback started")
                 if (::uiManager.isInitialized) {
-                    uiManager.setAIPlayingStatus(true)
-                    uiManager.setAISpeaking()
-                    // Hiển thị tín hiệu màu tím khi AI đang phát âm thanh
-                    uiManager.setAIRespondingStatus(true)
+                    try {
+                        uiManager.setAIPlayingStatus(true)
+                        uiManager.setAISpeaking()
+                        // Hiển thị tín hiệu màu tím khi AI đang phát âm thanh
+                        uiManager.setAIRespondingStatus(true)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error in onAudioPlaybackStarted", e)
+                        // Force video switch as fallback
+                        uiManager.forceVideoSwitch(true)
+                    }
                 }
             }
             
@@ -142,10 +148,16 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 // Audio playback stopped -> AI finished speaking
                 Log.d("MainActivity", "Audio playback stopped")
                 if (::uiManager.isInitialized) {
-                    uiManager.setAIPlayingStatus(false)
-                    uiManager.setAIIdle()
-                    // Tắt hiển thị tín hiệu màu tím
-                    uiManager.setAIRespondingStatus(false)
+                    try {
+                        uiManager.setAIPlayingStatus(false)
+                        uiManager.setAIIdle()
+                        // Tắt hiển thị tín hiệu màu tím
+                        uiManager.setAIRespondingStatus(false)
+                    } catch (e: Exception) {
+                        Log.e("MainActivity", "Error in onAudioPlaybackStopped", e)
+                        // Force video switch as fallback
+                        uiManager.forceVideoSwitch(false)
+                    }
                 }
             }
         })
@@ -497,32 +509,30 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
     
     override fun onDestroy() {
         super.onDestroy()
-        Log.d("MainActivity", "MainActivity being destroyed")
+        Log.d("MainActivity", "MainActivity onDestroy called")
         
-        // Hủy đăng ký callback
-        globalConnectionManager.unregisterCallback(this)
-        globalConnectionManager.unregisterActivity(this)
-        
-        // battery receiver removed
-        
-        // Cleanup local managers only
-        // cameraManager doesn't have cleanup method
-        
-        // GlobalConnectionManager sẽ tự quản lý cleanup khi cần thiết
-        // Chỉ resume background service nếu app thực sự đóng
-        if (isBackgroundServiceRunning && isFinishing) {
-            serviceManager.resumeListeningService()
+        // Cleanup UIManager to prevent video-related crashes
+        if (::uiManager.isInitialized) {
+            uiManager.cleanup()
         }
         
-        // Disconnect WebSocket when activity is destroyed (only if no audio is playing)
-        if (isFinishing) {
-            if (audioManager.hasAudioToPlay()) {
-                Log.d("MainActivity", "Activity finishing but audio is playing - keeping WebSocket alive")
-            } else {
-                Log.d("MainActivity", "Activity finishing - disconnecting WebSocket")
-                serviceManager.disconnectWebSocket()
-            }
+        // Unregister from GlobalConnectionManager
+        try {
+            globalConnectionManager.unregisterCallback(this)
+            globalConnectionManager.unregisterActivity(this)
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Error unregistering from GlobalConnectionManager", e)
         }
+        
+        // Clear callbacks to prevent memory leaks (only for classes that have clearCallback method)
+        if (::audioManager.isInitialized) {
+            audioManager.clearCallback()
+        }
+        if (::webSocketManager.isInitialized) {
+            webSocketManager.clearCallback()
+        }
+        // Note: cameraManager, permissionHelper, voiceNotificationManager, and voiceNotificationWebSocketManager 
+        // don't have clearCallback methods, so we skip them
     }
     
     override fun onPause() {
@@ -562,6 +572,23 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         // Enable chat UI khi resume
         isChatEnabled = true
         updateChatUI()
+        
+        // Recover video state if needed
+        if (::uiManager.isInitialized) {
+            try {
+                // Reset video state to ensure consistency
+                uiManager.resetVideoState()
+                
+                // Set correct video based on current audio state
+                if (audioManager.isCurrentlyPlaying()) {
+                    uiManager.forceVideoSwitch(true)
+                } else {
+                    uiManager.forceVideoSwitch(false)
+                }
+            } catch (e: Exception) {
+                Log.e("MainActivity", "Error recovering video state in onResume", e)
+            }
+        }
         
         // Only pause background service if it was running and we're coming back from background
         // Don't pause when returning from other activities (like ScannerActivity)
@@ -678,4 +705,6 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             }
         }
     }
+    
+
 }
