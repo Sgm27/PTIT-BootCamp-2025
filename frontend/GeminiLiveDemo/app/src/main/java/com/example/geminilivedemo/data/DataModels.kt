@@ -123,6 +123,8 @@ data class FamilyMember(
 )
 
 data class FamilyMembersResponse(
+    @SerializedName("success")
+    val success: Boolean,
     @SerializedName("family_members")
     val familyMembers: List<FamilyMember>
 )
@@ -149,6 +151,8 @@ data class ElderlyPatient(
 )
 
 data class ElderlyPatientsResponse(
+    @SerializedName("success")
+    val success: Boolean,
     @SerializedName("elderly_patients")
     val elderlyPatients: List<ElderlyPatient>
 )

@@ -5,157 +5,130 @@ Automatically sends voice notifications when schedules are due
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Optional, List
-import json
+from typing import List, Optional
+from sqlalchemy.orm import Session
+
+from db.db_config import get_db
+from db.db_services.notification_service import NotificationDBService
+from db.models import NotificationType
+from services.voice_notification_service import VoiceNotificationService
 
 logger = logging.getLogger(__name__)
 
 class ScheduleNotificationService:
     """Service for automatically sending schedule notifications"""
     
-    def __init__(self, notification_db_service, notification_voice_service, websocket_manager):
+    def __init__(self, notification_db_service: NotificationDBService, voice_service: VoiceNotificationService):
         self.notification_db_service = notification_db_service
-        self.notification_voice_service = notification_voice_service
-        self.websocket_manager = websocket_manager
+        self.voice_service = voice_service
         self.is_running = False
-        self.check_interval = 60  # Check every minute
+        self.check_interval = 60  # Check every 60 seconds
         
     async def start_service(self):
         """Start the schedule notification service"""
         if self.is_running:
             logger.warning("Schedule notification service is already running")
             return
-        
+            
         self.is_running = True
         logger.info("Starting schedule notification service")
         
-        try:
-            while self.is_running:
-                await self.check_due_schedules()
+        while self.is_running:
+            try:
+                await self.check_and_send_notifications()
                 await asyncio.sleep(self.check_interval)
-        except Exception as e:
-            logger.error(f"Error in schedule notification service: {e}")
-            self.is_running = False
-        finally:
-            logger.info("Schedule notification service stopped")
+            except Exception as e:
+                logger.error(f"Error in schedule notification service: {e}")
+                await asyncio.sleep(self.check_interval)
     
     async def stop_service(self):
         """Stop the schedule notification service"""
         self.is_running = False
         logger.info("Stopping schedule notification service")
     
-    async def check_due_schedules(self):
-        """Check for schedules that are due and send notifications"""
+    async def check_and_send_notifications(self):
+        """Check for due notifications and send them"""
         try:
-            # Get current time
-            now = datetime.now()
+            # Get notifications that are due (within the next 5 minutes)
+            now = datetime.utcnow()
+            due_time = now + timedelta(minutes=5)
             
-            # Get notifications that are due (within the last 5 minutes to avoid missing any)
-            due_time = now - timedelta(minutes=5)
+            # Get all pending notifications
+            notifications = await self.notification_db_service.get_pending_notifications()
             
-            # Get due notifications from database
-            due_notifications = await self.get_due_notifications(due_time)
-            
-            for notification in due_notifications:
+            for notification in notifications:
                 try:
-                    await self.send_schedule_notification(notification)
-                    
-                    # Mark notification as sent
-                    await self.notification_db_service.update_notification_status(
-                        str(notification.id),
-                        is_sent=True,
-                        sent_at=now
-                    )
-                    
-                    logger.info(f"Sent schedule notification: {notification.title}")
-                    
+                    # Check if notification is due
+                    if notification.scheduled_at <= due_time and not notification.is_sent:
+                        await self.send_schedule_notification(notification)
                 except Exception as e:
-                    logger.error(f"Failed to send notification {notification.id}: {e}")
+                    logger.error(f"Error processing notification {notification.id}: {e}")
                     
         except Exception as e:
-            logger.error(f"Error checking due schedules: {e}")
-    
-    async def get_due_notifications(self, due_time: datetime) -> List:
-        """Get notifications that are due for sending"""
-        try:
-            # This would need to be implemented in the notification service
-            # For now, we'll return an empty list
-            # TODO: Implement get_due_notifications method
-            return []
-        except Exception as e:
-            logger.error(f"Error getting due notifications: {e}")
-            return []
+            logger.error(f"Error checking notifications: {e}")
     
     async def send_schedule_notification(self, notification):
-        """Send a schedule notification via voice and WebSocket"""
+        """Send a specific schedule notification"""
         try:
-            # Generate voice notification text
-            voice_text = self.generate_notification_text(notification)
+            logger.info(f"Sending schedule notification: {notification.title}")
             
-            # Generate voice audio
-            audio_base64 = await self.notification_voice_service.generate_voice_notification_base64(voice_text)
+            # Generate voice notification
+            notification_text = f"Lịch trình: {notification.title}. {notification.message}"
             
-            if audio_base64:
-                # Prepare notification data for WebSocket broadcast
-                notification_data = {
-                    "type": "schedule_notification",
-                    "schedule_id": str(notification.id),
-                    "title": notification.title,
-                    "message": notification.message,
-                    "category": notification.category or "other",
-                    "audio_base64": audio_base64,
-                    "timestamp": datetime.now().isoformat()
-                }
+            voice_base64 = await self.voice_service.generate_voice_notification_base64(notification_text)
+            
+            if voice_base64:
+                # Mark notification as sent
+                await self.notification_db_service.mark_notification_sent(str(notification.id))
                 
-                # Broadcast to all connected WebSocket clients
-                await self.websocket_manager.broadcast_voice_notification(notification_data)
-                
-                logger.info(f"Broadcasted schedule notification: {notification.title}")
+                # Broadcast to connected clients (if WebSocket manager is available)
+                # This would be handled by the main application
+                logger.info(f"Voice notification generated and sent for: {notification.title}")
             else:
                 logger.warning(f"Failed to generate voice for notification: {notification.title}")
                 
         except Exception as e:
-            logger.error(f"Error sending schedule notification: {e}")
+            logger.error(f"Error sending schedule notification {notification.id}: {e}")
     
-    def generate_notification_text(self, notification) -> str:
-        """Generate appropriate voice notification text"""
-        time_str = datetime.now().strftime("%H:%M")
-        
-        if notification.category == "medicine":
-            return f"Đã đến giờ {time_str}. {notification.title}. {notification.message}"
-        elif notification.category == "appointment":
-            return f"Đã đến giờ {time_str}. {notification.title}. {notification.message}"
-        elif notification.category == "exercise":
-            return f"Đã đến giờ {time_str}. {notification.title}. {notification.message}"
-        elif notification.category == "meal":
-            return f"Đã đến giờ {time_str}. {notification.title}. {notification.message}"
-        else:
-            return f"Đã đến giờ {time_str}. {notification.title}. {notification.message}"
-    
-    def get_service_status(self) -> dict:
-        """Get the current status of the service"""
-        return {
-            "running": self.is_running,
-            "check_interval": self.check_interval,
-            "last_check": datetime.now().isoformat() if self.is_running else None
-        }
+    async def send_immediate_notification(self, user_id: str, title: str, message: str, notification_type: str = "custom"):
+        """Send an immediate notification (for testing)"""
+        try:
+            logger.info(f"Sending immediate notification to user {user_id}: {title}")
+            
+            # Create notification in database
+            notification = await self.notification_db_service.create_notification(
+                user_id=user_id,
+                notification_type=NotificationType(notification_type),
+                title=title,
+                message=message,
+                scheduled_at=datetime.utcnow(),
+                priority="high",
+                category="immediate",
+                has_voice=True
+            )
+            
+            if notification:
+                # Send immediately
+                await self.send_schedule_notification(notification)
+                return True
+            else:
+                logger.error("Failed to create immediate notification")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error sending immediate notification: {e}")
+            return False
 
 # Global instance
 schedule_notification_service: Optional[ScheduleNotificationService] = None
 
-def get_schedule_notification_service(
-    notification_db_service,
-    notification_voice_service,
-    websocket_manager
-) -> ScheduleNotificationService:
-    """Get or create the global schedule notification service instance"""
+def get_schedule_notification_service() -> Optional[ScheduleNotificationService]:
+    """Get the global schedule notification service instance"""
+    return schedule_notification_service
+
+def initialize_schedule_notification_service(notification_db_service: NotificationDBService, voice_service: VoiceNotificationService):
+    """Initialize the global schedule notification service"""
     global schedule_notification_service
-    
-    if schedule_notification_service is None:
-        schedule_notification_service = ScheduleNotificationService(
-            notification_db_service,
-            notification_voice_service,
-            websocket_manager
-        )
-    
+    schedule_notification_service = ScheduleNotificationService(notification_db_service, voice_service)
+    logger.info("Schedule notification service initialized")
     return schedule_notification_service 

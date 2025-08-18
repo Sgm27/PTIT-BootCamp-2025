@@ -10,6 +10,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
+import android.view.ViewGroup
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -24,6 +25,18 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import com.example.geminilivedemo.data.ApiConfig
 import kotlin.math.roundToInt
+import kotlin.math.min
+import com.example.geminilivedemo.ToolCallData
+import com.example.geminilivedemo.ScreenNavigationData
+import com.example.geminilivedemo.MainActivity
+import com.example.geminilivedemo.ScannerActivity
+import com.example.geminilivedemo.Response
+import com.example.geminilivedemo.Constants
+import com.example.geminilivedemo.AudioManager
+import com.example.geminilivedemo.WebSocketManager
+import com.example.geminilivedemo.GlobalConnectionManager
+import com.example.geminilivedemo.GeminiLiveApplication
+import android.app.Application
 
 class MedicineInfoActivity : AppCompatActivity() {
     
@@ -89,9 +102,9 @@ class MedicineInfoActivity : AppCompatActivity() {
         Log.d(TAG, "Received medicineName: $medicineName")
         
         if (imageBase64.isNullOrEmpty()) {
-            Log.e(TAG, "No image data provided")
-            Toast.makeText(this, "Không có dữ liệu hình ảnh", Toast.LENGTH_SHORT).show()
-            finish()
+            initializeViews()
+            setupClickListeners()
+            initializeVoiceChat()
             return
         }
         
@@ -203,6 +216,9 @@ class MedicineInfoActivity : AppCompatActivity() {
             if (scaledBitmap != null) {
                 Log.d(TAG, "Bitmap created successfully: ${scaledBitmap.width}x${scaledBitmap.height}")
                 
+                // Set ImageView height to match 16:9 aspect ratio like camera preview
+                setImageViewAspectRatio()
+                
                 // Scale bitmap for preview like CameraManager
                 val previewBitmap = scaleBitmapForPreview(scaledBitmap)
                 medicineImageView.setImageBitmap(previewBitmap)
@@ -237,13 +253,39 @@ class MedicineInfoActivity : AppCompatActivity() {
         }.coerceAtLeast(1)
     }
     
+
+    
+    private fun setImageViewAspectRatio() {
+        // Calculate height based on 9:16 aspect ratio to match camera preview (portrait)
+        val targetAspectRatio = 9.0f / 16.0f
+        val maxWidth = resources.displayMetrics.widthPixels - 64 // Account for padding
+        val targetHeight = (maxWidth / targetAspectRatio).roundToInt()
+        
+        // Ensure height is within reasonable bounds
+        val finalHeight = targetHeight.coerceIn(400, 600)
+        
+        Log.d(TAG, "Setting ImageView height to $finalHeight for 9:16 aspect ratio (portrait)")
+        
+        // Set the height of the ImageView
+        val layoutParams = medicineImageView.layoutParams as? ViewGroup.LayoutParams
+        layoutParams?.height = finalHeight
+        medicineImageView.layoutParams = layoutParams
+    }
+    
     private fun scaleBitmapForPreview(bitmap: Bitmap): Bitmap {
-        val maxWidth = resources.displayMetrics.widthPixels
-        val scaleFactor = maxWidth.toFloat() / bitmap.width
+        // Calculate target dimensions based on 9:16 aspect ratio (portrait)
+        val targetAspectRatio = 9.0f / 16.0f
+        val maxWidth = resources.displayMetrics.widthPixels - 64 // Account for padding
+        val targetHeight = (maxWidth / targetAspectRatio).roundToInt()
+        val finalHeight = targetHeight.coerceIn(400, 600)
+        val finalWidth = (finalHeight * targetAspectRatio).roundToInt()
+        
+        Log.d(TAG, "Scaling bitmap from ${bitmap.width}x${bitmap.height} to ${finalWidth}x${finalHeight}")
+        
         return Bitmap.createScaledBitmap(
             bitmap,
-            maxWidth,
-            (bitmap.height * scaleFactor).roundToInt(),
+            finalWidth,
+            finalHeight,
             true
         )
     }
@@ -345,11 +387,28 @@ class MedicineInfoActivity : AppCompatActivity() {
             Log.d(TAG, "Initializing voice chat...")
             
             // Get GlobalConnectionManager from Application
-            globalConnectionManager = (application as GeminiLiveApplication).getGlobalConnectionManager()
+            val app = application as? GeminiLiveApplication
+            if (app == null) {
+                Log.e(TAG, "Failed to get GeminiLiveApplication")
+                Toast.makeText(this, "Lỗi khởi tạo ứng dụng", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            globalConnectionManager = app.getGlobalConnectionManager()
+            globalConnectionManager.registerActivity(this)
             
             // Get managers from GlobalConnectionManager
-            audioManager = globalConnectionManager.getAudioManager()!!
-            webSocketManager = globalConnectionManager.getWebSocketManager()!!
+            val audioManagerInstance = globalConnectionManager.getAudioManager()
+            val webSocketManagerInstance = globalConnectionManager.getWebSocketManager()
+            
+            if (audioManagerInstance == null || webSocketManagerInstance == null) {
+                Log.e(TAG, "Failed to get managers from GlobalConnectionManager")
+                Toast.makeText(this, "Lỗi khởi tạo voice chat", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            audioManager = audioManagerInstance
+            webSocketManager = webSocketManagerInstance
             
             Log.d(TAG, "Managers obtained successfully")
             
@@ -363,7 +422,7 @@ class MedicineInfoActivity : AppCompatActivity() {
                     delay(2000) // Wait 2 seconds for connection
                     if (webSocketManager.isWebSocketConnected()) {
                         Log.d(TAG, "WebSocket connected successfully")
-                        setupWebSocketCallbacks()
+                        setupVoiceChatCallbacks()
                     } else {
                         Log.e(TAG, "Failed to connect WebSocket")
                         runOnUiThread {
@@ -373,8 +432,22 @@ class MedicineInfoActivity : AppCompatActivity() {
                 }
             } else {
                 Log.d(TAG, "WebSocket already connected")
-                setupWebSocketCallbacks()
+                setupVoiceChatCallbacks()
             }
+            
+            Log.d(TAG, "Voice chat initialized successfully")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "Error initializing voice chat", e)
+            runOnUiThread {
+                Toast.makeText(this, "Lỗi khởi tạo voice chat: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+    
+    private fun setupVoiceChatCallbacks() {
+        try {
+            Log.d(TAG, "Setting up voice chat callbacks...")
             
             // Setup AudioManager callbacks with better audio quality handling like MainActivity
             audioManager.setCallback(object : AudioManager.AudioManagerCallback {
@@ -429,81 +502,91 @@ class MedicineInfoActivity : AppCompatActivity() {
                 }
             })
             
-            Log.d(TAG, "Voice chat initialized successfully")
+            // Setup WebSocketManager callbacks with better response handling
+            webSocketManager.setCallback(object : WebSocketManager.WebSocketCallback {
+                override fun onConnected() {
+                    Log.d(TAG, "WebSocket connected")
+                    runOnUiThread {
+                        Toast.makeText(this@MedicineInfoActivity, "Đã kết nối với Gemini", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                
+                override fun onDisconnected() {
+                    Log.d(TAG, "WebSocket disconnected")
+                    runOnUiThread {
+                        Toast.makeText(this@MedicineInfoActivity, "Mất kết nối với Gemini", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                
+                override fun onError(exception: Exception?) {
+                    Log.e(TAG, "WebSocket Error: ${exception?.message}")
+                    
+                    // Provide more specific error messages like CameraManager
+                    val errorMessage = when {
+                        exception?.message?.contains("timeout", ignoreCase = true) == true -> "Kết nối bị timeout"
+                        exception?.message?.contains("network", ignoreCase = true) == true -> "Lỗi mạng"
+                        exception?.message?.contains("connection", ignoreCase = true) == true -> "Không thể kết nối"
+                        else -> "Lỗi kết nối: ${exception?.message ?: "Không xác định"}"
+                    }
+                    
+                    runOnUiThread {
+                        Toast.makeText(this@MedicineInfoActivity, errorMessage, Toast.LENGTH_SHORT).show()
+                    }
+                }
+                
+                override fun onMessageReceived(response: Response) {
+                    // Handle text response if any
+                    response.text?.let { text ->
+                        Log.d(TAG, "Received text response: $text")
+                        // Show text response in toast for user feedback on main thread
+                        runOnUiThread {
+                            Toast.makeText(this@MedicineInfoActivity, "AI: $text", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                    
+                    // Handle audio response with better quality like CameraManager handles image data
+                    response.audioData?.let { audioData ->
+                        Log.d(TAG, "Received audio response, length: ${audioData.length}")
+                        
+                        // Validate audio data before playing
+                        if (audioData.isNotBlank()) {
+                            try {
+                                val audioBytes = Base64.decode(audioData, Base64.DEFAULT)
+                                Log.d(TAG, "Playing audio chunk: ${audioBytes.size} bytes")
+                                audioManager.ingestAudioChunkToPlay(audioData)
+                            } catch (e: Exception) {
+                                Log.e(TAG, "Error decoding audio data", e)
+                                runOnUiThread {
+                                    Toast.makeText(this@MedicineInfoActivity, "Lỗi phát âm thanh", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        } else {
+                            Log.w(TAG, "Empty audio data received")
+                        }
+                    }
+                    
+                    // Handle tool calls from Gemini
+                    response.toolCallData?.let { toolCall ->
+                        Log.d(TAG, "Received tool call: ${toolCall.functionName}")
+                        handleToolCall(toolCall)
+                    }
+                    
+                    // Handle screen navigation requests
+                    response.screenNavigationData?.let { navigation ->
+                        Log.d(TAG, "Received screen navigation request: ${navigation.action}")
+                        handleScreenNavigation(navigation)
+                    }
+                }
+            })
+            
+            Log.d(TAG, "Voice chat callbacks setup successfully")
             
         } catch (e: Exception) {
-            Log.e(TAG, "Error initializing voice chat", e)
+            Log.e(TAG, "Error setting up voice chat callbacks", e)
             runOnUiThread {
-                Toast.makeText(this, "Lỗi khởi tạo voice chat: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Lỗi thiết lập voice chat: ${e.message}", Toast.LENGTH_SHORT).show()
             }
         }
-    }
-    
-    private fun setupWebSocketCallbacks() {
-        // Setup WebSocketManager callbacks with better response handling
-        webSocketManager.setCallback(object : WebSocketManager.WebSocketCallback {
-            override fun onConnected() {
-                Log.d(TAG, "WebSocket connected")
-                runOnUiThread {
-                    Toast.makeText(this@MedicineInfoActivity, "Đã kết nối với Gemini", Toast.LENGTH_SHORT).show()
-                }
-            }
-            
-            override fun onDisconnected() {
-                Log.d(TAG, "WebSocket disconnected")
-                runOnUiThread {
-                    Toast.makeText(this@MedicineInfoActivity, "Mất kết nối với Gemini", Toast.LENGTH_SHORT).show()
-                }
-            }
-            
-            override fun onError(exception: Exception?) {
-                Log.e(TAG, "WebSocket Error: ${exception?.message}")
-                
-                // Provide more specific error messages like CameraManager
-                val errorMessage = when {
-                    exception?.message?.contains("timeout", ignoreCase = true) == true -> "Kết nối bị timeout"
-                    exception?.message?.contains("network", ignoreCase = true) == true -> "Lỗi mạng"
-                    exception?.message?.contains("connection", ignoreCase = true) == true -> "Không thể kết nối"
-                    else -> "Lỗi kết nối: ${exception?.message ?: "Không xác định"}"
-                }
-                
-                runOnUiThread {
-                    Toast.makeText(this@MedicineInfoActivity, errorMessage, Toast.LENGTH_SHORT).show()
-                }
-            }
-            
-            override fun onMessageReceived(response: Response) {
-                // Handle text response if any
-                response.text?.let { text ->
-                    Log.d(TAG, "Received text response: $text")
-                    // Show text response in toast for user feedback on main thread
-                    runOnUiThread {
-                        Toast.makeText(this@MedicineInfoActivity, "AI: $text", Toast.LENGTH_LONG).show()
-                    }
-                }
-                
-                // Handle audio response with better quality like CameraManager handles image data
-                response.audioData?.let { audioData ->
-                    Log.d(TAG, "Received audio response, length: ${audioData.length}")
-                    
-                    // Validate audio data before playing
-                    if (audioData.isNotBlank()) {
-                        try {
-                            val audioBytes = Base64.decode(audioData, Base64.DEFAULT)
-                            Log.d(TAG, "Playing audio chunk: ${audioBytes.size} bytes")
-                            audioManager.ingestAudioChunkToPlay(audioData)
-                        } catch (e: Exception) {
-                            Log.e(TAG, "Error decoding audio data", e)
-                            runOnUiThread {
-                                Toast.makeText(this@MedicineInfoActivity, "Lỗi phát âm thanh", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    } else {
-                        Log.w(TAG, "Empty audio data received")
-                    }
-                }
-            }
-        })
     }
     
     private fun updateVoiceChatUI(isRecording: Boolean) {
@@ -598,11 +681,13 @@ class MedicineInfoActivity : AppCompatActivity() {
     
     private fun showErrorState(error: String) {
         loadingLayout.visibility = View.GONE
-        contentLayout.visibility = View.GONE
+        contentLayout.visibility = View.VISIBLE
         errorLayout.visibility = View.VISIBLE
         
         errorTextView.text = error
     }
+    
+
     
     private fun saveMedicine() {
         // TODO: Implement save medicine functionality
@@ -639,14 +724,32 @@ class MedicineInfoActivity : AppCompatActivity() {
             audioManager.stopAudioInput()
         }
         
-        // Note: Callbacks will be automatically cleaned up when managers are destroyed
-        // No need to set callbacks to null as the interfaces don't allow null values
+        // Clear callbacks to prevent conflicts with MainActivity
+        if (::audioManager.isInitialized) {
+            audioManager.clearCallback()
+        }
+        if (::webSocketManager.isInitialized) {
+            webSocketManager.clearCallback()
+        }
+        
+        // Safely unregister from global connection manager
+        if (::globalConnectionManager.isInitialized) {
+            try {
+                globalConnectionManager.unregisterActivity(this)
+            } catch (e: Exception) {
+                Log.w(TAG, "Error unregistering from global connection manager: ${e.message}")
+            }
+        }
     }
     
     override fun onBackPressed() {
         // Stop recording if active
         if (::audioManager.isInitialized && audioManager.isCurrentlyRecording()) {
-            audioManager.stopAudioInput()
+            try {
+                audioManager.stopAudioInput()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error stopping audio input in onBackPressed: ${e.message}")
+            }
         }
         super.onBackPressed()
     }
@@ -657,15 +760,96 @@ class MedicineInfoActivity : AppCompatActivity() {
         if (::audioManager.isInitialized && audioManager.isCurrentlyRecording()) {
             audioManager.stopAudioInput()
         }
+        
+        // Clear callbacks to prevent conflicts with MainActivity
+        if (::audioManager.isInitialized) {
+            try {
+                audioManager.clearCallback()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error clearing audio manager callback: ${e.message}")
+            }
+        }
+        if (::webSocketManager.isInitialized) {
+            try {
+                webSocketManager.clearCallback()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error clearing web socket manager callback: ${e.message}")
+            }
+        }
     }
     
     override fun onResume() {
         super.onResume()
-        // Re-initialize voice chat when returning to foreground
-        if (::globalConnectionManager.isInitialized) {
-            initializeVoiceChat()
+        // Only re-initialize voice chat if we're still in this activity and managers are initialized
+        if (::globalConnectionManager.isInitialized && 
+            ::audioManager.isInitialized && 
+            ::webSocketManager.isInitialized && 
+            !isFinishing) {
+            try {
+                setupVoiceChatCallbacks()
+            } catch (e: Exception) {
+                Log.w(TAG, "Error setting up voice chat callbacks in onResume: ${e.message}")
+            }
         }
     }
+    
+    /**
+     * Handle tool calls from Gemini AI
+     */
+    private fun handleToolCall(toolCall: ToolCallData) {
+        Log.d(TAG, "Handling tool call: ${toolCall.functionName}")
+        
+        // Display tool call message to user
+        runOnUiThread {
+            Toast.makeText(this, "AI đang thực hiện: ${toolCall.functionName}", Toast.LENGTH_SHORT).show()
+        }
+        
+        // Log tool call for debugging
+        Log.i(TAG, "Tool call received - Function: ${toolCall.functionName}, ID: ${toolCall.functionId}")
+    }
+    
+    /**
+     * Handle screen navigation requests from Gemini AI
+     */
+    private fun handleScreenNavigation(navigation: ScreenNavigationData) {
+        Log.d(TAG, "Handling screen navigation: ${navigation.action}")
+        
+        // Display navigation message to user
+        runOnUiThread {
+            Toast.makeText(this, navigation.message, Toast.LENGTH_SHORT).show()
+        }
+        
+        // Execute navigation based on action
+        when (navigation.action) {
+            "switch_to_main_screen" -> {
+                Log.i(TAG, "Switching to main screen from MedicineInfoActivity")
+                runOnUiThread {
+                    // Navigate back to main screen
+                    val intent = Intent(this, MainActivity::class.java)
+                    intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                    startActivity(intent)
+                    finish() // Close current activity
+                }
+            }
+            "switch_to_medicine_scan_screen" -> {
+                Log.d(TAG, "Switching to medicine scan screen from MedicineInfoActivity")
+                runOnUiThread {
+                    // Navigate to scanner activity
+                    val intent = Intent(this, ScannerActivity::class.java)
+                    startActivity(intent)
+                    finish() // Close current activity
+                }
+            }
+            else -> {
+                Log.w(TAG, "Unknown navigation action: ${navigation.action}")
+                runOnUiThread {
+                    Toast.makeText(this, "Hành động không được hỗ trợ: ${navigation.action}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+    
+
     
     data class MedicineAnalysisResult(
         val success: Boolean,

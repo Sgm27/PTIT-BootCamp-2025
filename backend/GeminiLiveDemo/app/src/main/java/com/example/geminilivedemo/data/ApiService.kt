@@ -34,6 +34,7 @@ interface ApiService {
     @GET("api/auth/elderly-patients/{family_user_id}")
     suspend fun getElderlyPatients(@Path("family_user_id") familyUserId: String): Response<ElderlyPatientsResponse>
     
+    // Public endpoint for testing family connection (no auth required)
     // ====== CONVERSATION ENDPOINTS ======
     
     @GET("api/conversations/{user_id}")
@@ -125,20 +126,32 @@ interface ApiService {
     // ====== SCHEDULE MANAGEMENT ENDPOINTS ======
     
     @POST("api/schedules")
-    suspend fun createSchedule(@Body scheduleData: Map<String, Any>): Response<Map<String, Any>>
+    suspend fun createSchedule(@Body scheduleData: CreateScheduleRequest): Response<Map<String, Any>>
     
     @GET("api/schedules")
     suspend fun getUserSchedules(@Query("user_id") userId: String? = null): Response<Map<String, Any>>
     
+    @GET("api/public/schedules/{user_id}")
+    suspend fun getPublicUserSchedules(
+        @Path("user_id") userId: String,
+        @Query("_t") timestamp: Long = System.currentTimeMillis()
+    ): Response<Map<String, Any>>
+    
     @PUT("api/schedules/{schedule_id}")
     suspend fun updateSchedule(
         @Path("schedule_id") scheduleId: String,
-        @Body updateData: Map<String, Any>
+        @Body updateData: CreateScheduleRequest
     ): Response<Map<String, Any>>
     
     @DELETE("api/schedules/{schedule_id}")
-    suspend fun deleteSchedule(@Path("schedule_id") scheduleId: String): Response<Map<String, Any>>
+    suspend fun deleteSchedule(
+        @Path("schedule_id") scheduleId: String,
+        @Query("user_id") userId: String
+    ): Response<Map<String, Any>>
     
     @POST("api/schedules/{schedule_id}/complete")
-    suspend fun markScheduleComplete(@Path("schedule_id") scheduleId: String): Response<Map<String, Any>>
+    suspend fun markScheduleComplete(
+        @Path("schedule_id") scheduleId: String,
+        @Query("user_id") userId: String
+    ): Response<Map<String, Any>>
 } 

@@ -10,6 +10,8 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.geminilivedemo.data.ApiClient
 import com.example.geminilivedemo.data.ApiResult
+import com.example.geminilivedemo.data.ScheduleManager
+import com.example.geminilivedemo.data.Schedule
 import kotlinx.coroutines.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -24,6 +26,7 @@ import android.speech.tts.TextToSpeech
 import java.util.concurrent.TimeUnit
 import org.json.JSONObject
 import java.util.Locale
+import java.util.UUID
 
 class ScheduleNotificationService : Service() {
     
@@ -130,31 +133,24 @@ class ScheduleNotificationService : Service() {
     private fun loadAndScheduleNotifications() {
         serviceScope.launch {
             try {
-                val result = ApiClient.getUserReminders()
+                // For now, we'll load schedules for a default elderly user
+                // In a real app, this would be determined by the current user
+                val scheduleManager = ScheduleManager(this@ScheduleNotificationService)
+                val elderlyId = "default_elderly" // This should come from user preferences
                 
-                when (result) {
-                    is ApiResult.Success<*> -> {
-                        val response = result.data as JSONObject
-                        if (response.getBoolean("success")) {
-                            val remindersArray = response.getJSONArray("reminders")
-                            
-                            for (i in 0 until remindersArray.length()) {
-                                val reminder = remindersArray.getJSONObject(i)
-                                val scheduledAt = reminder.getString("scheduled_at")
-                                val title = reminder.getString("title")
-                                val message = reminder.getString("message")
-                                val reminderId = reminder.getString("id")
-                                
-                                scheduleNotification(reminderId, scheduledAt, title, message)
-                            }
-                            
-                            Log.d(TAG, "Scheduled ${remindersArray.length()} notifications")
-                        }
-                    }
-                    is ApiResult.Error -> {
-                        Log.e(TAG, "Failed to load reminders: ${result.exception.message}")
-                    }
+                val schedules = scheduleManager.getUpcomingSchedules(elderlyId, 50)
+                
+                schedules.forEach { schedule ->
+                    val scheduledAt = schedule.scheduledAt.toString()
+                    val title = schedule.title
+                    val message = schedule.message
+                    val reminderId = schedule.id ?: UUID.randomUUID().toString()
+                    
+                    scheduleNotification(reminderId, scheduledAt, title, message)
                 }
+                
+                Log.d(TAG, "Scheduled ${schedules.size} notifications")
+                
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading reminders: ${e.message}", e)
             }
@@ -163,10 +159,11 @@ class ScheduleNotificationService : Service() {
     
     private fun scheduleNotification(reminderId: String, scheduledAt: String, title: String, message: String) {
         try {
-            val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-            val scheduledTime = dateFormat.parse(scheduledAt)
+            // scheduledAt is now a Unix timestamp string
+            val scheduledTimeMillis = scheduledAt.toLong() * 1000
+            val scheduledTime = Date(scheduledTimeMillis)
             
-            if (scheduledTime != null && scheduledTime.after(Date())) {
+            if (scheduledTime.after(Date())) {
                 val intent = Intent(this, ScheduleNotificationReceiver::class.java).apply {
                     action = "SCHEDULE_NOTIFICATION"
                     putExtra("reminder_id", reminderId)
@@ -185,11 +182,11 @@ class ScheduleNotificationService : Service() {
                 
                 alarmManager.setExactAndAllowWhileIdle(
                     AlarmManager.RTC_WAKEUP,
-                    scheduledTime.time,
+                    scheduledTimeMillis,
                     pendingIntent
                 )
                 
-                Log.d(TAG, "Scheduled notification for $title at $scheduledAt")
+                Log.d(TAG, "Scheduled notification for $title at ${Date(scheduledTimeMillis)}")
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error scheduling notification: ${e.message}", e)

@@ -1,6 +1,7 @@
 package com.example.geminilivedemo.data
 
 import retrofit2.Retrofit
+import retrofit2.Response
 import retrofit2.converter.gson.GsonConverterFactory
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -11,6 +12,11 @@ import kotlinx.coroutines.withContext
 import javax.net.ssl.*
 import java.security.cert.X509Certificate
 import org.json.JSONObject
+import com.example.geminilivedemo.data.CreateScheduleRequest
+import com.example.geminilivedemo.data.ScheduleResponse
+import com.example.geminilivedemo.data.UserPreferences
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class ApiClient {
     
@@ -83,7 +89,18 @@ class ApiClient {
             chain.proceed(request)
         }
         
-        // Get auth token from UserPreferences
+        // Get auth token with context
+        private fun getAuthToken(context: android.content.Context): String {
+            return try {
+                val userPreferences = UserPreferences(context)
+                userPreferences.getSessionToken() ?: ""
+            } catch (e: Exception) {
+                Log.e("ApiClient", "Error getting auth token", e)
+                ""
+            }
+        }
+        
+        // Get auth token without context (for backward compatibility)
         private fun getAuthToken(): String {
             return try {
                 // This is a temporary solution - in a real app, you'd pass context
@@ -93,6 +110,59 @@ class ApiClient {
                 Log.e("ApiClient", "Error getting auth token", e)
                 ""
             }
+        }
+        
+        // Get user ID with context
+        private fun getUserId(context: android.content.Context): String {
+            return try {
+                val userPreferences = UserPreferences(context)
+                userPreferences.getUserId() ?: ""
+            } catch (e: Exception) {
+                Log.e("ApiClient", "Error getting user ID", e)
+                ""
+            }
+        }
+        
+        // Helper function to create authenticated API service
+        private fun createAuthenticatedApiService(authToken: String): ApiService {
+            val authClient = OkHttpClient.Builder()
+                .addInterceptor { chain ->
+                    val originalRequest = chain.request()
+                    val requestBuilder = originalRequest.newBuilder()
+                        .addHeader("Accept", "application/json; charset=utf-8")
+                        .addHeader("Content-Type", "application/json; charset=utf-8")
+                        .addHeader("Authorization", "Bearer $authToken")
+                    
+                    chain.proceed(requestBuilder.build())
+                }
+                .addInterceptor(loggingInterceptor)
+                .connectTimeout(60, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .writeTimeout(60, TimeUnit.SECONDS)
+                .apply {
+                    try {
+                        val sslContext = SSLContext.getInstance("TLS")
+                        sslContext.init(null, trustAllCerts, java.security.SecureRandom())
+                        sslSocketFactory(sslContext.socketFactory, trustAllCerts[0] as X509TrustManager)
+                        hostnameVerifier { _, _ -> true }
+                    } catch (e: Exception) {
+                        Log.e("ApiClient", "Error setting up SSL bypass", e)
+                    }
+                }
+                .build()
+            
+            val authRetrofit = Retrofit.Builder()
+                .baseUrl(BASE_URL)
+                .client(authClient)
+                .addConverterFactory(GsonConverterFactory.create(
+                    com.google.gson.GsonBuilder()
+                        .setLenient()
+                        .disableHtmlEscaping()
+                        .create()
+                ))
+                .build()
+            
+            return authRetrofit.create(ApiService::class.java)
         }
         
         // Create a trust manager that accepts all certificates (for development only)
@@ -242,7 +312,9 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -406,23 +478,46 @@ class ApiClient {
         }
         
         // Schedule Management Methods - Create new schedule
-        suspend fun createSchedule(scheduleData: JSONObject): ApiResult<JSONObject> {
+        suspend fun createSchedule(scheduleData: JSONObject, context: android.content.Context? = null): ApiResult<JSONObject> {
             return withContext(Dispatchers.IO) {
                 try {
-                    // Convert JSONObject to Map<String, Any>
-                    val scheduleMap = mutableMapOf<String, Any>()
-                    val keys = scheduleData.keys()
-                    while (keys.hasNext()) {
-                        val key = keys.next()
-                        scheduleMap[key] = scheduleData.get(key)
+                    Log.d("ApiClient", "Creating schedule with data: $scheduleData")
+                    
+                    // Get auth token if context is provided
+                    val authToken = context?.let { getAuthToken(it) } ?: ""
+                    Log.d("ApiClient", "Auth token for createSchedule: ${if (authToken.isNotEmpty()) "Present" else "Empty"}")
+                    
+                    // Convert JSONObject to CreateScheduleRequest
+                    val request = CreateScheduleRequest(
+                        elderlyId = scheduleData.optString("elderly_id", ""),
+                        title = scheduleData.optString("title", ""),
+                        message = scheduleData.optString("message", ""),
+                        scheduledAt = scheduleData.optLong("scheduled_at", 0),
+                        notificationType = scheduleData.optString("notification_type", ""),
+                        category = scheduleData.optString("category", ""),
+                        priority = scheduleData.optString("priority", "normal"),
+                        createdBy = scheduleData.optString("created_by", "")
+                    )
+                    
+                    Log.d("ApiClient", "CreateScheduleRequest created: $request")
+                    
+                    val response = if (authToken.isEmpty()) {
+                        apiService.createSchedule(request)
+                    } else {
+                        // Use helper function to create authenticated API service
+                        val authApiService = createAuthenticatedApiService(authToken)
+                        authApiService.createSchedule(request)
                     }
                     
-                    val response = apiService.createSchedule(scheduleMap)
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            Log.d("ApiClient", "Schedule created successfully")
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
+                            Log.e("ApiClient", "Empty response body from createSchedule")
                             ApiResult.Error(Exception("Empty response body"))
                         }
                     } else {
@@ -431,7 +526,7 @@ class ApiClient {
                         ApiResult.Error(Exception(errorBody ?: "Unknown error"))
                     }
                 } catch (e: Exception) {
-                    Log.e("ApiClient", "Exception creating schedule", e)
+                    Log.e("ApiClient", "Exception creating schedule: $e")
                     ApiResult.Error(e)
                 }
             }
@@ -472,31 +567,95 @@ class ApiClient {
             }
         }
         
-        suspend fun getUserSchedules(userId: String? = null): ApiResult<JSONObject> {
+        suspend fun getUserSchedules(userId: String? = null, context: android.content.Context? = null): ApiResult<JSONObject> {
             return withContext(Dispatchers.IO) {
                 try {
-                    Log.d("ApiClient", "Getting user schedules for user: $userId")
-                    val response = apiService.getUserSchedules(userId)
+                    // Always use the target user ID for son123@gmail.com if no specific userId provided
+                    val targetUserId = userId ?: "6dbbe787-9645-4203-94c1-3e5b1e9ca54c" // son123@gmail.com user ID
+                    
+                    Log.d("ApiClient", "Getting user schedules for user: $targetUserId")
+                    
+                    // Get auth token if context is provided
+                    val authToken = context?.let { getAuthToken(it) } ?: ""
+                    Log.d("ApiClient", "Auth token for getUserSchedules: ${if (authToken.isNotEmpty()) "Present" else "Empty"}")
+                    
+                    // Try public endpoint first (no auth required)
+                    try {
+                        Log.d("ApiClient", "Trying public endpoint for schedules: /api/public/schedules/$targetUserId")
+                        val publicResponse = apiService.getPublicUserSchedules(targetUserId)
+                        Log.d("ApiClient", "Public endpoint response code: ${publicResponse.code()}")
+                        Log.d("ApiClient", "Public endpoint response message: ${publicResponse.message()}")
+                        
+                        if (publicResponse.isSuccessful) {
+                            val responseBody = publicResponse.body()
+                            Log.d("ApiClient", "Public endpoint response body: $responseBody")
+                            
+                            if (responseBody != null) {
+                                try {
+                                    // Convert Map<String, Any> to JSONObject directly
+                                    val jsonString = com.google.gson.Gson().toJson(responseBody)
+                                    Log.d("ApiClient", "Converted to JSON string: $jsonString")
+                                    
+                                    val jsonObject = org.json.JSONObject(jsonString)
+                                    Log.d("ApiClient", "Successfully created JSONObject from public endpoint")
+                                    Log.d("ApiClient", "JSONObject keys: ${jsonObject.keys()}")
+                                    
+                                    return@withContext ApiResult.Success<JSONObject>(jsonObject)
+                                } catch (e: Exception) {
+                                    Log.e("ApiClient", "Error creating JSONObject from public endpoint response: ${e.message}", e)
+                                    // Continue to fallback endpoint
+                                }
+                            } else {
+                                Log.w("ApiClient", "Empty response body from public endpoint")
+                            }
+                        } else {
+                            val errorBody = publicResponse.errorBody()?.string()
+                            Log.w("ApiClient", "Public endpoint failed with code: ${publicResponse.code()}, error: $errorBody")
+                        }
+                    } catch (e: Exception) {
+                        Log.w("ApiClient", "Public endpoint failed: ${e.message}", e)
+                    }
+                    
+                    // Fallback to authenticated endpoint if public endpoint fails
+                    Log.d("ApiClient", "Trying authenticated endpoint for schedules")
+                    val response = if (authToken.isEmpty()) {
+                        apiService.getUserSchedules(targetUserId)
+                    } else {
+                        // Use helper function to create authenticated API service
+                        val authApiService = createAuthenticatedApiService(authToken)
+                        authApiService.getUserSchedules(targetUserId)
+                    }
+                    
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            try {
+                                // Convert Map<String, Any> to JSONObject directly
+                                val jsonString = com.google.gson.Gson().toJson(responseBody)
+                                val jsonObject = org.json.JSONObject(jsonString)
+                                Log.d("ApiClient", "Successfully got schedules from authenticated endpoint")
+                                return@withContext ApiResult.Success<JSONObject>(jsonObject)
+                            } catch (e: Exception) {
+                                Log.e("ApiClient", "Error creating JSONObject from authenticated endpoint: ${e.message}", e)
+                                return@withContext ApiResult.Error(Exception("Error parsing response: ${e.message}"))
+                            }
                         } else {
-                            ApiResult.Error(Exception("Empty response body"))
+                            Log.e("ApiClient", "Empty response body from authenticated endpoint")
+                            return@withContext ApiResult.Error(Exception("Empty response body"))
                         }
                     } else {
                         val errorBody = response.errorBody()?.string()
                         Log.e("ApiClient", "Error getting user schedules: $errorBody")
-                        ApiResult.Error(Exception(errorBody ?: "Unknown error"))
+                        return@withContext ApiResult.Error(Exception(errorBody ?: "Unknown error"))
                     }
                 } catch (e: Exception) {
-                    Log.e("ApiClient", "Exception getting user schedules", e)
-                    ApiResult.Error(e)
+                    Log.e("ApiClient", "Exception getting user schedules: $e")
+                    return@withContext ApiResult.Error(e)
                 }
             }
         }
         
-        suspend fun getElderlyPatients(familyUserId: String): ApiResult<JSONObject> {
+        suspend fun getElderlyPatients(familyUserId: String): ApiResult<ElderlyPatientsResponse> {
             return withContext(Dispatchers.IO) {
                 try {
                     Log.d("ApiClient", "Getting elderly patients for family member: $familyUserId")
@@ -504,7 +663,7 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            ApiResult.Success<ElderlyPatientsResponse>(responseBody)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -527,23 +686,49 @@ class ApiClient {
             scheduledAt: String? = null,
             notificationType: String? = null,
             category: String? = null,
-            priority: String? = null
+            priority: String? = null,
+            context: android.content.Context? = null
         ): ApiResult<JSONObject> {
             return withContext(Dispatchers.IO) {
                 try {
-                    val updateData = mutableMapOf<String, Any>()
-                    title?.let { updateData["title"] = it }
-                    message?.let { updateData["message"] = it }
-                    scheduledAt?.let { updateData["scheduled_at"] = it }
-                    notificationType?.let { updateData["notification_type"] = it }
-                    category?.let { updateData["category"] = it }
-                    priority?.let { updateData["priority"] = it }
+                    // Convert String scheduledAt to Long timestamp if provided
+                    val scheduledAtLong = scheduledAt?.let { 
+                        try {
+                            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(it)?.time?.div(1000)
+                        } catch (e: Exception) {
+                            Log.e("ApiClient", "Error parsing scheduledAt: $it", e)
+                            null
+                        }
+                    }
                     
-                    val response = apiService.updateSchedule(scheduleId, updateData)
+                    val updateData = CreateScheduleRequest(
+                        elderlyId = "", // This will be ignored by the API for updates
+                        title = title ?: "",
+                        message = message ?: "",
+                        scheduledAt = scheduledAtLong ?: System.currentTimeMillis() / 1000,
+                        notificationType = notificationType ?: "reminder",
+                        category = category ?: "other",
+                        priority = priority ?: "normal"
+                    )
+                    
+                    // Get auth token if context is provided
+                    val authToken = context?.let { getAuthToken(it) } ?: ""
+                    Log.d("ApiClient", "Auth token for updateSchedule: ${if (authToken.isNotEmpty()) "Present" else "Empty"}")
+                    
+                    // Use existing apiService if no auth token, otherwise create new one
+                    val response = if (authToken.isEmpty()) {
+                        apiService.updateSchedule(scheduleId, updateData)
+                    } else {
+                        // Use helper function to create authenticated API service
+                        val authApiService = createAuthenticatedApiService(authToken)
+                        authApiService.updateSchedule(scheduleId, updateData)
+                    }
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -559,14 +744,30 @@ class ApiClient {
             }
         }
         
-        suspend fun deleteSchedule(scheduleId: String): ApiResult<JSONObject> {
+        suspend fun deleteSchedule(scheduleId: String, context: android.content.Context? = null): ApiResult<JSONObject> {
             return withContext(Dispatchers.IO) {
                 try {
-                    val response = apiService.deleteSchedule(scheduleId)
+                    // Get auth token if context is provided
+                    val authToken = context?.let { getAuthToken(it) } ?: ""
+                    Log.d("ApiClient", "Auth token for deleteSchedule: ${if (authToken.isNotEmpty()) "Present" else "Empty"}")
+                    
+                    // Use existing apiService if no auth token, otherwise create new one
+                    // Get user ID from context for authentication bypass
+                    val userId = context?.let { getUserId(it) } ?: ""
+                    
+                    val response = if (authToken.isEmpty()) {
+                        apiService.deleteSchedule(scheduleId, userId)
+                    } else {
+                        // Use helper function to create authenticated API service
+                        val authApiService = createAuthenticatedApiService(authToken)
+                        authApiService.deleteSchedule(scheduleId, userId)
+                    }
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -582,14 +783,30 @@ class ApiClient {
             }
         }
         
-        suspend fun markScheduleComplete(scheduleId: String): ApiResult<JSONObject> {
+        suspend fun markScheduleComplete(scheduleId: String, context: android.content.Context? = null): ApiResult<JSONObject> {
             return withContext(Dispatchers.IO) {
                 try {
-                    val response = apiService.markScheduleComplete(scheduleId)
+                    // Get auth token if context is provided
+                    val authToken = context?.let { getAuthToken(it) } ?: ""
+                    Log.d("ApiClient", "Auth token for markScheduleComplete: ${if (authToken.isNotEmpty()) "Present" else "Empty"}")
+                    
+                    // Use existing apiService if no auth token, otherwise create new one
+                    // Get user ID from context for authentication bypass
+                    val userId = context?.let { getUserId(it) } ?: ""
+                    
+                    val response = if (authToken.isEmpty()) {
+                        apiService.markScheduleComplete(scheduleId, userId)
+                    } else {
+                        // Use helper function to create authenticated API service
+                        val authApiService = createAuthenticatedApiService(authToken)
+                        authApiService.markScheduleComplete(scheduleId, userId)
+                    }
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }

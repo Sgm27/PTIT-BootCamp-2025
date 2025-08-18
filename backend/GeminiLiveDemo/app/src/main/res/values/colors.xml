@@ -56,8 +56,10 @@
     <color name="success_50">#ECFDF5</color>
     <color name="warning_500">#F59E0B</color>
     <color name="warning_50">#FFFBEB</color>
+    <color name="warning_200">#FED7AA</color>
     <color name="error_500">#EF4444</color>
     <color name="error_50">#FEF2F2</color>
+    <color name="error_200">#FECACA</color>
     <color name="info_500">#3B82F6</color>
     <color name="info_50">#EFF6FF</color>
     

@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "com.example.geminilivedemo"
-    compileSdk = 35
+    compileSdk = 34  // Giảm xuống 34 để tương thích tốt hơn
 
     defaultConfig {
         applicationId = "com.example.geminilivedemo"
-        minSdk = 26
-        targetSdk = 35
+        minSdk = 24  // Giảm xuống 24 để hỗ trợ nhiều thiết bị hơn
+        targetSdk = 34  // Giảm xuống 34
         versionCode = 1
         versionName = "1.0"
 
@@ -25,7 +25,12 @@ android {
                 "proguard-rules.pro"
             )
         }
+        debug {
+            isDebuggable = true
+            isMinifyEnabled = false
+        }
     }
+    
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11

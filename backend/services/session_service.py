@@ -5,6 +5,7 @@ import json
 import datetime
 from typing import Optional
 from config.settings import settings
+import os
 
 
 class SessionService:
@@ -17,6 +18,11 @@ class SessionService:
             session_file: Path to session file. Uses default from settings if None.
         """
         self.session_file = session_file or settings.SESSION_FILE
+        # Ensure directory exists for runtime file
+        try:
+            os.makedirs(os.path.dirname(self.session_file) or '.', exist_ok=True)
+        except Exception:
+            pass
         self.timeout_seconds = settings.SESSION_TIMEOUT_SECONDS
     
     def load_previous_session_handle(self) -> Optional[str]:

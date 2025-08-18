@@ -8,6 +8,8 @@ import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.*
 import com.example.geminilivedemo.data.UserPreferences
+import android.widget.Toast
+import com.example.geminilivedemo.ScannerActivity
 
 class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStateCallback {
     
@@ -31,6 +33,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
     private var lastImageSendTime: Long = 0
     private var isBackgroundServiceRunning = false
     private var isChatEnabled = true
+    private var isSwitchingToOtherActivity = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,6 +58,9 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         
         initializeManagers()
         setupCallbacks()
+        
+        // Đăng ký activity sau khi đã khởi tạo tất cả managers
+        globalConnectionManager.registerActivity(this)
         
         uiManager.initializeViews()
         
@@ -81,6 +87,9 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         serviceManager = globalConnectionManager.getServiceManager()!!
         voiceNotificationManager = globalConnectionManager.getVoiceNotificationManager()!!
         
+        // Enable audio continuity to ensure AI audio plays completely across activities
+        audioManager.setAudioContinuityEnabled(true)
+        
         // Khởi tạo các managers local
         cameraManager = CameraManager(this)
         permissionHelper = PermissionHelper(this)
@@ -90,6 +99,8 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
     
     
     private fun setupCallbacks() {
+        Log.d("MainActivity", "Setting up callbacks...")
+        
         // Setup AudioManager callbacks
         audioManager.setCallback(object : AudioManager.AudioManagerCallback {
             override fun onAudioChunkReady(base64Audio: String) {
@@ -98,54 +109,72 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             }
             
             override fun onAudioRecordingStarted() {
-                uiManager.updateMicIcon(true)
-                uiManager.setSpeakingStatus(true)
-                uiManager.setAIListening()
+                Log.d("MainActivity", "Audio recording started callback triggered")
+                if (::uiManager.isInitialized) {
+                    uiManager.updateMicIcon(true)
+                    uiManager.setSpeakingStatus(true)
+                    uiManager.setAIListening()
+                }
             }
             
             override fun onAudioRecordingStopped() {
-                uiManager.updateMicIcon(false)
-                uiManager.setSpeakingStatus(false)
-                uiManager.setAIThinking()
+                Log.d("MainActivity", "Audio recording stopped callback triggered")
+                if (::uiManager.isInitialized) {
+                    uiManager.updateMicIcon(false)
+                    uiManager.setSpeakingStatus(false)
+                    uiManager.setAIThinking()
+                }
                 webSocketManager.sendEndOfStreamMessage()
             }
             
             override fun onAudioPlaybackStarted() {
                 // Audio playback started -> AI is speaking
                 Log.d("MainActivity", "Audio playback started")
-                uiManager.setAIPlayingStatus(true)
-                uiManager.setAISpeaking()
-                // Hiển thị tín hiệu màu tím khi AI đang phát âm thanh
-                uiManager.setAIRespondingStatus(true)
+                if (::uiManager.isInitialized) {
+                    uiManager.setAIPlayingStatus(true)
+                    uiManager.setAISpeaking()
+                    // Hiển thị tín hiệu màu tím khi AI đang phát âm thanh
+                    uiManager.setAIRespondingStatus(true)
+                }
             }
             
             override fun onAudioPlaybackStopped() {
                 // Audio playback stopped -> AI finished speaking
                 Log.d("MainActivity", "Audio playback stopped")
-                uiManager.setAIPlayingStatus(false)
-                uiManager.setAIIdle()
-                // Tắt hiển thị tín hiệu màu tím
-                uiManager.setAIRespondingStatus(false)
+                if (::uiManager.isInitialized) {
+                    uiManager.setAIPlayingStatus(false)
+                    uiManager.setAIIdle()
+                    // Tắt hiển thị tín hiệu màu tím
+                    uiManager.setAIRespondingStatus(false)
+                }
             }
         })
+        
+        Log.d("MainActivity", "AudioManager callbacks setup completed")
         
         // Setup WebSocketManager callbacks
         webSocketManager.setCallback(object : WebSocketManager.WebSocketCallback {
             override fun onConnected() {
-                uiManager.setConnectionStatus(true)
-                uiManager.updateConnectionStatusDisplay(true)
+                Log.d("MainActivity", "WebSocket connected callback triggered")
+                if (::uiManager.isInitialized) {
+                    uiManager.setConnectionStatus(true)
+                    uiManager.updateConnectionStatusDisplay(true)
+                }
             }
             
             override fun onDisconnected() {
-                uiManager.setConnectionStatus(false)
-                uiManager.updateConnectionStatusDisplay(false)
-                uiManager.showToast("Connection closed")
+                Log.d("MainActivity", "WebSocket disconnected callback triggered")
+                if (::uiManager.isInitialized) {
+                    uiManager.setConnectionStatus(false)
+                    uiManager.updateConnectionStatusDisplay(false)
+                    uiManager.showToast("Connection closed")
+                }
             }
             
             override fun onError(exception: Exception?) {
                 Log.e("MainActivity", "WebSocket Error: ${exception?.message}")
                 // Update UI only if the WebSocket is no longer open
-                if (!webSocketManager.isWebSocketConnected()) {
+                if (!webSocketManager.isWebSocketConnected() && ::uiManager.isInitialized) {
                     uiManager.setConnectionStatus(false)
                     uiManager.updateConnectionStatusDisplay(false)
                 }
@@ -153,10 +182,14 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             
             override fun onMessageReceived(response: Response) {
                 // Set AI responding status when receiving any response from AI
-                uiManager.setAIRespondingStatus(true)
+                if (::uiManager.isInitialized) {
+                    uiManager.setAIRespondingStatus(true)
+                }
                 
                 response.text?.let { text ->
-                    uiManager.displayMessage("GEMINI: $text")
+                    if (::uiManager.isInitialized) {
+                        uiManager.displayMessage("GEMINI: $text")
+                    }
                 }
                 
                 response.audioData?.let { audioData ->
@@ -165,7 +198,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 
                 // Clear AI responding status after a short delay nếu AI không còn phát âm thanh
                 android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                    if (!audioManager.isCurrentlyPlaying()) {
+                    if (!audioManager.isCurrentlyPlaying() && ::uiManager.isInitialized) {
                         uiManager.setAIRespondingStatus(false)
                     }
                 }, 1500) // 1.5 seconds safety delay
@@ -175,8 +208,22 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                     Log.d("MainActivity", "Received voice notification, delegating to VoiceNotificationWebSocketManager")
                     voiceNotificationWebSocketManager.handleVoiceNotificationResponse(response)
                 }
+                
+                // Handle tool calls from Gemini
+                response.toolCallData?.let { toolCall ->
+                    Log.d("MainActivity", "Received tool call: ${toolCall.functionName}")
+                    handleToolCall(toolCall)
+                }
+                
+                // Handle screen navigation requests
+                response.screenNavigationData?.let { navigation ->
+                    Log.d("MainActivity", "Received screen navigation request: ${navigation.action}")
+                    handleScreenNavigation(navigation)
+                }
             }
         })
+        
+        Log.d("MainActivity", "WebSocketManager callbacks setup completed")
         
         // Setup CameraManager callbacks
         cameraManager.setCallback(object : CameraManager.CameraCallback {
@@ -194,10 +241,12 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         // Setup PermissionHelper callbacks
         permissionHelper.setCallback(object : PermissionHelper.PermissionCallback {
             override fun onCameraPermissionGranted() {
+                Log.d("MainActivity", "Camera permission granted")
                 cameraManager.openCamera()
             }
             
             override fun onAudioPermissionGranted() {
+                Log.d("MainActivity", "Audio permission granted, starting audio input")
                 audioManager.startAudioInput()
             }
             
@@ -205,6 +254,8 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 Log.w("MainActivity", "$permission permission denied")
             }
         })
+        
+        Log.d("MainActivity", "PermissionHelper callbacks setup completed")
         
         // Setup VoiceNotificationManager callbacks
         voiceNotificationManager.setCallback(object : VoiceNotificationManager.VoiceNotificationCallback {
@@ -286,9 +337,12 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             }
             
             override fun onMicButtonClicked() {
+                Log.d("MainActivity", "Mic button clicked callback triggered!")
                 if (audioManager.isCurrentlyRecording()) {
+                    Log.d("MainActivity", "Stopping audio recording")
                     audioManager.stopAudioInput()
                 } else {
+                    Log.d("MainActivity", "Starting audio recording")
                     permissionHelper.checkRecordAudioPermission()
                 }
             }
@@ -447,6 +501,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         
         // Hủy đăng ký callback
         globalConnectionManager.unregisterCallback(this)
+        globalConnectionManager.unregisterActivity(this)
         
         // battery receiver removed
         
@@ -458,18 +513,46 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         if (isBackgroundServiceRunning && isFinishing) {
             serviceManager.resumeListeningService()
         }
+        
+        // Disconnect WebSocket when activity is destroyed (only if no audio is playing)
+        if (isFinishing) {
+            if (audioManager.hasAudioToPlay()) {
+                Log.d("MainActivity", "Activity finishing but audio is playing - keeping WebSocket alive")
+            } else {
+                Log.d("MainActivity", "Activity finishing - disconnecting WebSocket")
+                serviceManager.disconnectWebSocket()
+            }
+        }
     }
     
     override fun onPause() {
         super.onPause()
-        Log.d("MainActivity", "MainActivity paused - GlobalConnectionManager will handle connection")
+        Log.d("MainActivity", "MainActivity paused - checking if app is going to background")
         
-        // Disable chat UI khi pause
-        isChatEnabled = false
-        updateChatUI()
+        // Check if app is going to background (no other activities in foreground)
+        val isAppGoingToBackground = isFinishing || (!isChangingConfigurations && !isSwitchingToOtherActivity)
         
-        // GlobalConnectionManager sẽ tự quyết định có disconnect hay không
-        // dựa trên việc có Activity nào khác đang active không
+        if (isAppGoingToBackground) {
+            Log.d("MainActivity", "App going to background - pausing service and disconnecting WebSocket")
+            // Disable chat UI khi pause
+            isChatEnabled = false
+            updateChatUI()
+            
+            // Only disconnect WebSocket if no audio is playing
+            if (audioManager.hasAudioToPlay()) {
+                Log.d("MainActivity", "Audio is playing or queued, keeping WebSocket alive for audio completion")
+            } else {
+                Log.d("MainActivity", "No audio to play, disconnecting WebSocket to save resources")
+                serviceManager.disconnectWebSocket()
+            }
+        } else {
+            Log.d("MainActivity", "App staying in foreground (switching to another activity) - keeping service active")
+            // Don't pause service when switching to another activity (like ScannerActivity)
+            // This allows AI to continue playing audio in other activities
+        }
+        
+        // Reset the flag
+        isSwitchingToOtherActivity = false
     }
     
     override fun onResume() {
@@ -480,13 +563,25 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         isChatEnabled = true
         updateChatUI()
         
-        // Pause background service khi MainActivity active
-        if (isBackgroundServiceRunning) {
+        // Only pause background service if it was running and we're coming back from background
+        // Don't pause when returning from other activities (like ScannerActivity)
+        if (isBackgroundServiceRunning && !isChangingConfigurations) {
+            Log.d("MainActivity", "Resuming from background - pausing background service")
             serviceManager.pauseListeningService()
+        } else {
+            Log.d("MainActivity", "Resuming from another activity - keeping service active for audio continuity")
         }
         
         // Update UI to reflect current service status
-        uiManager.setBackgroundServiceRunning(isBackgroundServiceRunning)
+        if (::uiManager.isInitialized) {
+            uiManager.setBackgroundServiceRunning(isBackgroundServiceRunning)
+        }
+        
+        // Đăng ký lại activity với GlobalConnectionManager trước
+        globalConnectionManager.registerActivity(this)
+        
+        // Sau đó mới setup callbacks để đảm bảo chúng không bị clear
+        setupCallbacks()
         
         // GlobalConnectionManager sẽ tự động đảm bảo connection
     }
@@ -495,9 +590,12 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
     override fun onConnectionStateChanged(isConnected: Boolean) {
         Log.d("MainActivity", "Connection state changed: $isConnected")
         runOnUiThread {
-            // Cập nhật UI dựa trên trạng thái connection
-            uiManager.updateConnectionStatus(isConnected)
-            uiManager.updateConnectionStatusDisplay(isConnected)
+            // Kiểm tra xem uiManager đã được khởi tạo chưa
+            if (::uiManager.isInitialized) {
+                // Cập nhật UI dựa trên trạng thái connection
+                uiManager.updateConnectionStatus(isConnected)
+                uiManager.updateConnectionStatusDisplay(isConnected)
+            }
         }
     }
     
@@ -505,11 +603,20 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         Log.d("MainActivity", "Chat availability changed: $isChatAvailable")
         runOnUiThread {
             isChatEnabled = isChatAvailable
-            updateChatUI()
+            // Chỉ update UI nếu uiManager đã được khởi tạo
+            if (::uiManager.isInitialized) {
+                updateChatUI()
+            }
         }
     }
     
     private fun updateChatUI() {
+        // Kiểm tra xem uiManager đã được khởi tạo chưa
+        if (!::uiManager.isInitialized) {
+            Log.d("MainActivity", "uiManager not initialized yet, skipping updateChatUI")
+            return
+        }
+        
         // Cập nhật UI để enable/disable chat controls
         uiManager.setChatEnabled(isChatEnabled)
         
@@ -518,6 +625,56 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             // Dừng recording nếu đang recording
             if (audioManager.isRecording()) {
                 audioManager.stopAudioInput()
+            }
+        }
+    }
+    
+    /**
+     * Handle tool calls from Gemini AI
+     */
+    private fun handleToolCall(toolCall: ToolCallData) {
+        Log.d("MainActivity", "Handling tool call: ${toolCall.functionName}")
+        
+        // Display tool call message to user
+        if (::uiManager.isInitialized) {
+            uiManager.displayMessage("SYSTEM: AI đang thực hiện: ${toolCall.functionName}")
+        }
+        
+        // Log tool call for debugging
+        Log.i("MainActivity", "Tool call received - Function: ${toolCall.functionName}, ID: ${toolCall.functionId}")
+    }
+    
+    /**
+     * Handle screen navigation requests from Gemini AI
+     */
+    private fun handleScreenNavigation(navigation: ScreenNavigationData) {
+        Log.d("MainActivity", "Handling screen navigation: ${navigation.action}")
+        
+        // Display navigation message to user
+        if (::uiManager.isInitialized) {
+            uiManager.displayMessage("SYSTEM: ${navigation.message}")
+        }
+        
+        // Execute navigation based on action
+        when (navigation.action) {
+            "switch_to_main_screen" -> {
+                Log.i("MainActivity", "Switching to main screen")
+                // Navigate to main screen (current activity)
+                runOnUiThread {
+                    // Show success message
+                    Toast.makeText(this, "Đã chuyển về màn hình chính", Toast.LENGTH_SHORT).show()
+                }
+            }
+            "switch_to_medicine_scan_screen" -> {
+                Log.d("MainActivity", "Switching to medicine scan screen - keeping audio active")
+                isSwitchingToOtherActivity = true
+                startActivity(Intent(this, ScannerActivity::class.java))
+            }
+            else -> {
+                Log.w("MainActivity", "Unknown navigation action: ${navigation.action}")
+                runOnUiThread {
+                    Toast.makeText(this, "Hành động không được hỗ trợ: ${navigation.action}", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }

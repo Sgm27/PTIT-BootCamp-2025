@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import com.example.geminilivedemo.data.UserPreferences
 import com.example.geminilivedemo.data.DataCacheManager
+import com.example.geminilivedemo.FamilyConnectionActivity
 
 class ProfileActivity : AppCompatActivity() {
 

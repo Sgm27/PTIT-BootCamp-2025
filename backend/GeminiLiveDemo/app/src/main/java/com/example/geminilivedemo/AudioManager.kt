@@ -23,11 +23,21 @@ class AudioManager(private val context: Context) {
         fun onAudioPlaybackStopped()
     }
     
-    private var callback: AudioManagerCallback? = null
+    // Empty callback implementation to avoid null issues
+    private val emptyCallback = object : AudioManagerCallback {
+        override fun onAudioChunkReady(base64Audio: String) {}
+        override fun onAudioRecordingStarted() {}
+        override fun onAudioRecordingStopped() {}
+        override fun onAudioPlaybackStarted() {}
+        override fun onAudioPlaybackStopped() {}
+    }
+    
+    private var callback: AudioManagerCallback = emptyCallback
     private var isRecording = false
     private var isPlayingAudio = false  // Renamed for clarity
     private var isPausedForVoiceNotification = false  // New flag for voice notification pause
     private var voiceNotificationTimeoutJob: Job? = null  // Timeout job for voice notification
+    private var isAudioContinuityEnabled = true  // Flag to enable audio continuity across activities
     private var audioRecord: AudioRecord? = null
     private var pcmData = mutableListOf<Short>()
     private var recordInterval: Job? = null
@@ -48,6 +58,10 @@ class AudioManager(private val context: Context) {
         this.callback = callback
     }
     
+    fun clearCallback() {
+        this.callback = emptyCallback
+    }
+    
     fun isRecording(): Boolean {
         return isRecording
     }
@@ -60,7 +74,7 @@ class AudioManager(private val context: Context) {
         isRecording = true
         silenceCount = 0
         
-        callback?.onAudioRecordingStarted()
+        callback.onAudioRecordingStarted()
 
         if (ActivityCompat.checkSelfPermission(
                 context,
@@ -97,8 +111,10 @@ class AudioManager(private val context: Context) {
                 // Pause recording if AI is playing or if voice notification is active
                 if (isPlayingAudio || isPausedForVoiceNotification) {
                     // Clear any buffered audio to avoid sending stale data
-                    if (pcmData.isNotEmpty()) {
-                        pcmData.clear()
+                    synchronized(pcmData) {
+                        if (pcmData.isNotEmpty()) {
+                            pcmData.clear()
+                        }
                     }
                     if (isPausedForVoiceNotification) {
                         Log.d("AudioManager", "Recording paused for voice notification")
@@ -115,12 +131,14 @@ class AudioManager(private val context: Context) {
                 
                 if (readSize != null && readSize > 0) {
                     // Always add audio data - remove complex VAD for now
-                    pcmData.addAll(buffer.take(readSize).toList())
-                    
-                    // Send chunk when we have enough data
-                    if (pcmData.size >= Constants.AUDIO_CHUNK_SIZE) {
-                        recordChunk()
-                        Log.d("AudioManager", "Sending audio chunk, size: ${pcmData.size}")
+                    synchronized(pcmData) {
+                        pcmData.addAll(buffer.take(readSize).toList())
+                        
+                        // Send chunk when we have enough data
+                        if (pcmData.size >= Constants.AUDIO_CHUNK_SIZE) {
+                            recordChunk()
+                            Log.d("AudioManager", "Sending audio chunk, size: ${pcmData.size}")
+                        }
                     }
                 }
                 
@@ -130,28 +148,37 @@ class AudioManager(private val context: Context) {
     }
     
     private fun recordChunk() {
-        if (pcmData.isEmpty()) {
-            Log.w("AudioManager", "recordChunk called but pcmData is empty")
-            return
-        }
-        
-        Log.d("AudioManager", "Recording chunk with ${pcmData.size} samples")
-        
-        GlobalScope.launch(Dispatchers.IO) {
-            val buffer = ByteBuffer.allocate(pcmData.size * 2).order(ByteOrder.LITTLE_ENDIAN)
-            pcmData.forEach { value ->
-                buffer.putShort(value)
-            }
-            val byteArray = buffer.array()
-            val base64 = Base64.encodeToString(byteArray, Base64.DEFAULT or Base64.NO_WRAP)
-            Log.d("AudioManager", "Sending audio chunk, base64 length: ${base64.length}")
-            
-            // Switch to main thread for callback to ensure UI safety
-            withContext(Dispatchers.Main) {
-                callback?.onAudioChunkReady(base64)
+        synchronized(pcmData) {
+            if (pcmData.isEmpty()) {
+                Log.w("AudioManager", "recordChunk called but pcmData is empty")
+                return
             }
             
-            pcmData.clear()
+            Log.d("AudioManager", "Recording chunk with ${pcmData.size} samples")
+            
+            GlobalScope.launch(Dispatchers.IO) {
+                val buffer = ByteBuffer.allocate(pcmData.size * 2).order(ByteOrder.LITTLE_ENDIAN)
+                val dataCopy = synchronized(pcmData) {
+                    pcmData.toList() // Create a copy to avoid concurrent modification
+                }
+                
+                dataCopy.forEach { value ->
+                    buffer.putShort(value)
+                }
+                val byteArray = buffer.array()
+                val base64 = Base64.encodeToString(byteArray, Base64.DEFAULT or Base64.NO_WRAP)
+                Log.d("AudioManager", "Sending audio chunk, base64 length: ${base64.length}")
+                
+                // Switch to main thread for callback to ensure UI safety
+                withContext(Dispatchers.Main) {
+                    callback.onAudioChunkReady(base64)
+                }
+                
+                // Clear the original data after processing
+                synchronized(pcmData) {
+                    pcmData.clear()
+                }
+            }
         }
     }
     
@@ -169,11 +196,13 @@ class AudioManager(private val context: Context) {
         isRecording = false
         
         // Send any remaining audio data
-        if (pcmData.isNotEmpty()) {
-            recordChunk()
+        synchronized(pcmData) {
+            if (pcmData.isNotEmpty()) {
+                recordChunk()
+            }
         }
         
-        callback?.onAudioRecordingStopped()
+        callback.onAudioRecordingStopped()
         
         recordInterval?.cancel()
         audioRecord?.stop()
@@ -199,8 +228,14 @@ class AudioManager(private val context: Context) {
                     audioQueue.add(arrayBuffer)
                     Log.d("AudioManager", "Added to queue, queue size: ${audioQueue.size}")
                 }
+                
+                Log.d("AudioManager", "Audio chunk added to queue, current playing state: $isPlayingAudio")
+                
                 if (!isPlayingAudio) {
+                    Log.d("AudioManager", "Starting audio playback")
                     playNextAudioChunk()
+                } else {
+                    Log.d("AudioManager", "Audio already playing, chunk queued for later playback")
                 }
             } catch (e: Exception) {
                 Log.e("AudioManager", "Error processing chunk", e)
@@ -210,6 +245,7 @@ class AudioManager(private val context: Context) {
     
     private fun playNextAudioChunk() {
         GlobalScope.launch(Dispatchers.IO) {
+            Log.d("AudioManager", "Starting audio playback loop")
             while (true) {
                 val chunk = synchronized(audioQueue) {
                     if (audioQueue.isNotEmpty()) audioQueue.removeAt(0) else null
@@ -217,11 +253,14 @@ class AudioManager(private val context: Context) {
 
                 if (!isPlayingAudio) {
                     isPlayingAudio = true
+                    Log.d("AudioManager", "Audio playback started")
                     // Switch to main thread for callback
                     withContext(Dispatchers.Main) {
-                        callback?.onAudioPlaybackStarted()
+                        callback.onAudioPlaybackStarted()
                     }
                 }
+                
+                Log.d("AudioManager", "Playing audio chunk, queue size: ${synchronized(audioQueue) { audioQueue.size }}")
                 playAudio(chunk)
             }
             
@@ -229,9 +268,11 @@ class AudioManager(private val context: Context) {
             isPlayingAudio = false
             lastPlaybackEndTime = System.currentTimeMillis()
             
+            Log.d("AudioManager", "Audio playback loop finished")
+            
             // Switch to main thread for callback
             withContext(Dispatchers.Main) {
-                callback?.onAudioPlaybackStopped()
+                callback.onAudioPlaybackStopped()
             }
             
             Log.d("AudioManager", "AI finished speaking, cooldown started")
@@ -244,7 +285,10 @@ class AudioManager(private val context: Context) {
 
             synchronized(audioQueue) {
                 if (audioQueue.isNotEmpty()) {
+                    Log.d("AudioManager", "More audio in queue, continuing playback")
                     playNextAudioChunk()
+                } else {
+                    Log.d("AudioManager", "No more audio in queue, playback complete")
                 }
             }
         }
@@ -307,6 +351,22 @@ class AudioManager(private val context: Context) {
     // Phương thức để kiểm tra AI có đang phát âm thanh không
     fun isCurrentlyPlaying(): Boolean = isPlayingAudio
     
+    // Phương thức để kiểm tra có audio đang chờ phát không
+    fun hasAudioInQueue(): Boolean {
+        synchronized(audioQueue) {
+            return audioQueue.isNotEmpty()
+        }
+    }
+    
+    // Phương thức để kiểm tra có audio đang phát hoặc chờ phát không
+    fun hasAudioToPlay(): Boolean = isPlayingAudio || hasAudioInQueue()
+    
+    // Phương thức để enable/disable audio continuity
+    fun setAudioContinuityEnabled(enabled: Boolean) {
+        isAudioContinuityEnabled = enabled
+        Log.d("AudioManager", "Audio continuity ${if (enabled) "enabled" else "disabled"}")
+    }
+    
     // Phương thức để điều chỉnh âm lượng phát
     fun setPlaybackVolume(volume: Float) {
         val clampedVolume = volume.coerceIn(0.0f, 1.0f)
@@ -347,11 +407,60 @@ class AudioManager(private val context: Context) {
     fun isPausedForVoiceNotificationStatus(): Boolean = isPausedForVoiceNotification
     
     fun cleanup() {
-        stopAudioInput()
+        Log.d("AudioManager", "AudioManager cleanup called")
+        
+        // Only cleanup if not currently playing audio
+        if (!isPlayingAudio) {
+            Log.d("AudioManager", "No audio playing, performing full cleanup")
+            stopAudioInput()
+            isPausedForVoiceNotification = false
+            voiceNotificationTimeoutJob?.cancel()
+            voiceNotificationTimeoutJob = null
+            audioTrack?.release()
+            audioTrack = null
+        } else {
+            Log.d("AudioManager", "Audio is currently playing, skipping cleanup to preserve playback")
+            // Only stop recording, but keep audio playback active
+            stopAudioInput()
+            isPausedForVoiceNotification = false
+            voiceNotificationTimeoutJob?.cancel()
+            voiceNotificationTimeoutJob = null
+        }
+    }
+    
+    // Phương thức để reset trạng thái audio khi chuyển giữa các activity
+    fun resetAudioState() {
+        Log.d("AudioManager", "Resetting audio state")
+        
+        // Stop any ongoing recording
+        if (isRecording) {
+            stopAudioInput()
+        }
+        
+        // Clear any paused state
         isPausedForVoiceNotification = false
         voiceNotificationTimeoutJob?.cancel()
         voiceNotificationTimeoutJob = null
-        audioTrack?.release()
-        audioTrack = null
+        
+        // If audio continuity is enabled, preserve audio playback
+        if (isAudioContinuityEnabled) {
+            Log.d("AudioManager", "Audio continuity enabled - preserving ongoing playback")
+            // DON'T clear audio queue - let existing audio finish playing
+            // DON'T stop ongoing playback - let it finish naturally
+        } else {
+            Log.d("AudioManager", "Audio continuity disabled - clearing audio state")
+            // Clear audio queue
+            synchronized(audioQueue) {
+                audioQueue.clear()
+            }
+            
+            // Stop any ongoing playback
+            if (isPlayingAudio) {
+                audioTrack?.stop()
+                isPlayingAudio = false
+            }
+        }
+        
+        Log.d("AudioManager", "Audio state reset completed")
     }
 }

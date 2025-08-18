@@ -123,6 +123,8 @@ data class FamilyMember(
 )
 
 data class FamilyMembersResponse(
+    @SerializedName("success")
+    val success: Boolean,
     @SerializedName("family_members")
     val familyMembers: List<FamilyMember>
 )
@@ -149,6 +151,8 @@ data class ElderlyPatient(
 )
 
 data class ElderlyPatientsResponse(
+    @SerializedName("success")
+    val success: Boolean,
     @SerializedName("elderly_patients")
     val elderlyPatients: List<ElderlyPatient>
 )
@@ -177,4 +181,60 @@ data class ProfileUpdateResponse(
     val message: String,
     @SerializedName("user")
     val user: UserResponse?
+)
+
+// Schedule Models
+data class Schedule(
+    @SerializedName("id")
+    val id: String? = null,
+    @SerializedName("elderly_id")
+    val elderlyId: String,
+    @SerializedName("title")
+    val title: String,
+    @SerializedName("message")
+    val message: String,
+    @SerializedName("scheduled_at")
+    val scheduledAt: Long, // Unix timestamp
+    @SerializedName("notification_type")
+    val notificationType: String,
+    @SerializedName("category")
+    val category: String,
+    @SerializedName("priority")
+    val priority: String = "normal",
+    @SerializedName("is_completed")
+    val isCompleted: Boolean = false,
+    @SerializedName("created_at")
+    val createdAt: Long = System.currentTimeMillis() / 1000,
+    @SerializedName("created_by")
+    val createdBy: String? = null
+)
+
+data class CreateScheduleRequest(
+    @SerializedName("elderly_id")
+    val elderlyId: String,
+    @SerializedName("title")
+    val title: String,
+    @SerializedName("message")
+    val message: String,
+    @SerializedName("scheduled_at")
+    val scheduledAt: Long,
+    @SerializedName("notification_type")
+    val notificationType: String,
+    @SerializedName("category")
+    val category: String,
+    @SerializedName("priority")
+    val priority: String = "normal",
+    @SerializedName("created_by")
+    val createdBy: String? = null
+)
+
+data class ScheduleResponse(
+    @SerializedName("success")
+    val success: Boolean,
+    @SerializedName("message")
+    val message: String,
+    @SerializedName("schedule")
+    val schedule: Schedule? = null,
+    @SerializedName("schedules")
+    val schedules: List<Schedule>? = null
 ) 

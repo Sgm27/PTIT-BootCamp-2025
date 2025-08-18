@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.util.Log
 import java.util.concurrent.ConcurrentHashMap
+import com.example.geminilivedemo.ScannerActivity
 
 /**
  * GlobalConnectionManager - Quản lý WebSocket connection toàn cục
@@ -67,13 +68,25 @@ class GlobalConnectionManager private constructor() {
         currentActivity = activity
         isAppInBackground = false
         
-        // Nếu đây là MainActivity hoặc MedicineInfoActivity, cho phép chat và duy trì connection
-        val isChatAvailable = activity is MainActivity || activity is MedicineInfoActivity
+        // Don't reset audio state when switching activities to maintain audio continuity
+        // This ensures AI audio continues playing when switching between activities
+        Log.d("GlobalConnectionManager", "Skipping audio state reset to maintain audio continuity across activities")
+        
+        // Nếu đây là MainActivity, MedicineInfoActivity, hoặc ScannerActivity, cho phép chat và duy trì connection
+        val isChatAvailable = activity is MainActivity || activity is MedicineInfoActivity || activity is ScannerActivity
         notifyChatAvailabilityChanged(isChatAvailable)
         
-        // Đảm bảo kết nối khi ở MainActivity hoặc MedicineInfoActivity
-        if (activity is MainActivity || activity is MedicineInfoActivity) {
+        // Đảm bảo kết nối khi ở MainActivity, MedicineInfoActivity, hoặc ScannerActivity
+        if (activity is MainActivity || activity is MedicineInfoActivity || activity is ScannerActivity) {
             ensureConnection()
+        }
+        
+        // Don't clear callbacks for MainActivity or ScannerActivity to maintain audio continuity
+        if (activity !is MainActivity && activity !is ScannerActivity) {
+            webSocketManager?.clearCallback()
+            audioManager?.clearCallback()
+        } else {
+            Log.d("GlobalConnectionManager", "Preserving callbacks for ${activity::class.java.simpleName} to maintain audio continuity")
         }
     }
     
@@ -112,13 +125,28 @@ class GlobalConnectionManager private constructor() {
         currentActivity = activity
         isAppInBackground = false
         
-        // Enable chat nếu là MainActivity hoặc MedicineInfoActivity
-        val isChatAvailable = activity is MainActivity || activity is MedicineInfoActivity
+        // Don't reset audio state to maintain audio continuity across activities
+        // This ensures AI audio continues playing when switching between activities
+        Log.d("GlobalConnectionManager", "Skipping audio state reset to maintain audio continuity across activities")
+        
+        // Enable audio continuity for all activities to ensure AI audio plays completely
+        audioManager?.setAudioContinuityEnabled(true)
+        
+        // Enable chat nếu là MainActivity, MedicineInfoActivity, hoặc ScannerActivity
+        val isChatAvailable = activity is MainActivity || activity is MedicineInfoActivity || activity is ScannerActivity
         notifyChatAvailabilityChanged(isChatAvailable)
         
-        // Đảm bảo kết nối khi ở MainActivity hoặc MedicineInfoActivity
-        if (activity is MainActivity || activity is MedicineInfoActivity) {
+        // Đảm bảo kết nối khi ở MainActivity, MedicineInfoActivity, hoặc ScannerActivity
+        if (activity is MainActivity || activity is MedicineInfoActivity || activity is ScannerActivity) {
             ensureConnection()
+        }
+        
+        // Don't clear callbacks for MainActivity or ScannerActivity to maintain audio continuity
+        if (activity !is MainActivity && activity !is ScannerActivity) {
+            webSocketManager?.clearCallback()
+            audioManager?.clearCallback()
+        } else {
+            Log.d("GlobalConnectionManager", "Preserving callbacks for ${activity::class.java.simpleName} to maintain audio continuity")
         }
     }
     
@@ -163,8 +191,8 @@ class GlobalConnectionManager private constructor() {
             serviceManager?.pauseListeningService()
         }
         
-        // Reconnect WebSocket khi MainActivity hoặc MedicineInfoActivity là activity hiện tại
-        if (currentActivity is MainActivity || currentActivity is MedicineInfoActivity) {
+        // Reconnect WebSocket khi MainActivity, MedicineInfoActivity, hoặc ScannerActivity là activity hiện tại
+        if (currentActivity is MainActivity || currentActivity is MedicineInfoActivity || currentActivity is ScannerActivity) {
             ensureConnection()
         }
     }
@@ -192,7 +220,7 @@ class GlobalConnectionManager private constructor() {
     fun getCurrentActivity(): Activity? = currentActivity
     
     fun isChatAvailable(): Boolean {
-        return (currentActivity is MainActivity || currentActivity is MedicineInfoActivity) && !isAppInBackground
+        return (currentActivity is MainActivity || currentActivity is MedicineInfoActivity || currentActivity is ScannerActivity) && !isAppInBackground
     }
     
     fun cleanup() {

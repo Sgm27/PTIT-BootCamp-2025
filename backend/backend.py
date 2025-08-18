@@ -1165,13 +1165,19 @@ async def gemini_live_websocket(websocket: WebSocket):
 @app.exception_handler(404)
 async def not_found_handler(request, exc):
     """Handle 404 errors."""
-    return {"error": "Endpoint not found", "status_code": 404}
+    return JSONResponse(
+        status_code=404,
+        content={"error": "Endpoint not found", "status_code": 404}
+    )
 
 
 @app.exception_handler(500)
 async def internal_error_handler(request, exc):
     """Handle 500 errors."""
-    return {"error": "Internal server error", "status_code": 500}
+    return JSONResponse(
+        status_code=500,
+        content={"error": "Internal server error", "status_code": 500}
+    )
 
 
 if __name__ == "__main__":

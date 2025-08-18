@@ -101,10 +101,15 @@
         <item name="boxCornerRadiusBottomEnd">12dp</item>
     </style>
 
-    <!-- Scanner Activity Theme -->
+    <!-- Scanner Activity Theme - Normal Theme -->
     <style name="Theme.GeminiLiveDemo.Scanner" parent="Theme.GeminiLiveDemo">
-        <item name="android:statusBarColor">@color/white</item>
-        <item name="android:windowLightStatusBar">true</item>
-        <item name="android:windowBackground">@color/white</item>
+        <item name="android:statusBarColor">@color/primary_500</item>
+        <item name="android:navigationBarColor">@color/background_primary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowTranslucentStatus">false</item>
+        <item name="android:windowTranslucentNavigation">false</item>
+        <item name="android:windowFullscreen">false</item>
     </style>
+
 </resources>

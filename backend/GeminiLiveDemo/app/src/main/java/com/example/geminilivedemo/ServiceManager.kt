@@ -50,4 +50,11 @@ class ServiceManager(private val context: Context) {
         val intent = Intent(context, GeminiListeningService::class.java)
         context.stopService(intent)
     }
+    
+    fun disconnectWebSocket() {
+        val intent = Intent(context, GeminiListeningService::class.java).apply {
+            action = GeminiListeningService.ACTION_DISCONNECT_WEBSOCKET
+        }
+        context.startService(intent)
+    }
 }

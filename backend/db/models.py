@@ -145,7 +145,7 @@ class FamilyRelationship(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     elderly_id = Column(UUID(as_uuid=True), ForeignKey("elderly_profiles.id"), nullable=False)
     family_member_id = Column(UUID(as_uuid=True), ForeignKey("family_profiles.id"), nullable=False)
-    relationship_type = Column(Enum(RelationshipType), nullable=False)
+    relationship_type = Column(Enum('child', 'grandchild', 'spouse', 'sibling', 'relative', 'caregiver', name='relationship_type_enum'), nullable=False)
     
     # Permissions and access levels
     can_view_health_data = Column(Boolean, default=True)
@@ -336,7 +336,7 @@ class Notification(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     
-    notification_type = Column(Enum(NotificationType), nullable=False)
+    notification_type = Column(Enum('medicine_reminder', 'appointment_reminder', 'health_check', 'emergency', 'custom', name='notification_type_enum'), nullable=False)
     title = Column(String(255), nullable=False)
     message = Column(Text, nullable=False)
     

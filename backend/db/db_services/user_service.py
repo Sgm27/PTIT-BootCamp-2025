@@ -381,7 +381,7 @@ class UserService:
         self,
         elderly_user_id: str,
         family_member_id: str,
-        relationship_type: RelationshipType,
+        relationship_type: str,
         permissions: Optional[Dict[str, bool]] = None
     ) -> bool:
         """Create relationship between elderly user and family member"""
@@ -474,7 +474,7 @@ class UserService:
                         'full_name': family_user.full_name,
                         'email': family_user.email,
                         'phone': family_user.phone,
-                        'relationship_type': rel.relationship_type.value,
+                        'relationship_type': rel.relationship_type,
                         'permissions': {
                             'can_view_health_data': rel.can_view_health_data,
                             'can_receive_notifications': rel.can_receive_notifications,
@@ -515,7 +515,7 @@ class UserService:
                         'full_name': elderly_user.full_name,
                         'email': elderly_user.email,
                         'phone': elderly_user.phone,
-                        'relationship_type': rel.relationship_type.value,
+                        'relationship_type': rel.relationship_type,
                         'date_of_birth': elderly_user.date_of_birth.isoformat() if elderly_user.date_of_birth else None,
                         'permissions': {
                             'can_view_health_data': rel.can_view_health_data,

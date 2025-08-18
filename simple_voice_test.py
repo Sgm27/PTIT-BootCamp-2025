@@ -71,99 +71,99 @@ class VoiceNotificationTester:
         return [
             # Medicine reminders
             {
-                "text": "Nhắc nhở uống thuốc: Đã đến giờ uống Paracetamol 500mg lúc 8:00 sáng. Nhớ uống thuốc đúng giờ để đảm bảo hiệu quả điều trị nhé.",
+                "text": "Nhắc nhở uống thuốc: Đã đến giờ uống 2 viên hoạt huyết dưỡng não. Nhớ uống thuốc đúng giờ để đảm bảo hiệu quả điều trị nhé.",
                 "type": "medicine",
-                "description": "Medicine Reminder - Paracetamol"
-            },
-            {
-                "text": "Đã đến giờ uống thuốc huyết áp. Nhớ uống thuốc đúng giờ nhé bác.",
-                "type": "medicine", 
-                "description": "Medicine Reminder - Blood pressure"
-            },
-            
-            # Appointment reminders
-            {
-                "text": "Nhắc nhở lịch khám: Bác có lịch khám với bác sĩ Nguyễn Văn A vào 14:30 ngày mai. Nhớ chuẩn bị đầy đủ giấy tờ và đến đúng giờ nhé.",
-                "type": "appointment",
-                "description": "Appointment Reminder - Dr. Nguyen Van A"
-            },
-            {
-                "text": "Lịch khám tim mạch vào 9:00 sáng mai. Nhớ mang theo kết quả xét nghiệm cũ nhé.",
-                "type": "appointment",
-                "description": "Appointment Reminder - Cardiology"
-            },
-            
-            # Exercise reminders
-            {
-                "text": "Nhắc nhở tập thể dục: Đã đến giờ đi bộ trong 30 phút. Tập thể dục đều đặn giúp cơ thể khỏe mạnh và tinh thần sảng khoái.",
-                "type": "exercise",
-                "description": "Exercise Reminder - Walking"
-            },
-            {
-                "text": "Đã đến giờ tập yoga buổi sáng. Hãy chuẩn bị và bắt đầu nhé.",
-                "type": "exercise",
-                "description": "Exercise Reminder - Yoga"
-            },
-            
-            # Water reminders
-            {
-                "text": "Nhắc nhở uống nước: Đã đến giờ uống nước. Uống đủ nước giúp cơ thể hoạt động tốt và da dẻ khỏe mạnh.",
-                "type": "water",
-                "description": "Water Reminder - General"
-            },
-            {
-                "text": "Bác ơi, nhớ uống nước đủ 2 lít mỗi ngày nhé.",
-                "type": "water",
-                "description": "Water Reminder - Daily goal"
-            },
-            
-            # Meal reminders
-            {
-                "text": "Nhắc nhở ăn uống: Đã đến giờ ăn sáng. Ăn uống đúng giờ và đầy đủ dinh dưỡng giúp cơ thể khỏe mạnh.",
-                "type": "meal",
-                "description": "Meal Reminder - Breakfast"
-            },
-            {
-                "text": "Đã đến giờ ăn trưa. Hãy nghỉ ngơi và ăn uống đầy đủ nhé.",
-                "type": "meal",
-                "description": "Meal Reminder - Lunch"
-            },
-            
-            # Health check reminders
-            {
-                "text": "Nhắc nhở kiểm tra sức khỏe: Đã đến giờ đo huyết áp. Theo dõi sức khỏe định kỳ giúp phát hiện sớm các vấn đề và có biện pháp điều trị kịp thời.",
-                "type": "health_check",
-                "description": "Health Check - Blood pressure"
-            },
-            {
-                "text": "Đã đến giờ đo đường huyết. Hãy chuẩn bị máy đo và thực hiện nhé.",
-                "type": "health_check",
-                "description": "Health Check - Blood sugar"
-            },
-            
-            # Emergency notifications
-            {
-                "text": "Phát hiện nhịp tim bất thường. Vui lòng liên hệ bác sĩ ngay lập tức.",
-                "type": "emergency",
-                "description": "Emergency Alert - Heart rate"
-            },
-            {
-                "text": "Huyết áp quá cao. Cần chú ý và nghỉ ngơi ngay.",
-                "type": "emergency",
-                "description": "Emergency Alert - High blood pressure"
-            },
-            
-            # Custom/Info notifications
-            {
-                "text": "Chúc bác có một ngày tốt lành và sức khỏe dồi dào.",
-                "type": "info",
-                "description": "Custom Info - Good wishes"
-            },
-            {
-                "text": "Hôm nay trời đẹp, bác có thể ra ngoài đi dạo một chút nhé.",
-                "type": "custom",
-                "description": "Custom Info - Weather suggestion"
+                "description": "Medicine Reminder - Hoạt huyết dưỡng não"
             }
+            # {
+            #     "text": "Đã đến giờ uống thuốc huyết áp. Nhớ uống thuốc đúng giờ nhé bác.",
+            #     "type": "medicine", 
+            #     "description": "Medicine Reminder - Blood pressure"
+            # },
+            
+            # # Appointment reminders
+            # {
+            #     "text": "Nhắc nhở lịch khám: Bác có lịch khám với bác sĩ Nguyễn Văn A vào 14:30 ngày mai. Nhớ chuẩn bị đầy đủ giấy tờ và đến đúng giờ nhé.",
+            #     "type": "appointment",
+            #     "description": "Appointment Reminder - Dr. Nguyen Van A"
+            # },
+            # {
+            #     "text": "Lịch khám tim mạch vào 9:00 sáng mai. Nhớ mang theo kết quả xét nghiệm cũ nhé.",
+            #     "type": "appointment",
+            #     "description": "Appointment Reminder - Cardiology"
+            # },
+            
+            # # Exercise reminders
+            # {
+            #     "text": "Nhắc nhở tập thể dục: Đã đến giờ đi bộ trong 30 phút. Tập thể dục đều đặn giúp cơ thể khỏe mạnh và tinh thần sảng khoái.",
+            #     "type": "exercise",
+            #     "description": "Exercise Reminder - Walking"
+            # },
+            # {
+            #     "text": "Đã đến giờ tập yoga buổi sáng. Hãy chuẩn bị và bắt đầu nhé.",
+            #     "type": "exercise",
+            #     "description": "Exercise Reminder - Yoga"
+            # },
+            
+            # # Water reminders
+            # {
+            #     "text": "Nhắc nhở uống nước: Đã đến giờ uống nước. Uống đủ nước giúp cơ thể hoạt động tốt và da dẻ khỏe mạnh.",
+            #     "type": "water",
+            #     "description": "Water Reminder - General"
+            # },
+            # {
+            #     "text": "Bác ơi, nhớ uống nước đủ 2 lít mỗi ngày nhé.",
+            #     "type": "water",
+            #     "description": "Water Reminder - Daily goal"
+            # },
+            
+            # # Meal reminders
+            # {
+            #     "text": "Nhắc nhở ăn uống: Đã đến giờ ăn sáng. Ăn uống đúng giờ và đầy đủ dinh dưỡng giúp cơ thể khỏe mạnh.",
+            #     "type": "meal",
+            #     "description": "Meal Reminder - Breakfast"
+            # },
+            # {
+            #     "text": "Đã đến giờ ăn trưa. Hãy nghỉ ngơi và ăn uống đầy đủ nhé.",
+            #     "type": "meal",
+            #     "description": "Meal Reminder - Lunch"
+            # },
+            
+            # # Health check reminders
+            # {
+            #     "text": "Nhắc nhở kiểm tra sức khỏe: Đã đến giờ đo huyết áp. Theo dõi sức khỏe định kỳ giúp phát hiện sớm các vấn đề và có biện pháp điều trị kịp thời.",
+            #     "type": "health_check",
+            #     "description": "Health Check - Blood pressure"
+            # },
+            # {
+            #     "text": "Đã đến giờ đo đường huyết. Hãy chuẩn bị máy đo và thực hiện nhé.",
+            #     "type": "health_check",
+            #     "description": "Health Check - Blood sugar"
+            # },
+            
+            # # Emergency notifications
+            # {
+            #     "text": "Phát hiện nhịp tim bất thường. Vui lòng liên hệ bác sĩ ngay lập tức.",
+            #     "type": "emergency",
+            #     "description": "Emergency Alert - Heart rate"
+            # },
+            # {
+            #     "text": "Huyết áp quá cao. Cần chú ý và nghỉ ngơi ngay.",
+            #     "type": "emergency",
+            #     "description": "Emergency Alert - High blood pressure"
+            # },
+            
+            # # Custom/Info notifications
+            # {
+            #     "text": "Chúc bác có một ngày tốt lành và sức khỏe dồi dào.",
+            #     "type": "info",
+            #     "description": "Custom Info - Good wishes"
+            # },
+            # {
+            #     "text": "Hôm nay trời đẹp, bác có thể ra ngoài đi dạo một chút nhé.",
+            #     "type": "custom",
+            #     "description": "Custom Info - Weather suggestion"
+            # }
         ]
     
     def test_single_notification(self, payload, test_index):

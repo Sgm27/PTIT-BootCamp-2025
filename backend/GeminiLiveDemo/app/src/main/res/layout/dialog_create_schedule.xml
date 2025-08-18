@@ -5,25 +5,39 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="24dp"
-    android:background="@color/white">
+    android:background="@color/background_primary">
 
-    <!-- Header -->
-    <TextView
-        android:id="@+id/createScheduleTitle"
+    <!-- Header with Icon -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/create_schedule_title"
-        android:textSize="24sp"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary"
+        android:orientation="horizontal"
         android:gravity="center"
-        android:layout_marginBottom="24dp" />
+        android:layout_marginBottom="32dp">
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:src="@drawable/baseline_add_24"
+            android:tint="@color/primary_500"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:id="@+id/createScheduleTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Tạo lịch trình mới"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
+
+    </LinearLayout>
 
     <!-- Schedule Name -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/schedule_name_label"
+        android:text="Tên lịch trình"
         android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="@color/text_primary"
@@ -32,14 +46,16 @@
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:hint="@string/schedule_name_hint"
+        android:layout_marginBottom="24dp"
+        android:hint="VD: Uống thuốc huyết áp"
         app:boxCornerRadiusTopStart="12dp"
         app:boxCornerRadiusTopEnd="12dp"
         app:boxCornerRadiusBottomStart="12dp"
         app:boxCornerRadiusBottomEnd="12dp"
         app:boxStrokeColor="@color/primary_500"
-        app:hintTextColor="@color/primary_500">
+        app:hintTextColor="@color/text_secondary"
+        app:startIconDrawable="@drawable/baseline_title_24"
+        app:startIconTint="@color/text_tertiary">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/scheduleNameInput"
@@ -55,7 +71,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="20dp">
+        android:layout_marginBottom="24dp">
 
         <!-- Date -->
         <LinearLayout
@@ -68,7 +84,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/date_label"
+                android:text="Ngày"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
@@ -78,10 +94,14 @@
                 android:id="@+id/selectDateButton"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:text="@string/select_date"
+                android:text="Chọn ngày"
                 android:textColor="@color/text_primary"
                 android:background="@drawable/outline_button_background"
                 app:cornerRadius="12dp"
+                app:icon="@drawable/baseline_calendar_today_24"
+                app:iconTint="@color/primary_500"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
         </LinearLayout>
@@ -97,7 +117,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/time_label"
+                android:text="Thời gian"
                 android:textSize="16sp"
                 android:textStyle="bold"
                 android:textColor="@color/text_primary"
@@ -107,10 +127,14 @@
                 android:id="@+id/selectTimeButton"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
-                android:text="@string/select_time"
+                android:text="Chọn giờ"
                 android:textColor="@color/text_primary"
                 android:background="@drawable/outline_button_background"
                 app:cornerRadius="12dp"
+                app:icon="@drawable/baseline_schedule_24"
+                app:iconTint="@color/primary_500"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
                 style="@style/Widget.Material3.Button.OutlinedButton" />
 
         </LinearLayout>
@@ -121,7 +145,7 @@
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="@string/notes_label"
+        android:text="Ghi chú"
         android:textSize="16sp"
         android:textStyle="bold"
         android:textColor="@color/text_primary"
@@ -130,14 +154,16 @@
     <com.google.android.material.textfield.TextInputLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:hint="@string/notes_hint"
+        android:layout_marginBottom="24dp"
+        android:hint="Thêm mô tả chi tiết..."
         app:boxCornerRadiusTopStart="12dp"
         app:boxCornerRadiusTopEnd="12dp"
         app:boxCornerRadiusBottomStart="12dp"
         app:boxCornerRadiusBottomEnd="12dp"
         app:boxStrokeColor="@color/primary_500"
-        app:hintTextColor="@color/primary_500">
+        app:hintTextColor="@color/text_secondary"
+        app:startIconDrawable="@drawable/baseline_note_24"
+        app:startIconTint="@color/text_tertiary">
 
         <com.google.android.material.textfield.TextInputEditText
             android:id="@+id/notesInput"
@@ -149,117 +175,140 @@
 
     </com.google.android.material.textfield.TextInputLayout>
 
-    <!-- Classification -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/classification_label"
-        android:textSize="16sp"
-        android:textStyle="bold"
-        android:textColor="@color/text_primary"
-        android:layout_marginBottom="12dp" />
-
-    <!-- Classification Buttons -->
+    <!-- Category Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginBottom="24dp">
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
 
-        <!-- Row 1 -->
-        <LinearLayout
-            android:layout_width="match_parent"
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:src="@drawable/baseline_category_24"
+            android:tint="@color/primary_500"
+            android:layout_marginEnd="8dp" />
+
+        <TextView
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+            android:layout_weight="1"
+            android:text="Phân loại"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/text_primary" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/medicineButton"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="@string/medicine_category"
-                android:textSize="12sp"
-                android:layout_marginEnd="4dp"
-                android:background="@drawable/classification_button_background"
-                app:icon="@drawable/baseline_medical_services_24"
-                app:iconSize="16dp"
-                app:iconGravity="textStart"
-                app:cornerRadius="12dp" />
+    </LinearLayout>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/appointmentButton"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="@string/appointment_category"
-                android:textSize="12sp"
-                android:layout_marginStart="4dp"
-                android:background="@drawable/classification_button_background"
-                app:icon="@drawable/baseline_people_24"
-                app:iconSize="16dp"
-                app:iconGravity="textStart"
-                app:cornerRadius="12dp" />
+    <!-- Category Buttons Row 1 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
 
-        </LinearLayout>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/medicineButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="Uống thuốc"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:background="@drawable/category_button_background"
+            app:icon="@drawable/baseline_medical_services_24"
+            app:iconTint="@color/primary_500"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:cornerRadius="12dp"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
 
-        <!-- Row 2 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/appointmentButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:text="Khám bệnh"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:background="@drawable/category_button_background"
+            app:icon="@drawable/baseline_person_search_24"
+            app:iconTint="@color/primary_500"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:cornerRadius="12dp"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/exerciseButton"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="@string/exercise_category"
-                android:textSize="12sp"
-                android:layout_marginEnd="4dp"
-                android:background="@drawable/classification_button_background"
-                app:icon="@drawable/baseline_directions_walk_24"
-                app:iconSize="16dp"
-                app:iconGravity="textStart"
-                app:cornerRadius="12dp" />
+    </LinearLayout>
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/mealButton"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="@string/meal_category"
-                android:textSize="12sp"
-                android:layout_marginStart="4dp"
-                android:background="@drawable/classification_button_background"
-                app:icon="@drawable/baseline_restaurant_24"
-                app:iconSize="16dp"
-                app:iconGravity="textStart"
-                app:cornerRadius="12dp" />
+    <!-- Category Buttons Row 2 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
 
-        </LinearLayout>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/exerciseButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="Tập thể dục"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:background="@drawable/category_button_background"
+            app:icon="@drawable/baseline_directions_walk_24"
+            app:iconTint="@color/primary_500"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:cornerRadius="12dp"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
 
-        <!-- Row 3 -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/mealButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:text="Ăn uống"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:background="@drawable/category_button_background"
+            app:icon="@drawable/baseline_restaurant_menu_24"
+            app:iconTint="@color/primary_500"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:cornerRadius="12dp"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/otherButton"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="@string/other_category"
-                android:textSize="12sp"
-                android:background="@drawable/classification_button_background"
-                app:icon="@drawable/baseline_more_horiz_24"
-                app:iconSize="16dp"
-                app:iconGravity="textStart"
-                app:cornerRadius="12dp" />
+    </LinearLayout>
 
-        </LinearLayout>
+    <!-- Category Buttons Row 3 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="32dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/otherButton"
+            android:layout_width="0dp"
+            android:layout_height="48dp"
+            android:layout_weight="1"
+            android:text="Khác"
+            android:textSize="14sp"
+            android:textColor="@color/text_primary"
+            android:background="@drawable/category_button_background"
+            app:icon="@drawable/baseline_more_horiz_24"
+            app:iconTint="@color/primary_500"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:cornerRadius="12dp"
+            style="@style/Widget.Material3.Button.OutlinedButton" />
 
     </LinearLayout>
 
@@ -268,11 +317,15 @@
         android:id="@+id/saveScheduleButton"
         android:layout_width="match_parent"
         android:layout_height="56dp"
-        android:text="@string/save_schedule"
-        android:textColor="@color/white"
+        android:text="Lưu Lịch Trình"
         android:textSize="16sp"
         android:textStyle="bold"
-        android:background="@drawable/primary_button_background"
-        app:cornerRadius="16dp" />
+        android:textColor="@color/white"
+        android:backgroundTint="@color/primary_500"
+        app:cornerRadius="16dp"
+        app:icon="@drawable/baseline_save_24"
+        app:iconTint="@color/white"
+        app:iconGravity="textStart"
+        app:iconPadding="8dp" />
 
 </LinearLayout> 

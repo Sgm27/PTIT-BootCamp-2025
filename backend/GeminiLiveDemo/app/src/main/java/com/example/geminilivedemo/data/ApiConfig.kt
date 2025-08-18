@@ -61,6 +61,13 @@ object ApiConfig {
         
         // Voice notification
         const val VOICE_NOTIFICATION = "api/generate-voice-notification"
+        
+        // Schedule endpoints
+        const val CREATE_SCHEDULE = "api/schedules/create"
+        const val GET_USER_SCHEDULES = "api/schedules/{user_id}"
+        const val UPDATE_SCHEDULE = "api/schedules/{schedule_id}"
+        const val DELETE_SCHEDULE = "api/schedules/{schedule_id}"
+        const val MARK_SCHEDULE_COMPLETE = "api/schedules/{schedule_id}/complete"
     }
     
     // Database Configuration (EC2 AWS - chỉ dùng cho backend, không dùng trực tiếp từ Android)

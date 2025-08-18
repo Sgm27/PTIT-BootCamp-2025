@@ -117,6 +117,7 @@ class UIManager(private val activity: AppCompatActivity) {
         }
         
         micButton.setOnClickListener {
+            Log.d("UIManager", "Mic button clicked! Callback is: ${callback != null}")
             callback?.onMicButtonClicked()
         }
         
@@ -170,6 +171,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     fun updateMicIcon(isRecording: Boolean) {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::micIcon.isInitialized) {
+            Log.d("UIManager", "Mic icon not initialized yet, skipping updateMicIcon")
+            return
+        }
+        
         activity.runOnUiThread {
             if (isRecording) {
                 micIcon.setImageResource(R.drawable.baseline_mic_24)
@@ -180,6 +187,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     fun displayMessage(message: String) {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::chatLog.isInitialized) {
+            Log.d("UIManager", "Chat log not initialized yet, skipping displayMessage")
+            return
+        }
+        
         activity.runOnUiThread {
             val currentText = chatLog.text.toString()
             val updatedMessage = "$currentText \n$message"
@@ -189,6 +202,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     fun displayCapturedImage(base64Image: String) {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::imageView.isInitialized) {
+            Log.d("UIManager", "ImageView not initialized yet, skipping displayCapturedImage")
+            return
+        }
+        
         activity.runOnUiThread {
             try {
                 val imageBytes = Base64.decode(base64Image, Base64.NO_WRAP)
@@ -224,6 +243,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     private fun updateMicButtonState() {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::micButton.isInitialized) {
+            Log.d("UIManager", "Mic button not initialized yet, skipping updateMicButtonState")
+            return
+        }
+        
         activity.runOnUiThread {
             if (isAIPlaying) {
                 // Vô hiệu hóa nút mic khi AI đang phát âm thanh
@@ -258,12 +283,25 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     private fun setDefaultAvatar() {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::imageView.isInitialized) {
+            Log.d("UIManager", "ImageView not initialized yet, skipping setDefaultAvatar")
+            return
+        }
+        
         activity.runOnUiThread {
             imageView.setImageResource(R.drawable.doctor_avatar)
         }
     }
     
     fun setChatEnabled(enabled: Boolean) {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::micButton.isInitialized || !::captureButton.isInitialized || 
+            !::startButton.isInitialized || !::stopButton.isInitialized) {
+            Log.d("UIManager", "UI components not initialized yet, skipping setChatEnabled")
+            return
+        }
+        
         activity.runOnUiThread {
             // Enable/disable chat controls
             micButton.isEnabled = enabled
@@ -296,6 +334,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     fun updateConnectionStatusDisplay(connected: Boolean) {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::connectionStatusIcon.isInitialized || !::connectionStatusText.isInitialized) {
+            Log.d("UIManager", "Status bar components not initialized yet, skipping updateConnectionStatusDisplay")
+            return
+        }
+        
         activity.runOnUiThread {
             isConnected = connected
             if (connected) {
@@ -313,6 +357,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
     
     fun updateConnectionStatusConnecting() {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::connectionStatusIcon.isInitialized || !::connectionStatusText.isInitialized) {
+            Log.d("UIManager", "Status bar components not initialized yet, skipping updateConnectionStatusConnecting")
+            return
+        }
+        
         activity.runOnUiThread {
             connectionStatusIcon.setImageResource(R.drawable.baseline_signal_wifi_connecting_24)
             connectionStatusIcon.setColorFilter(activity.getColor(R.color.connection_connecting))
@@ -323,6 +373,12 @@ class UIManager(private val activity: AppCompatActivity) {
     
     // AI chat status helpers
     fun setAIIdle() {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::aiStatusIcon.isInitialized || !::aiStatusText.isInitialized) {
+            Log.d("UIManager", "AI status components not initialized yet, skipping setAIIdle")
+            return
+        }
+        
         activity.runOnUiThread {
             aiStatusIcon.setImageResource(R.drawable.baseline_equalizer_24_static)
             aiStatusIcon.setColorFilter(activity.getColor(R.color.text_secondary))
@@ -332,6 +388,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
 
     fun setAIListening() {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::aiStatusIcon.isInitialized || !::aiStatusText.isInitialized) {
+            Log.d("UIManager", "AI status components not initialized yet, skipping setAIListening")
+            return
+        }
+        
         activity.runOnUiThread {
             aiStatusIcon.setImageResource(R.drawable.baseline_mic_24)
             aiStatusIcon.setColorFilter(activity.getColor(R.color.primary_600))
@@ -341,6 +403,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
 
     fun setAISpeaking() {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::aiStatusIcon.isInitialized || !::aiStatusText.isInitialized) {
+            Log.d("UIManager", "AI status components not initialized yet, skipping setAISpeaking")
+            return
+        }
+        
         activity.runOnUiThread {
             aiStatusIcon.setImageResource(R.drawable.baseline_equalizer_24)
             aiStatusIcon.setColorFilter(activity.getColor(R.color.accent_600))
@@ -350,6 +418,12 @@ class UIManager(private val activity: AppCompatActivity) {
     }
 
     fun setAIThinking() {
+        // Kiểm tra xem các UI components đã được khởi tạo chưa
+        if (!::aiStatusIcon.isInitialized || !::aiStatusText.isInitialized) {
+            Log.d("UIManager", "AI status components not initialized yet, skipping setAIThinking")
+            return
+        }
+        
         activity.runOnUiThread {
             aiStatusIcon.setImageResource(R.drawable.baseline_refresh_24)
             aiStatusIcon.setColorFilter(activity.getColor(R.color.text_secondary))

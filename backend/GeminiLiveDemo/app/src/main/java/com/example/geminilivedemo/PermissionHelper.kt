@@ -6,6 +6,7 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import android.util.Log
 
 class PermissionHelper(private val activity: Activity) {
     
@@ -38,6 +39,7 @@ class PermissionHelper(private val activity: Activity) {
     }
     
     fun checkRecordAudioPermission() {
+        Log.d("PermissionHelper", "checkRecordAudioPermission called")
         val permissions = mutableListOf<String>()
         
         if (ContextCompat.checkSelfPermission(
@@ -45,7 +47,10 @@ class PermissionHelper(private val activity: Activity) {
                 Manifest.permission.RECORD_AUDIO
             ) != PackageManager.PERMISSION_GRANTED
         ) {
+            Log.d("PermissionHelper", "RECORD_AUDIO permission not granted, requesting...")
             permissions.add(Manifest.permission.RECORD_AUDIO)
+        } else {
+            Log.d("PermissionHelper", "RECORD_AUDIO permission already granted")
         }
         
         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
@@ -54,17 +59,22 @@ class PermissionHelper(private val activity: Activity) {
                     Manifest.permission.POST_NOTIFICATIONS
                 ) != PackageManager.PERMISSION_GRANTED
             ) {
+                Log.d("PermissionHelper", "POST_NOTIFICATIONS permission not granted, requesting...")
                 permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                Log.d("PermissionHelper", "POST_NOTIFICATIONS permission already granted")
             }
         }
         
         if (permissions.isNotEmpty()) {
+            Log.d("PermissionHelper", "Requesting permissions: $permissions")
             ActivityCompat.requestPermissions(
                 activity,
                 permissions.toTypedArray(),
                 Constants.AUDIO_REQUEST_CODE
             )
         } else {
+            Log.d("PermissionHelper", "All permissions granted, calling onAudioPermissionGranted callback")
             callback?.onAudioPermissionGranted()
         }
     }

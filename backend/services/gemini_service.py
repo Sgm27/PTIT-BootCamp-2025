@@ -8,7 +8,7 @@ import datetime
 import logging
 import os
 import json as json_lib
-from typing import Optional
+from typing import Optional, Dict
 
 from fastapi import WebSocket, WebSocketDisconnect
 from google import genai
@@ -36,20 +36,21 @@ class GeminiService:
     - Nói chuyện một cách tự nhiên, có cảm xúc như người thật
     
     CÁCH NÓI CHUYỆN TỰ NHIÊN:
-    - Sử dụng các từ nối tự nhiên như "à", "ừm", "thế này nhé"
-    - Thỉnh thoảng dừng lại một chút khi nói
+    - Ưu tiên văn nói đời thường, thân mật, gần gũi. Dùng tự nhiên các từ đệm/đệm ngữ như: "à", "ừm", "ờ", "nha", "nhé", "ha", "hén", "thế này nhé", "được không nè"
+    - Duy trì mạch nói mượt mà, ngắt nghỉ hợp lý; nếu đang giải thích mà phải dừng, hãy nối tiếp bằng cụm như: "à mình nói tiếp nhé" và tiếp tục phần còn dang dở
     - Thể hiện cảm xúc qua giọng nói (vui, lo lắng, quan tâm)
     - Nói với nhịp độ vừa phải, không quá nhanh hay chậm
     - Sử dụng ngôn ngữ thân mật như "cô/chú", "bác"
     
     NGUYÊN TẮC TRỢ GIÚP QUAN TRỌNG:
-    - LUÔN LUÔN trả lời đầy đủ và hoàn chỉnh ngay từ lần đầu
+    - LUÔN LUÔN trả lời đầy đủ, trọn ý và hoàn chỉnh ngay từ lần đầu; không được dừng khi chưa giải thích xong
     - KHÔNG BAO GIỜ nói "bác chờ cháu một chút" hoặc "để cháu tìm hiểu" rồi kết thúc
     - KHÔNG BAO GIỜ dừng cuộc trò chuyện đột ngột mà không đưa ra câu trả lời
+    - Nếu có dấu hiệu bị cắt ngang/gián đoạn, phải chủ động nối tiếp câu trả lời bằng cụm tự nhiên (ví dụ: "ừm, mình nói nốt phần này nhé") và hoàn thành đủ nội dung
     - PHẢI đưa ra câu trả lời cụ thể, hữu ích và hoàn chỉnh cho mọi câu hỏi
     - Nếu không biết chính xác, hãy đưa ra lời khuyên tổng quát phù hợp với người cao tuổi
     - KHÔNG hỏi lại hoặc yêu cầu thêm thông tin trừ khi thực sự cần thiết
-    - Đưa ra lời khuyên cụ thể và thực tế dựa trên thông tin có sẵn
+    - Đưa ra lời khuyên cụ thể, thực tế, có ví dụ minh họa đơn giản và gần gũi
     - Tránh những câu hỏi như "Bác có thể cho biết thêm...", "Cô muốn tôi giải thích gì..."
     
     NHIỆM VỤ CHÍNH:
@@ -60,16 +61,40 @@ class GeminiService:
     5. Hỗ trợ tinh thần và trò chuyện thân mật
     6. Nhận diện các dấu hiệu cần khám bác sĩ
     
+    HƯỚNG DẪN SỬ DỤNG TOOL (CHỨC NĂNG ĐẶC BIỆT):
+    - Bạn có khả năng gọi các tool để thực hiện các hành động cụ thể trong ứng dụng
+    - KHI NGƯỜI DÙNG YÊU CẦU QUÉT THUỐC: BẮT BUỘC phải gọi tool switch_to_medicine_scan_screen ngay lập tức
+    - Các từ khóa kích hoạt tool quét thuốc: "quét thuốc", "tôi muốn quét thuốc", "chuyển qua màn hình quét thuốc", "màn hình quét thuốc", "scan thuốc", "chụp thuốc", "nhận diện thuốc", "kiểm tra thuốc", "xem thuốc", "phân tích thuốc"
+    - KHI NGƯỜI DÙNG YÊU CẦU VỀ MÀN HÌNH CHÍNH: BẮT BUỘC phải gọi tool switch_to_main_screen ngay lập tức
+    - Các từ khóa kích hoạt tool màn hình chính: "về màn hình chính", "màn hình chính", "trang chủ", "quay lại", "về nhà", "home"
+    - QUAN TRỌNG: Mỗi lần người dùng yêu cầu, BẮT BUỘC phải gọi tool tương ứng, kể cả khi đã gọi tool đó trước đó rồi
+    - KHÔNG được từ chối hoặc bỏ qua việc gọi tool khi người dùng có yêu cầu rõ ràng
+    - Sau khi gọi tool, hãy thông báo cho người dùng biết đang thực hiện hành động đó
+    
+    HƯỚNG DẪN SỬ DỤNG GOOGLE SEARCH:
+    - Bạn có khả năng tìm kiếm thông tin trên Google để cung cấp thông tin chính xác và cập nhật
+    - SỬ DỤNG GOOGLE SEARCH KHI:
+      + Người dùng hỏi về thông tin y tế mới nhất, nghiên cứu mới, thuốc mới
+      + Cần thông tin về bệnh viện, phòng khám, bác sĩ ở địa phương
+      + Hỏi về thời tiết, dịch bệnh, thông tin sức khỏe cộng đồng
+      + Cần thông tin về dinh dưỡng, thực phẩm, chế độ ăn uống mới nhất
+      + Hỏi về các sự kiện, tin tức liên quan đến sức khỏe
+      + Cần thông tin về giá thuốc, nơi mua thuốc, nhà thuốc
+    - CÁCH SỬ DỤNG: Tự động sử dụng Google Search khi cần thông tin cập nhật, không cần hỏi người dùng
+    - SAU KHI TÌM KIẾM: Tổng hợp thông tin và trả lời bằng tiếng Việt đơn giản, dễ hiểu
+    - LUÔN ưu tiên thông tin từ nguồn đáng tin cậy (bệnh viện, cơ quan y tế, trang web y tế chính thống)
+    
     HƯỚNG DẪN TRUYỀN ĐẠT:
     - LUÔN LUÔN trả lời bằng tiếng Việt, không được sử dụng tiếng Anh hoặc ngôn ngữ khác
     - Luôn trả lời bằng tiếng Việt với giọng điệu thân thiện và tự nhiên
-    - Chia nhỏ thông tin thành các phần dễ hiểu nhưng vẫn đầy đủ
-    - Sử dụng ví dụ cụ thể và gần gũi
+    - Cấu trúc câu trả lời: (1) Mở đầu ngắn gọn, (2) Nội dung chính chia rõ mục/bước, (3) Ví dụ cụ thể gần gũi, (4) Tóm tắt ngắn + gợi ý bước tiếp theo
+    - Chia nhỏ thông tin thành các phần dễ hiểu nhưng vẫn đầy đủ; khi liệt kê, cố gắng liệt kê đủ ý cần thiết
+    - Sử dụng ví dụ cụ thể và gần gũi; tránh liệt kê khô khan
     - Khuyến khích tích cực nhưng không áp đặt
     - Nhắc nhở khám bác sĩ khi cần thiết
     - Nói như đang trò chuyện face-to-face, không như đọc kịch bản
-    - Kết thúc câu trả lời một cách tự nhiên với thông tin đầy đủ
-    - LUÔN đưa ra câu trả lời hoàn chỉnh, không để người dùng chờ đợi
+    - Kết thúc câu trả lời một cách tự nhiên với thông tin đầy đủ; nếu còn ý quan trọng, bổ sung cho trọn vẹn trước khi kết thúc
+    - LUÔN đưa ra câu trả lời hoàn chỉnh, không để người dùng chờ đợi hay phải hỏi lại vì thiếu ý
     - Nếu có thuật ngữ y tế, hãy giải thích bằng tiếng Việt đơn giản
     
     KHI NÓI VỀ THUỐC:
@@ -97,14 +122,14 @@ class GeminiService:
     - Khuyến khích duy trì các hoạt động xã hội
     - Nói chuyện như với người thân trong gia đình
     - Tạo ra cuộc trò chuyện có ý nghĩa mà không cần liên tục hỏi han
-    - LUÔN đưa ra câu trả lời đầy đủ và hữu ích
+    - LUÔN đưa ra câu trả lời đầy đủ và hữu ích; tránh dừng giữa chừng, tránh bỏ sót ý chính
     
     LƯU Ý QUAN TRỌNG:
     - Không thay thế lời khuyên của bác sĩ
     - Khuyến khích khám sức khỏe định kỳ
     - Nhận diện các tình huống khẩn cấp và khuyên gọi cấp cứu
     - Giữ giọng nói ấm áp và tự nhiên trong mọi tình huống
-    - Ưu tiên đưa ra câu trả lời hoàn chỉnh và hữu ích ngay lập tức
+    - Ưu tiên đưa ra câu trả lời hoàn chỉnh và hữu ích ngay lập tức; nếu phải tạm dừng, khi quay lại phải nói tiếp cho đủ ý
     - KHÔNG BAO GIỜ kết thúc cuộc trò chuyện mà không đưa ra câu trả lời đầy đủ
     - PHẢI luôn đưa ra thông tin hữu ích, ngay cả khi không có thông tin chính xác
     """
@@ -166,6 +191,17 @@ class GeminiService:
         except Exception as e:
             logger.error(f"Failed to initialize database conversation service: {e}")
             self.conversation_service = None
+        
+        # Per-connection send locks to prevent concurrent websocket.send_text errors
+        self._send_locks: Dict[WebSocket, asyncio.Lock] = {}
+
+    def _get_send_lock(self, websocket: WebSocket) -> asyncio.Lock:
+        """Get or create a send lock for the given websocket connection."""
+        lock = self._send_locks.get(websocket)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._send_locks[websocket] = lock
+        return lock
     
     def _create_live_config(self, previous_session_handle: Optional[str] = None) -> types.LiveConnectConfig:
         """Create live connection configuration.
@@ -176,6 +212,21 @@ class GeminiService:
         Returns:
             LiveConnectConfig object.
         """
+        # Only include session resumption when a valid handle exists to avoid API errors
+        session_resumption_cfg = None
+        if previous_session_handle:
+            session_resumption_cfg = types.SessionResumptionConfig(handle=previous_session_handle)
+
+        # Log tools configuration
+        logger.info("=" * 60)
+        logger.info("🔧 TOOLS CONFIGURATION INITIALIZED")
+        logger.info("=" * 60)
+        logger.info("📱 Available tools:")
+        logger.info("   ✅ switch_to_main_screen: Chuyển sang màn hình chính của ứng dụng")
+        logger.info("   ✅ switch_to_medicine_scan_screen: Chuyển sang màn hình quét thuốc")
+        logger.info("   🔍 Google Search: Tìm kiếm thông tin cập nhật trên internet")
+        logger.info("=" * 60)
+        
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
             speech_config=types.SpeechConfig(
@@ -186,14 +237,27 @@ class GeminiService:
                 ),
                 language_code='vi-VN',
             ),
+            tools=[
+                types.Tool(
+                    function_declarations=[
+                        types.FunctionDeclaration(
+                            name="switch_to_main_screen",
+                            description="Chuyển sang màn hình chính của ứng dụng"
+                        ),
+                        types.FunctionDeclaration(
+                            name="switch_to_medicine_scan_screen", 
+                            description="Chuyển sang màn hình quét thuốc"
+                        )
+                    ],
+                    google_search=types.GoogleSearch()
+                )
+            ],
             system_instruction=self.SYSTEM_INSTRUCTION,
-            session_resumption=types.SessionResumptionConfig(
-                handle=previous_session_handle
-            ),
+            session_resumption=session_resumption_cfg,
             output_audio_transcription=types.AudioTranscriptionConfig(),
             input_audio_transcription=types.AudioTranscriptionConfig(),
-            temperature=0.3,
-            top_p=0.9,
+            temperature=0.6,
+            top_p=0.85,
         )
     
     async def handle_websocket_connection(self, websocket: WebSocket):
@@ -215,56 +279,52 @@ class GeminiService:
         ping_task = None
         
         try:
-            # Wait for initial config message with timeout
+            # Send early setup ack so clients don't wait and close
+            try:
+                await self._send_safely(websocket, {"setupComplete": {}})
+            except Exception:
+                pass
+
+            # Optional config; do not close socket if missing/invalid
+            config_data = {}
             try:
                 config_message = await asyncio.wait_for(
                     websocket.receive_text(), 
-                    timeout=settings.WEBSOCKET_CONFIG_TIMEOUT  # Sử dụng setting từ config
+                    timeout=settings.WEBSOCKET_CONFIG_TIMEOUT
                 )
                 config_data = json.loads(config_message)
                 logger.info(f"Received config: {config_data}")
-                
-                # Extract user_id from config for database operations
-                user_id_raw = config_data.get("user_id")
-                if user_id_raw:
-                    # Validate and convert user_id to proper format
-                    try:
-                        import uuid
-                        # Try to parse as UUID if it's a string
-                        if isinstance(user_id_raw, str):
-                            # Check if it's already a valid UUID
-                            try:
-                                uuid.UUID(user_id_raw)
-                                self.current_user_id = user_id_raw
-                            except ValueError:
-                                # If not a valid UUID, generate a test UUID for testing purposes
-                                if user_id_raw.startswith("test_"):
-                                    self.current_user_id = "550e8400-e29b-41d4-a716-446655440000"
-                                    logger.info(f"Test user ID detected, using test UUID: {self.current_user_id}")
-                                else:
-                                    logger.warning(f"Invalid UUID format: {user_id_raw}")
-                                    self.current_user_id = None
-                        else:
-                            self.current_user_id = str(user_id_raw)
-                        
-                        if self.current_user_id:
-                            logger.info(f"User ID set for session: {self.current_user_id}")
-                        else:
-                            logger.warning("Invalid user_id format - database operations disabled")
-                    except Exception as e:
-                        logger.error(f"Error processing user_id: {e}")
-                        self.current_user_id = None
-                else:
-                    logger.warning("No user_id provided in config - database operations disabled")
             except asyncio.TimeoutError:
-                logger.error("Timeout waiting for config message")
-                await self._close_websocket_safely(websocket, 4000, "Config timeout")
-                return
+                logger.warning("No config received within timeout - continuing with defaults")
             except json.JSONDecodeError:
-                logger.error("Invalid JSON in config message")
-                await self._close_websocket_safely(websocket, 4001, "Invalid config")
-                return
-            
+                logger.warning("Invalid JSON in config message - continuing with defaults")
+
+            # Extract user_id from config for database operations (optional)
+            user_id_raw = config_data.get("user_id") if isinstance(config_data, dict) else None
+            if user_id_raw:
+                try:
+                    import uuid
+                    if isinstance(user_id_raw, str):
+                        try:
+                            uuid.UUID(user_id_raw)
+                            self.current_user_id = user_id_raw
+                        except ValueError:
+                            if user_id_raw.startswith("test_"):
+                                self.current_user_id = "550e8400-e29b-41d4-a716-446655440000"
+                                logger.info(f"Test user ID detected, using test UUID: {self.current_user_id}")
+                            else:
+                                logger.warning(f"Invalid UUID format: {user_id_raw}")
+                                self.current_user_id = None
+                    else:
+                        self.current_user_id = str(user_id_raw)
+                    if self.current_user_id:
+                        logger.info(f"User ID set for session: {self.current_user_id}")
+                    else:
+                        logger.warning("Invalid user_id format - database operations disabled")
+                except Exception as e:
+                    logger.error(f"Error processing user_id: {e}")
+                    self.current_user_id = None
+
             # Create live connection config
             config = self._create_live_config(previous_session_handle)
             
@@ -334,6 +394,12 @@ class GeminiService:
             logger.info("Session ended - memoir extraction will be handled by daily scheduler")
             
             logger.info("Gemini session closed")
+            
+            # Cleanup send lock for this connection
+            try:
+                self._send_locks.pop(websocket, None)
+            except Exception:
+                pass
     
     async def _ping_websocket(self, websocket: WebSocket):
         """Send periodic keepalive messages to maintain WebSocket connection.
@@ -402,11 +468,28 @@ class GeminiService:
         try:
             while True:
                 try:
-                    # Add timeout for receiving messages
-                    message = await asyncio.wait_for(
-                        websocket.receive_text(),
-                        timeout=settings.WEBSOCKET_MESSAGE_TIMEOUT  # Sử dụng setting từ config
+                    # Add timeout for receiving messages (support both text and binary frames)
+                    incoming = await asyncio.wait_for(
+                        websocket.receive(),
+                        timeout=settings.WEBSOCKET_MESSAGE_TIMEOUT
                     )
+                    
+                    # Handle raw binary audio frames (PCM 16kHz)
+                    if isinstance(incoming, dict) and incoming.get("bytes") is not None:
+                        raw_audio = incoming.get("bytes") or b""
+                        if raw_audio:
+                            await session.send_realtime_input(
+                                audio=types.Blob(data=raw_audio, mime_type="audio/pcm;rate=16000")
+                            )
+                        continue
+                    
+                    # Handle textual JSON messages
+                    if isinstance(incoming, dict) and incoming.get("text") is not None:
+                        message = incoming.get("text") or ""
+                    else:
+                        # Unknown frame type; continue listening
+                        continue
+                    
                     data = json.loads(message)
                 
                     # Handle keepalive messages
@@ -493,6 +576,11 @@ class GeminiService:
                                         "type": response.turn_detection.type
                                     }
                                 })
+                        
+                        # Handle tool calls
+                        if hasattr(response, 'tool_call') and response.tool_call:
+                            await self._handle_tool_calls(websocket, session, response.tool_call)
+                            continue
                         
                         if response.server_content and hasattr(response.server_content, 'interrupted') and response.server_content.interrupted is not None:
                             logger.info(f"[{datetime.datetime.now()}] Generation interrupted")
@@ -626,7 +714,10 @@ class GeminiService:
         try:
             # Check if WebSocket is still connected before sending
             if hasattr(websocket, 'client_state') and websocket.client_state.name == 'CONNECTED':
-                await websocket.send_text(json.dumps(data))
+                # Serialize sends for this connection
+                lock = self._get_send_lock(websocket)
+                async with lock:
+                    await websocket.send_text(json.dumps(data))
             else:
                 logger.warning("Attempted to send data to disconnected WebSocket")
         except Exception as e:
@@ -787,6 +878,137 @@ class GeminiService:
                 "request_id": request_data.get("request_id", "")
             })
 
+    async def _handle_tool_calls(self, websocket: WebSocket, session, tool_call):
+        """Handle tool calls from Gemini and send responses.
+        
+        Args:
+            websocket: FastAPI WebSocket instance.
+            session: Gemini live session.
+            tool_call: Tool call response from Gemini.
+        """
+        try:
+            # Log tool call received
+            logger.info("=" * 60)
+            logger.info("🎯 TOOL CALL RECEIVED FROM GEMINI AI")
+            logger.info("=" * 60)
+            
+            if not hasattr(tool_call, 'function_calls') or not tool_call.function_calls:
+                logger.warning("❌ No function calls in tool_call response")
+                return
+            
+            function_responses = []
+            
+            for function_call in tool_call.function_calls:
+                function_name = function_call.name
+                function_id = function_call.id
+                
+                logger.info(f"🔧 Processing tool call:")
+                logger.info(f"   📝 Function Name: {function_name}")
+                logger.info(f"   🆔 Function ID: {function_id}")
+                logger.info(f"   ⏰ Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                logger.info("-" * 40)
+                
+                # Send tool call notification to frontend
+                await self._send_safely(websocket, {
+                    "type": "tool_call",
+                    "function_name": function_name,
+                    "function_id": function_id,
+                    "timestamp": datetime.datetime.now().isoformat()
+                })
+                
+                # Create function response based on the tool called
+                if function_name == "switch_to_main_screen":
+                    logger.info("🏠 EXECUTING: switch_to_main_screen")
+                    logger.info("   📱 Action: Chuyển về màn hình chính")
+                    
+                    # Send response to frontend to switch to main screen
+                    await self._send_safely(websocket, {
+                        "type": "screen_navigation",
+                        "action": "switch_to_main_screen",
+                        "message": "Đang chuyển sang màn hình chính...",
+                        "timestamp": datetime.datetime.now().isoformat()
+                    })
+                    
+                    # Create success response for Gemini
+                    function_response = types.FunctionResponse(
+                        id=function_id,
+                        name=function_name,
+                        response={"result": "success", "message": "Đã chuyển sang màn hình chính"}
+                    )
+                    
+                    logger.info("✅ switch_to_main_screen completed successfully")
+                    
+                elif function_name == "switch_to_medicine_scan_screen":
+                    logger.info("📱 EXECUTING: switch_to_medicine_scan_screen")
+                    logger.info("   📱 Action: Chuyển sang màn hình quét thuốc")
+                    
+                    # Send response to frontend to switch to medicine scan screen
+                    await self._send_safely(websocket, {
+                        "type": "screen_navigation",
+                        "action": "switch_to_medicine_scan_screen", 
+                        "message": "Đang chuyển sang màn hình quét thuốc...",
+                        "timestamp": datetime.datetime.now().isoformat()
+                    })
+                    
+                    # Create success response for Gemini
+                    function_response = types.FunctionResponse(
+                        id=function_id,
+                        name=function_name,
+                        response={"result": "success", "message": "Đã chuyển sang màn hình quét thuốc"}
+                    )
+                    
+                    logger.info("✅ switch_to_medicine_scan_screen completed successfully")
+                    
+                else:
+                    # Unknown function - create error response
+                    logger.warning(f"❌ UNKNOWN FUNCTION CALLED: {function_name}")
+                    logger.warning(f"   ⚠️ This function is not supported")
+                    
+                    function_response = types.FunctionResponse(
+                        id=function_id,
+                        name=function_name,
+                        response={"result": "error", "message": f"Không hỗ trợ chức năng: {function_name}"}
+                    )
+                
+                function_responses.append(function_response)
+                logger.info(f"📤 Function response created for: {function_name}")
+            
+            # Send tool responses back to Gemini
+            if function_responses:
+                await session.send_tool_response(function_responses=function_responses)
+                logger.info(f"🚀 Sent {len(function_responses)} tool responses back to Gemini AI")
+                logger.info("=" * 60)
+                logger.info("🎯 TOOL CALL PROCESSING COMPLETED SUCCESSFULLY")
+                logger.info("=" * 60)
+                
+        except Exception as e:
+            logger.error("=" * 60)
+            logger.error("💥 ERROR IN TOOL CALL PROCESSING")
+            logger.error("=" * 60)
+            logger.error(f"❌ Error details: {e}")
+            logger.error(f"❌ Error type: {type(e).__name__}")
+            logger.error(f"❌ Timestamp: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+            
+            # Try to send error response to Gemini if possible
+            try:
+                if hasattr(tool_call, 'function_calls') and tool_call.function_calls:
+                    error_responses = []
+                    for function_call in tool_call.function_calls:
+                        error_response = types.FunctionResponse(
+                            id=function_call.id,
+                            name=function_call.name,
+                            response={"result": "error", "message": f"Lỗi xử lý: {str(e)}"}
+                        )
+                        error_responses.append(error_response)
+                    
+                    if error_responses:
+                        await session.send_tool_response(function_responses=error_responses)
+                        logger.info(f"📤 Sent error responses to Gemini for {len(error_responses)} functions")
+            except Exception as send_error:
+                logger.error(f"❌ Failed to send error response to Gemini: {send_error}")
+            
+            logger.error("=" * 60)
+
     async def analyze_image_with_text(self, image_base64: str, prompt: str) -> str:
         """Analyze an image with text prompt using Gemini.
         
@@ -815,10 +1037,10 @@ class GeminiService:
                 model=self.model,
                 contents=types.Content(parts=content_parts),
                 generation_config=types.GenerationConfig(
-                    temperature=0.3,
-                    top_p=0.8,
-                    top_k=40,
-                    max_output_tokens=2048,
+                    temperature=0.5,
+                    top_p=0.9,
+                    top_k=64,
+                    max_output_tokens=4096,
                 )
             )
             

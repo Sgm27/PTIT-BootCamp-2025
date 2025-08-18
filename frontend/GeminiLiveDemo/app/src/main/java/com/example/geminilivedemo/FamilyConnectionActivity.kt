@@ -15,6 +15,7 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import com.example.geminilivedemo.data.ApiClient
 import com.example.geminilivedemo.data.ApiResult
+import com.example.geminilivedemo.data.ElderlyPatientsResponse
 import com.example.geminilivedemo.ScheduleNotificationService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -176,14 +177,14 @@ class FamilyConnectionActivity : AppCompatActivity() {
                 
                 when (result) {
                     is ApiResult.Success<*> -> {
-                        val response = result.data as org.json.JSONObject
-                        if (response.getBoolean("success")) {
-                            val elderlyArray = response.getJSONArray("elderly_patients")
-                            if (elderlyArray.length() > 0) {
+                        val response = result.data as ElderlyPatientsResponse
+                        if (response.success) {
+                            val elderlyArray = response.elderlyPatients
+                            if (elderlyArray.isNotEmpty()) {
                                 // For now, use the first elderly patient
-                                val firstElderly = elderlyArray.getJSONObject(0)
-                                elderlyId = firstElderly.getString("id")
-                                elderlyName = firstElderly.getString("full_name")
+                                val firstElderly = elderlyArray[0]
+                                elderlyId = firstElderly.userId
+                                elderlyName = firstElderly.fullName
                                 elderlyNameText.text = elderlyName
                                 
                                 Log.d(TAG, "Loaded elderly profile: $elderlyName (ID: $elderlyId)")

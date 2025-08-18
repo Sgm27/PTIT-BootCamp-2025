@@ -4,7 +4,7 @@ WebSocket connection manager để broadcast voice notifications
 import asyncio
 import json
 import logging
-from typing import Set
+from typing import Set, Dict
 from fastapi import WebSocket
 import datetime
 
@@ -16,16 +16,34 @@ class WebSocketConnectionManager:
     def __init__(self):
         # Set để lưu trữ active WebSocket connections
         self.active_connections: Set[WebSocket] = set()
+        # Per-connection send locks để tránh concurrent send gây lỗi
+        self._send_locks: Dict[WebSocket, asyncio.Lock] = {}
     
     def add_connection(self, websocket: WebSocket):
         """Thêm WebSocket connection vào danh sách active"""
         self.active_connections.add(websocket)
+        # Tạo lock cho kết nối mới
+        if websocket not in self._send_locks:
+            self._send_locks[websocket] = asyncio.Lock()
         logger.info(f"WebSocket connection added. Total connections: {len(self.active_connections)}")
     
     def remove_connection(self, websocket: WebSocket):
         """Xóa WebSocket connection khỏi danh sách active"""
         self.active_connections.discard(websocket)
+        # Xóa lock tương ứng
+        try:
+            self._send_locks.pop(websocket, None)
+        except Exception:
+            pass
         logger.info(f"WebSocket connection removed. Total connections: {len(self.active_connections)}")
+
+    def _get_lock(self, websocket: WebSocket) -> asyncio.Lock:
+        """Lấy (hoặc tạo) lock cho một WebSocket cụ thể"""
+        lock = self._send_locks.get(websocket)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._send_locks[websocket] = lock
+        return lock
     
     async def broadcast_voice_notification(self, notification_data: dict):
         """
@@ -55,10 +73,13 @@ class WebSocketConnectionManager:
             try:
                 # Check connection state before sending safely
                 if hasattr(connection, 'client_state') and connection.client_state.name == 'CONNECTED':
-                    await asyncio.wait_for(
-                        connection.send_text(json.dumps(message)),
-                        timeout=10.0  # 10 second timeout for send
-                    )
+                    # Serialize sends per-connection
+                    lock = self._get_lock(connection)
+                    async with lock:
+                        await asyncio.wait_for(
+                            connection.send_text(json.dumps(message)),
+                            timeout=10.0  # 10 second timeout for send
+                        )
                     logger.debug(f"Voice notification sent to WebSocket connection")
                 else:
                     logger.warning("WebSocket not connected, marking for removal")
@@ -85,7 +106,10 @@ class WebSocketConnectionManager:
             data: Data để gửi
         """
         try:
-            await websocket.send_text(json.dumps(data))
+            # Serialize sends per-connection to avoid concurrent send errors
+            lock = self._get_lock(websocket)
+            async with lock:
+                await websocket.send_text(json.dumps(data))
         except Exception as e:
             logger.error(f"Failed to send data to WebSocket: {e}")
             self.remove_connection(websocket)
@@ -152,10 +176,12 @@ class WebSocketConnectionManager:
         for connection in list(self.active_connections):
             try:
                 if connection.client_state.name == 'CONNECTED':
-                    await asyncio.wait_for(
-                        connection.send_text(json.dumps(keepalive_message)),
-                        timeout=5.0
-                    )
+                    lock = self._get_lock(connection)
+                    async with lock:
+                        await asyncio.wait_for(
+                            connection.send_text(json.dumps(keepalive_message)),
+                            timeout=5.0
+                        )
                 else:
                     failed_connections.append(connection)
             except Exception:

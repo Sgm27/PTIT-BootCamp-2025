@@ -18,7 +18,15 @@ class WebSocketManager {
         fun onMessageReceived(response: Response)
     }
     
-    private var callback: WebSocketCallback? = null
+    // Empty callback implementation to avoid null issues
+    private val emptyCallback = object : WebSocketCallback {
+        override fun onConnected() {}
+        override fun onDisconnected() {}
+        override fun onError(exception: Exception?) {}
+        override fun onMessageReceived(response: Response) {}
+    }
+    
+    private var callback: WebSocketCallback = emptyCallback
     private var webSocket: WebSocketClient? = null
     private var isConnected = false
     private var shouldReconnect = true
@@ -50,6 +58,10 @@ class WebSocketManager {
         this.callback = callback
     }
     
+    fun clearCallback() {
+        this.callback = emptyCallback
+    }
+    
     fun isConnected(): Boolean {
         return isConnected && webSocket?.isOpen == true
     }
@@ -79,7 +91,7 @@ class WebSocketManager {
                     isConnected = true
                     isConnecting = false
                     reconnectAttempts = 0
-                    callback?.onConnected()
+                    callback.onConnected()
                     sendInitialSetupMessage()
                     // Start heartbeat to keep connection alive
                     startHeartbeat()
@@ -98,7 +110,7 @@ class WebSocketManager {
                     Log.d("WebSocketManager", "Connection Closed: code=$code, reason=$reason, remote=$remote")
                     isConnected = false
                     isConnecting = false
-                    callback?.onDisconnected()
+                    callback.onDisconnected()
                     
                     // Stop heartbeat when connection closes
                     stopHeartbeat()
@@ -139,23 +151,23 @@ class WebSocketManager {
                     when (ex) {
                         is java.net.SocketTimeoutException -> {
                             Log.w("WebSocketManager", "Connection timeout, will retry")
-                            callback?.onError(ex)
+                            callback.onError(ex)
                         }
                         is java.net.ConnectException -> {
                             Log.w("WebSocketManager", "Connection refused, will retry")
-                            callback?.onError(ex)
+                            callback.onError(ex)
                         }
                         is javax.net.ssl.SSLException -> {
                             Log.e("WebSocketManager", "SSL error, check certificate", ex)
-                            callback?.onError(ex)
+                            callback.onError(ex)
                         }
                         is java.net.UnknownHostException -> {
                             Log.e("WebSocketManager", "Unknown host, check URL", ex)
-                            callback?.onError(ex)
+                            callback.onError(ex)
                         }
                         else -> {
                             Log.e("WebSocketManager", "Unknown error", ex)
-                            callback?.onError(ex)
+                            callback.onError(ex)
                         }
                     }
                 }
@@ -168,7 +180,7 @@ class WebSocketManager {
         } catch (e: Exception) {
             Log.e("WebSocketManager", "Failed to create WebSocket connection", e)
             isConnecting = false
-            callback?.onError(e)
+            callback.onError(e)
         }
     }
     
@@ -252,7 +264,7 @@ class WebSocketManager {
         } catch (e: Exception) {
             Log.e("WebSocketManager", "Error sending voice message: ${e.message}", e)
             // Notify callback about the error
-            callback?.onError(e)
+            callback.onError(e)
         }
     }
     
@@ -284,7 +296,7 @@ class WebSocketManager {
             
             // Handle regular Gemini Live messages
             val response = Response(messageData)
-            callback?.onMessageReceived(response)
+            callback.onMessageReceived(response)
             
         } catch (e: Exception) {
             Log.e("WebSocketManager", "Error parsing message: ${e.message}", e)
@@ -324,7 +336,7 @@ class WebSocketManager {
                 voiceNotificationData.put("broadcast", true)
                 
                 val response = Response(voiceNotificationData)
-                callback?.onMessageReceived(response)
+                callback.onMessageReceived(response)
                 
                 Log.d("WebSocketManager", "Voice notification broadcast handled successfully")
                 

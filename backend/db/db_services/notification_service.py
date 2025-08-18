@@ -37,7 +37,7 @@ class NotificationDBService:
             with get_db() as db:
                 notification = Notification(
                     user_id=user_id,
-                    notification_type=notification_type,
+                    notification_type=notification_type.value,
                     title=title,
                     message=message,
                     scheduled_at=scheduled_at,
@@ -52,14 +52,34 @@ class NotificationDBService:
                 db.commit()
                 db.refresh(notification)
                 
+                # Serialize the notification to avoid session issues
+                notification_data = {
+                    "id": str(notification.id),
+                    "user_id": str(notification.user_id),
+                    "notification_type": notification.notification_type,
+                    "title": notification.title,
+                    "message": notification.message,
+                    "scheduled_at": notification.scheduled_at,
+                    "sent_at": notification.sent_at,
+                    "is_sent": notification.is_sent,
+                    "is_read": notification.is_read,
+                    "has_voice": notification.has_voice,
+                    "voice_file_path": notification.voice_file_path,
+                    "voice_generated_at": notification.voice_generated_at,
+                    "priority": notification.priority,
+                    "category": notification.category,
+                    "related_record_id": str(notification.related_record_id) if notification.related_record_id else None,
+                    "created_at": notification.created_at
+                }
+                
                 self.logger.info(f"Created notification {notification.id} for user {user_id}")
-                return notification
+                return notification_data
                 
         except Exception as e:
             self.logger.error(f"Failed to create notification: {e}")
             return None
     
-    async def get_notification(self, notification_id: str) -> Optional[Notification]:
+    def get_notification(self, notification_id: str) -> Optional[Notification]:
         """Get a specific notification"""
         try:
             with get_db() as db:
@@ -94,7 +114,68 @@ class NotificationDBService:
                     desc(Notification.scheduled_at)
                 ).offset(offset).limit(limit).all()
                 
-                return notifications
+                # Serialize to dictionaries to avoid SQLAlchemy session issues
+                serialized_notifications = []
+                for notification in notifications:
+                    serialized_notifications.append({
+                        "id": str(notification.id),
+                        "title": notification.title,
+                        "message": notification.message,
+                        "scheduled_at": notification.scheduled_at,
+                        "notification_type": notification.notification_type,
+                        "category": notification.category,
+                        "priority": notification.priority,
+                        "is_sent": notification.is_sent,
+                        "is_read": notification.is_read,
+                        "created_at": notification.created_at
+                    })
+                
+                return serialized_notifications
+                
+        except Exception as e:
+            self.logger.error(f"Failed to get notifications for user {user_id}: {e}")
+            return []
+    
+    async def get_user_notifications_serialized(
+        self,
+        user_id: str,
+        unread_only: bool = False,
+        limit: int = 50,
+        offset: int = 0,
+        notification_type: Optional[NotificationType] = None
+    ) -> List[dict]:
+        """Get notifications for a user as serialized dictionaries"""
+        try:
+            with get_db() as db:
+                query = db.query(Notification).filter(Notification.user_id == user_id)
+                
+                if unread_only:
+                    query = query.filter(Notification.is_read == False)
+                
+                if notification_type:
+                    query = query.filter(Notification.notification_type == notification_type)
+                
+                notifications = query.order_by(
+                    desc(Notification.scheduled_at)
+                ).offset(offset).limit(limit).all()
+                
+                # Serialize to dictionaries to avoid SQLAlchemy session issues
+                serialized_notifications = []
+                for notification in notifications:
+                    serialized_notifications.append({
+                        "id": str(notification.id),
+                        "title": notification.title,
+                        "message": notification.message,
+                        "scheduled_at": notification.scheduled_at,
+                        "notification_type": notification.notification_type,
+                        "category": notification.category,
+                        "priority": notification.priority,
+                        "is_sent": notification.is_sent,
+                        "is_read": notification.is_read,
+                        "created_at": notification.created_at
+                    })
+                
+                return serialized_notifications
                 
         except Exception as e:
             self.logger.error(f"Failed to get notifications for user {user_id}: {e}")
@@ -125,7 +206,7 @@ class NotificationDBService:
             self.logger.error(f"Failed to get pending notifications: {e}")
             return []
     
-    async def mark_notification_sent(
+    def mark_notification_sent(
         self,
         notification_id: str,
         voice_file_path: Optional[str] = None
@@ -333,21 +414,28 @@ class NotificationDBService:
             self.logger.error(f"Failed to create custom notification: {e}")
             return None
     
-    async def delete_notification(self, notification_id: str) -> bool:
+    def delete_notification(self, notification_id: str) -> bool:
         """Delete a notification"""
         try:
             with get_db() as db:
+                # First check if notification exists
                 notification = db.query(Notification).filter(
                     Notification.id == notification_id
                 ).first()
                 
                 if not notification:
+                    self.logger.warning(f"Notification {notification_id} not found for deletion")
                     return False
                 
+                # Store notification info for logging before deletion
+                notification_title = notification.title
+                notification_user_id = str(notification.user_id)
+                
+                # Delete the notification
                 db.delete(notification)
                 db.commit()
                 
-                self.logger.info(f"Deleted notification {notification_id}")
+                self.logger.info(f"Deleted notification {notification_id} - '{notification_title}' for user {notification_user_id}")
                 return True
                 
         except Exception as e:

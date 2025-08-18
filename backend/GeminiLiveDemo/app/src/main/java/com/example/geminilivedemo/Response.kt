@@ -9,6 +9,10 @@ class Response(data: JSONObject) {
     var notifications: List<Notification>? = null
     var notificationResponse: String? = null
     var voiceNotificationData: VoiceNotificationData? = null
+    
+    // New fields for tool calls and screen navigation
+    var toolCallData: ToolCallData? = null
+    var screenNavigationData: ScreenNavigationData? = null
 
     init {
         if (data.has("text")) {
@@ -34,6 +38,12 @@ class Response(data: JSONObject) {
                 }
                 "voice_notification_response", "voice_notification" -> {
                     voiceNotificationData = parseVoiceNotificationResponse(data)
+                }
+                "tool_call" -> {
+                    toolCallData = parseToolCallData(data)
+                }
+                "screen_navigation" -> {
+                    screenNavigationData = parseScreenNavigationData(data)
                 }
             }
         }
@@ -91,4 +101,43 @@ class Response(data: JSONObject) {
             null
         }
     }
+    
+    private fun parseToolCallData(data: JSONObject): ToolCallData? {
+        return try {
+            ToolCallData(
+                functionName = data.optString("function_name", ""),
+                functionId = data.optString("function_id", ""),
+                timestamp = data.optString("timestamp", "")
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("Response", "Error parsing tool call data: ${e.message}")
+            null
+        }
+    }
+    
+    private fun parseScreenNavigationData(data: JSONObject): ScreenNavigationData? {
+        return try {
+            ScreenNavigationData(
+                action = data.optString("action", ""),
+                message = data.optString("message", ""),
+                timestamp = data.optString("timestamp", "")
+            )
+        } catch (e: Exception) {
+            android.util.Log.e("Response", "Error parsing screen navigation data: ${e.message}")
+            null
+        }
+    }
 }
+
+// Data classes for tool calls and screen navigation
+data class ToolCallData(
+    val functionName: String,
+    val functionId: String,
+    val timestamp: String
+)
+
+data class ScreenNavigationData(
+    val action: String,
+    val message: String,
+    val timestamp: String
+)

@@ -242,7 +242,9 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -421,7 +423,9 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -480,7 +484,9 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -496,7 +502,7 @@ class ApiClient {
             }
         }
         
-        suspend fun getElderlyPatients(familyUserId: String): ApiResult<JSONObject> {
+        suspend fun getElderlyPatients(familyUserId: String): ApiResult<ElderlyPatientsResponse> {
             return withContext(Dispatchers.IO) {
                 try {
                     Log.d("ApiClient", "Getting elderly patients for family member: $familyUserId")
@@ -504,7 +510,7 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            ApiResult.Success<ElderlyPatientsResponse>(responseBody)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -543,7 +549,9 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -566,7 +574,9 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }
@@ -589,7 +599,9 @@ class ApiClient {
                     if (response.isSuccessful) {
                         val responseBody = response.body()
                         if (responseBody != null) {
-                            ApiResult.Success<JSONObject>(JSONObject(responseBody.toString()))
+                            val jsonString = com.google.gson.Gson().toJson(responseBody)
+                            val jsonObject = org.json.JSONObject(jsonString)
+                            ApiResult.Success<JSONObject>(jsonObject)
                         } else {
                             ApiResult.Error(Exception("Empty response body"))
                         }

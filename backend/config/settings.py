@@ -32,7 +32,15 @@ class Settings:
     CORS_HEADERS: list = ["*"]
     
     # Session settings
-    SESSION_FILE: str = "session_handle.json"
+    # Compute project root based on this file location to build absolute runtime paths
+    _CONFIG_DIR = os.path.dirname(__file__)
+    _PROJECT_ROOT = os.path.abspath(os.path.join(_CONFIG_DIR, '..', '..'))
+    _RUNTIME_DIR_DEFAULT = os.path.join(_PROJECT_ROOT, 'runtime_data')
+    RUNTIME_DIR: str = os.getenv('RUNTIME_DIR', _RUNTIME_DIR_DEFAULT)
+    # Store runtime files outside code-watched dirs to avoid uvicorn reload loops
+    SESSION_FILE: str = os.getenv('SESSION_FILE', os.path.join(RUNTIME_DIR, 'session_handle.json'))
+    # Conversation history file path (used by Gemini service for backup persistence)
+    CONVERSATION_HISTORY_FILE: str = os.getenv('CONVERSATION_HISTORY_FILE', os.path.join(RUNTIME_DIR, 'conversation_history.json'))
     SESSION_TIMEOUT_SECONDS: int = 60  # 1 minute
     
     # WebSocket settings - OPTIMIZED FOR STABLE CONNECTIONS
@@ -50,6 +58,12 @@ class Settings:
             raise ValueError("GOOGLE_API_KEY environment variable is required")
         if not self.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY environment variable is required")
+        # Ensure runtime directory exists
+        try:
+            os.makedirs(os.path.dirname(self.SESSION_FILE) or '.', exist_ok=True)
+            os.makedirs(os.path.dirname(self.CONVERSATION_HISTORY_FILE) or '.', exist_ok=True)
+        except Exception:
+            pass
 
 
 # Global settings instance

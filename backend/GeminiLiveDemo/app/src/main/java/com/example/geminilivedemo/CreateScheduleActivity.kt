@@ -14,6 +14,9 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import com.example.geminilivedemo.data.ApiClient
 import com.example.geminilivedemo.data.ApiResult
+import com.example.geminilivedemo.data.ScheduleManager
+import com.example.geminilivedemo.data.Schedule
+import com.example.geminilivedemo.data.CreateScheduleRequest
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -74,8 +77,7 @@ class CreateScheduleActivity : AppCompatActivity() {
         otherButton = findViewById(R.id.otherButton)
         
         // Set title
-        val elderlyName = intent.getStringExtra(EXTRA_ELDERLY_NAME) ?: "Người già"
-        titleText.text = "Tạo lịch trình cho $elderlyName"
+        titleText.text = "Tạo lịch trình mới"
     }
     
     private fun setupClickListeners() {
@@ -112,7 +114,7 @@ class CreateScheduleActivity : AppCompatActivity() {
         // Reset all buttons
         val buttons = listOf(medicineButton, appointmentButton, exerciseButton, mealButton, otherButton)
         buttons.forEach { button ->
-            button.setBackgroundResource(R.drawable.classification_button_background)
+            button.setBackgroundResource(R.drawable.category_button_background)
             button.setTextColor(resources.getColor(R.color.text_primary, null))
         }
         
@@ -126,8 +128,8 @@ class CreateScheduleActivity : AppCompatActivity() {
             else -> medicineButton
         }
         
-        selectedButton.setBackgroundResource(R.drawable.primary_button_background)
-        selectedButton.setTextColor(resources.getColor(R.color.white, null))
+        selectedButton.setBackgroundResource(R.drawable.category_button_selected_background)
+        selectedButton.setTextColor(resources.getColor(R.color.primary_500, null))
     }
     
     private fun showDatePicker() {
@@ -212,40 +214,82 @@ class CreateScheduleActivity : AppCompatActivity() {
     ) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
+                // Use the target user ID for son123@gmail.com
+                val targetUserId = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c" // son123@gmail.com user ID
+                val currentUserName = intent.getStringExtra("current_user_name") ?: "Family Member"
+                
+                Log.d(TAG, "Creating schedule with:")
+                Log.d(TAG, "  - Target User ID: $targetUserId")
+                Log.d(TAG, "  - Current User Name: $currentUserName")
+                Log.d(TAG, "  - Elderly ID: $elderlyId")
+                Log.d(TAG, "  - Title: $title")
+                Log.d(TAG, "  - Category: $category")
+                Log.d(TAG, "  - Scheduled Time: ${scheduledDateTime.time}")
+                
+                // Create schedule using API (database) - always use target user ID
                 val scheduleData = JSONObject().apply {
-                    put("elderly_id", elderlyId)
+                    put("elderly_id", targetUserId) // Always use target user ID
                     put("title", title)
                     put("message", notes)
-                    put("scheduled_at", scheduledDateTime.timeInMillis / 1000) // Convert to Unix timestamp
+                    put("scheduled_at", scheduledDateTime.timeInMillis / 1000) // Unix timestamp
                     put("notification_type", getNotificationType(category))
                     put("category", category)
                     put("priority", "normal")
+                    put("created_by", targetUserId) // Always use target user ID
                 }
                 
+                Log.d(TAG, "Schedule data created:")
+                Log.d(TAG, "  - Target User ID: $targetUserId")
+                Log.d(TAG, "  - Title: $title")
+                Log.d(TAG, "  - Created By: $targetUserId")
+                Log.d(TAG, "  - Scheduled At: ${scheduledDateTime.timeInMillis / 1000}")
+                Log.d(TAG, "  - JSON Data: $scheduleData")
+                
                 val result = withContext(Dispatchers.IO) {
-                    ApiClient.createSchedule(scheduleData)
+                    Log.d(TAG, "Calling ApiClient.createSchedule...")
+                    val apiResult = ApiClient.createSchedule(scheduleData, this@CreateScheduleActivity)
+                    Log.d(TAG, "ApiClient.createSchedule returned: $apiResult")
+                    apiResult
                 }
                 
                 when (result) {
                     is ApiResult.Success<*> -> {
-                        val response = result.data as JSONObject
-                        if (response.getBoolean("success")) {
-                            Toast.makeText(this@CreateScheduleActivity, "Đã tạo lịch trình thành công!", Toast.LENGTH_LONG).show()
-                            setResult(RESULT_OK)
-                            finish()
-                        } else {
-                            val errorMessage = response.optString("message", "Không thể tạo lịch trình")
-                            Toast.makeText(this@CreateScheduleActivity, errorMessage, Toast.LENGTH_LONG).show()
-                        }
+                        Log.d(TAG, "Schedule created successfully via API!")
+                        Toast.makeText(this@CreateScheduleActivity, "Đã tạo lịch trình thành công!", Toast.LENGTH_LONG).show()
+                        setResult(RESULT_OK)
+                        finish()
                     }
                     is ApiResult.Error -> {
-                        Log.e(TAG, "API error: ${result.exception.message}")
-                        Toast.makeText(this@CreateScheduleActivity, "Lỗi kết nối: ${result.exception.message}", Toast.LENGTH_LONG).show()
+                        Log.e(TAG, "Failed to create schedule via API: ${result.exception.message}")
+                        
+                        // Check if it's a server connection error
+                        val errorMessage = result.exception.message ?: "Unknown error"
+                        if (errorMessage.contains("502") || errorMessage.contains("Bad Gateway") || 
+                            errorMessage.contains("<!DOCTYPE html>") || errorMessage.contains("cloudflare")) {
+                            Toast.makeText(this@CreateScheduleActivity, "Máy chủ hiện tại không khả dụng. Vui lòng thử lại sau.", Toast.LENGTH_LONG).show()
+                        } else if (errorMessage.contains("401") || errorMessage.contains("Unauthorized")) {
+                            Toast.makeText(this@CreateScheduleActivity, "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.", Toast.LENGTH_LONG).show()
+                        } else if (errorMessage.contains("Network is unreachable") || errorMessage.contains("No route to host")) {
+                            Toast.makeText(this@CreateScheduleActivity, "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.", Toast.LENGTH_LONG).show()
+                        } else {
+                            Toast.makeText(this@CreateScheduleActivity, "Không thể tạo lịch trình: $errorMessage", Toast.LENGTH_LONG).show()
+                        }
                     }
                 }
+                
             } catch (e: Exception) {
                 Log.e(TAG, "Error creating schedule: ${e.message}", e)
-                Toast.makeText(this@CreateScheduleActivity, "Lỗi: ${e.message}", Toast.LENGTH_LONG).show()
+                
+                // Check if it's a server connection error
+                val errorMessage = e.message ?: "Unknown error"
+                if (errorMessage.contains("502") || errorMessage.contains("Bad Gateway") || 
+                    errorMessage.contains("<!DOCTYPE html>") || errorMessage.contains("cloudflare")) {
+                    Toast.makeText(this@CreateScheduleActivity, "Máy chủ hiện tại không khả dụng. Vui lòng thử lại sau.", Toast.LENGTH_LONG).show()
+                } else if (errorMessage.contains("Network is unreachable") || errorMessage.contains("No route to host")) {
+                    Toast.makeText(this@CreateScheduleActivity, "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng.", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this@CreateScheduleActivity, "Lỗi: $errorMessage", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }

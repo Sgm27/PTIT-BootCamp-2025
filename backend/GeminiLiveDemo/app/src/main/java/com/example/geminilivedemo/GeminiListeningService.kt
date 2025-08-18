@@ -24,6 +24,7 @@ class GeminiListeningService : Service() {
         const val ACTION_TOGGLE_LISTENING = "TOGGLE_LISTENING"
         const val ACTION_PAUSE_LISTENING = "PAUSE_LISTENING"
         const val ACTION_RESUME_LISTENING = "RESUME_LISTENING"
+        const val ACTION_DISCONNECT_WEBSOCKET = "DISCONNECT_WEBSOCKET"
     }
     
     private var isListening = false
@@ -94,6 +95,7 @@ class GeminiListeningService : Service() {
             ACTION_TOGGLE_LISTENING -> toggleListening()
             ACTION_PAUSE_LISTENING -> pauseListening()
             ACTION_RESUME_LISTENING -> resumeListening()
+            ACTION_DISCONNECT_WEBSOCKET -> disconnectWebSocket()
         }
         
         val notification = createNotification(isListening && !isPaused)
@@ -110,7 +112,15 @@ class GeminiListeningService : Service() {
         
         stopListening()
         wakeLock?.release()
-        webSocketManager?.disconnect()
+        
+        // Only disconnect WebSocket if no audio is currently playing or queued
+        if (audioManager?.hasAudioToPlay() == true) {
+            Log.d("GeminiService", "Audio is playing or queued, keeping WebSocket alive")
+        } else {
+            Log.d("GeminiService", "No audio to play, disconnecting WebSocket")
+            webSocketManager?.disconnect()
+        }
+        
         audioManager?.cleanup()
         serviceScope.cancel()
     }
@@ -322,12 +332,11 @@ class GeminiListeningService : Service() {
             stopListening()
         }
         
-        // Disconnect WebSocket to avoid dual connections
-        Log.d("GeminiService", "Disconnecting WebSocket...")
-        webSocketManager?.disconnect()
-        webSocketManager = null
+        // Keep WebSocket connected to allow AI to continue playing audio
+        // Only disconnect if we're truly going to background
+        Log.d("GeminiService", "Keeping WebSocket connected for audio continuity")
         
-        Log.d("GeminiService", "Service paused successfully")
+        Log.d("GeminiService", "Service paused successfully (WebSocket kept alive)")
         updateNotification()
     }
     
@@ -338,9 +347,13 @@ class GeminiListeningService : Service() {
         // Start listening immediately, WebSocket will connect in parallel
         updateNotification()
         
-        // Initialize WebSocket connection
-        Log.d("GeminiService", "Initializing WebSocket...")
-        initializeWebSocket()
+        // Only initialize WebSocket if it doesn't exist
+        if (webSocketManager == null) {
+            Log.d("GeminiService", "Initializing WebSocket...")
+            initializeWebSocket()
+        } else {
+            Log.d("GeminiService", "WebSocket already exists, reusing existing connection")
+        }
         
         // Start audio input immediately - it can handle the case where WebSocket isn't ready yet
         serviceScope.launch {
@@ -355,5 +368,21 @@ class GeminiListeningService : Service() {
     private fun updateNotification() {
         val notification = createNotification(isListening && !isPaused)
         notificationManager?.notify(NOTIFICATION_ID, notification)
+    }
+    
+    private fun disconnectWebSocket() {
+        Log.d("GeminiService", "Disconnecting WebSocket (app going to background)")
+        
+        // Only disconnect if no audio is playing or queued
+        if (audioManager?.hasAudioToPlay() == true) {
+            Log.d("GeminiService", "Audio is playing or queued, keeping WebSocket alive for audio completion")
+            return
+        }
+        
+        // Disconnect WebSocket to save resources when app is truly in background
+        webSocketManager?.disconnect()
+        webSocketManager = null
+        
+        Log.d("GeminiService", "WebSocket disconnected successfully")
     }
 }

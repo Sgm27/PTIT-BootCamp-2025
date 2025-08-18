@@ -39,239 +39,355 @@
                 android:clickable="true"
                 android:focusable="true"
                 android:contentDescription="Back"
-                app:tint="@color/text_primary" />
+                android:tint="@color/text_primary" />
 
-            <!-- Title -->
-            <TextView
-                android:id="@+id/titleText"
+            <!-- Refresh Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/refreshButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_centerInParent="true"
-                android:text="@string/family_connection_title"
-                android:textSize="20sp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="8dp"
+                android:text="Làm mới"
+                android:textSize="14sp"
                 android:textStyle="bold"
-                android:textColor="@color/text_primary" />
+                android:textColor="@color/white"
+                android:backgroundTint="@color/secondary_500"
+                app:icon="@drawable/baseline_refresh_24"
+                app:iconTint="@color/white"
+                app:iconGravity="textStart"
+                app:iconPadding="6dp"
+                app:cornerRadius="18dp"
+                android:paddingHorizontal="12dp"
+                android:paddingVertical="6dp" />
+
+            <!-- Add Button -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/addButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_toStartOf="@id/refreshButton"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="8dp"
+                android:text="Thêm"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/white"
+                android:backgroundTint="@color/primary_500"
+                app:icon="@drawable/baseline_add_24"
+                app:iconTint="@color/white"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp"
+                app:cornerRadius="20dp"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="8dp" />
 
         </RelativeLayout>
 
     </LinearLayout>
 
-    <!-- Main Content -->
-    <LinearLayout
+    <!-- Main Content with ScrollView -->
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginTop="104dp"
-        android:orientation="vertical"
-        android:padding="16dp">
+        android:fillViewport="true"
+        android:scrollbars="none">
 
-        <!-- Elderly Name Section -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:layout_marginBottom="24dp">
+            android:padding="16dp">
 
-            <TextView
-                android:id="@+id/elderlyName"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Papa"
-                android:textSize="24sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="8dp" />
+            <!-- Profile Card with Gradient Background -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:layout_marginBottom="24dp"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="6dp"
+                app:strokeWidth="0dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Lịch trình hàng ngày"
-                android:textSize="16sp"
-                android:textColor="@color/text_secondary" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/profile_gradient_background"
+                    android:orientation="vertical"
+                    android:padding="20dp"
+                    android:gravity="bottom">
 
-        </LinearLayout>
+                    <TextView
+                        android:id="@+id/elderlyName"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Đức Sơn"
+                        android:textSize="28sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/white"
+                        android:fontFamily="sans-serif-light" />
 
-        <!-- Elderly Selection (only visible for family members) -->
-        <LinearLayout
-            android:id="@+id/elderlySelectionContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginBottom="24dp"
-            android:visibility="gone">
+                </LinearLayout>
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Chọn người già:"
-                android:textSize="16sp"
-                android:textColor="@color/text_primary"
-                android:layout_marginEnd="12dp" />
+            </com.google.android.material.card.MaterialCardView>
 
-            <Spinner
-                android:id="@+id/elderlySelectionSpinner"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:background="@drawable/spinner_background" />
-
-        </LinearLayout>
-
-        <!-- Loading Progress Bar -->
-        <ProgressBar
-            android:id="@+id/progressBar"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_marginBottom="24dp"
-            android:visibility="gone" />
-
-        <!-- Error Container -->
-        <LinearLayout
-            android:id="@+id/errorContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:layout_marginBottom="24dp"
-            android:visibility="gone">
-
-            <ImageView
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:src="@drawable/baseline_error_outline_24"
-                android:layout_marginBottom="16dp"
-                app:tint="@color/error_500" />
-
-            <TextView
-                android:id="@+id/errorMessage"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Đã xảy ra lỗi"
-                android:textSize="16sp"
-                android:textColor="@color/text_secondary"
-                android:gravity="center"
-                android:layout_marginBottom="16dp" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/retryButton"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Thử lại"
-                android:textSize="14sp"
-                app:backgroundTint="@color/primary_500" />
-
-        </LinearLayout>
-
-        <!-- Empty State Container -->
-        <LinearLayout
-            android:id="@+id/emptyStateContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center"
-            android:layout_marginBottom="24dp"
-            android:visibility="gone">
-
-            <ImageView
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:src="@drawable/baseline_schedule_24"
-                android:layout_marginBottom="16dp"
-                app:tint="@color/text_secondary" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Chưa có lịch trình nào"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_secondary"
-                android:gravity="center"
-                android:layout_marginBottom="8dp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Tạo lịch trình đầu tiên để bắt đầu"
-                android:textSize="14sp"
-                android:textColor="@color/text_secondary"
-                android:gravity="center"
-                android:layout_marginBottom="16dp" />
-
-        </LinearLayout>
-
-        <!-- Content Container -->
-        <LinearLayout
-            android:id="@+id/contentContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical">
-
-            <TextView
-                android:id="@+id/todayDate"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Hôm nay, 03 tháng 01"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:textColor="@color/text_primary"
-                android:layout_marginBottom="16dp" />
-
+            <!-- Schedule Title with Icon -->
             <LinearLayout
-                android:id="@+id/todayScheduleContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
 
-            <!-- Yesterday Section -->
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@drawable/baseline_schedule_24"
+                    android:tint="@color/primary_500"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Lịch trình"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_primary" />
+
+            </LinearLayout>
+
+            <!-- Elderly Selection (only visible for family members) -->
             <LinearLayout
+                android:id="@+id/elderlySelectionContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="20dp"
+                android:visibility="gone"
+                android:background="@drawable/rounded_input_background"
+                android:padding="12dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:src="@drawable/baseline_person_24"
+                    android:tint="@color/text_secondary"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Chọn người già:"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:layout_marginEnd="12dp" />
+
+                <Spinner
+                    android:id="@+id/elderlySelectionSpinner"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:background="@drawable/spinner_background" />
+
+            </LinearLayout>
+
+            <!-- Loading Progress Bar -->
+            <LinearLayout
+                android:id="@+id/loadingContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_marginBottom="24dp"
+                android:visibility="gone">
+
+                <ProgressBar
+                    android:id="@+id/progressBar"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp" />
+
+            </LinearLayout>
+
+            <!-- Error Container -->
+            <LinearLayout
+                android:id="@+id/errorContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_marginBottom="24dp"
+                android:visibility="gone"
+                android:background="@drawable/rounded_error_background"
+                android:padding="20dp">
+
+                <ImageView
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@drawable/baseline_error_outline_24"
+                    android:layout_marginBottom="16dp"
+                    android:tint="@color/error_500" />
+
+                <TextView
+                    android:id="@+id/errorMessage"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Đã xảy ra lỗi"
+                    android:textSize="16sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:layout_marginBottom="16dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/retryButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Thử lại"
+                    android:textSize="14sp"
+                    app:backgroundTint="@color/primary_500"
+                    app:cornerRadius="20dp" />
+
+            </LinearLayout>
+
+            <!-- Empty State Container -->
+            <LinearLayout
+                android:id="@+id/emptyStateContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:layout_marginBottom="24dp"
+                android:visibility="gone"
+                android:background="@drawable/rounded_empty_background"
+                android:padding="32dp">
+
+                <ImageView
+                    android:layout_width="64dp"
+                    android:layout_height="64dp"
+                    android:src="@drawable/baseline_schedule_24"
+                    android:layout_marginBottom="16dp"
+                    android:tint="@color/text_secondary" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Chưa có lịch trình nào"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tạo lịch trình đầu tiên để bắt đầu"
+                    android:textSize="14sp"
+                    android:textColor="@color/text_secondary"
+                    android:gravity="center"
+                    android:layout_marginBottom="16dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Tạo lịch trình"
+                    android:textSize="14sp"
+                    app:backgroundTint="@color/primary_500"
+                    app:cornerRadius="20dp"
+                    android:onClick="onCreateScheduleClick" />
+
+            </LinearLayout>
+
+            <!-- Content Container -->
+            <LinearLayout
+                android:id="@+id/contentContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
-                <TextView
-                    android:id="@+id/yesterdayDate"
-                    android:layout_width="wrap_content"
+                <!-- Today Section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Hôm qua, 02 tháng 01"
-                    android:textSize="18sp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="12dp">
+
+                    <View
+                        android:layout_width="4dp"
+                        android:layout_height="20dp"
+                        android:background="@color/primary_500"
+                        android:layout_marginEnd="8dp" />
+
+                                    <TextView
+                    android:id="@+id/todayDate"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Lịch trình (sắp xếp theo thời gian gần nhất)"
+                    android:textSize="16sp"
                     android:textStyle="bold"
-                    android:textColor="@color/text_primary"
-                    android:layout_marginBottom="16dp" />
+                    android:textColor="@color/text_primary" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/todayScheduleContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="24dp" />
+
+                <!-- Yesterday Section - Hidden since we show all schedules in one section -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="12dp"
+                    android:visibility="gone">
+
+                    <View
+                        android:layout_width="4dp"
+                        android:layout_height="20dp"
+                        android:background="@color/text_secondary"
+                        android:layout_marginEnd="8dp" />
+
+                    <TextView
+                        android:id="@+id/yesterdayDate"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Hôm qua, 06 tháng 8"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/text_secondary" />
+
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/yesterdayScheduleContainer"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical" />
+                    android:orientation="vertical"
+                    android:visibility="gone" />
+
+            </LinearLayout> <!-- End of contentContainer -->
+
+            <!-- Schedule Container -->
+            <LinearLayout
+                android:id="@+id/scheduleContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="visible">
 
             </LinearLayout>
 
-        </LinearLayout> <!-- End of contentContainer -->
-
-        <!-- Schedule Container -->
-        <LinearLayout
-            android:id="@+id/scheduleContainer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="visible">
-
         </LinearLayout>
 
-    </LinearLayout>
-
-    <!-- Floating Action Button -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/addButton"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:src="@drawable/baseline_add_24"
-        android:contentDescription="Add new reminder"
-        app:backgroundTint="@color/primary_500"
-        app:tint="@color/white"
-        app:elevation="8dp" />
+    </androidx.core.widget.NestedScrollView>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout> 
