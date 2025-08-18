@@ -1,32 +1,82 @@
 [
   {
     "role": "user",
-    "text": ". Alo alo, mấy ông.",
-    "timestamp": "2025-08-18T20:41:34.177181"
+    "text": "Hello chào bạn.",
+    "timestamp": "2025-08-19T03:30:37.970127"
   },
   {
     "role": "assistant",
-    "text": "Chào bác ạ, cháu nghe rõ đây. Bác có khỏe không ạ? Bác cần cháu giúp gì không nè?",
-    "timestamp": "2025-08-18T20:41:34.178298"
+    "text": "Chào bác ạ, cháu là Đức Sơn đây. Cháu có thể giúp gì cho bác hôm nay ạ?",
+    "timestamp": "2025-08-19T03:30:37.970927"
   },
   {
     "role": "user",
-    "text": "con. cảm ơn con. Có cần đi.",
-    "timestamp": "2025-08-18T20:41:41.961424"
+    "text": "ạ. Alo có thể nói chuyện được không?",
+    "timestamp": "2025-08-19T03:30:54.773550"
   },
   {
     "role": "assistant",
-    "text": "Dạ, bác cứ nói đi ạ, cháu đang lắng nghe đây. Bác cứ chia sẻ nhé.",
-    "timestamp": "2025-08-18T20:41:41.962543"
+    "text": "Dạ được chứ ạ, cháu luôn sẵn lòng lắng nghe bác đây. Bác cứ nói đi ạ, cháu sẽ cố gắng hết sức để trò chuyện và hỗ trợ bác nha.",
+    "timestamp": "2025-08-19T03:30:54.774904"
   },
   {
     "role": "user",
-    "text": "Bác đang cảm thấy chán quá.",
-    "timestamp": "2025-08-18T20:42:00.398438"
+    "text": "ย ย ย ย",
+    "timestamp": "2025-08-19T03:31:03.423576"
   },
   {
     "role": "assistant",
-    "text": "À, cháu hiểu rồi. Bác đang cảm thấy chán hả? Cháu rất tiếc khi nghe bác nói vậy. Bác có muốn trò chuyện một chút không ạ? Hay là mình cùng tìm một vài hoạt động nhẹ nhàng để bác thấy vui hơn nhé. Cháu luôn ở đây lắng nghe bác đó.",
-    "timestamp": "2025-08-18T20:42:00.399186"
+    "text": "Dạ bác cứ nói đi ạ, cháu đang nghe đây. Bác muốn hỏi về sức khỏe hay cần cháu hỗ trợ gì không ạ?",
+    "timestamp": "2025-08-19T03:31:03.424096"
+  },
+  {
+    "role": "user",
+    "text": "<noise> Alo trò chuyển lên.",
+    "timestamp": "2025-08-19T03:31:31.331840"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ bác cứ nói đi ạ, cháu đang lắng nghe rất kỹ đây. Bác có điều gì muốn chia sẻ hay hỏi cháu không ạ?Chào bác ạ, cháu là Đức Sơn đây. Cháu có thể giúp gì cho bác hôm nay ạ?",
+    "timestamp": "2025-08-19T03:31:31.332460"
+  },
+  {
+    "role": "user",
+    "text": ". Kìa mà câu chuyện nhưng mà",
+    "timestamp": "2025-08-19T03:31:39.259509"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ bác cứ nói đi ạ cháu đang lắng nghe đây ạ.",
+    "timestamp": "2025-08-19T03:31:39.260968"
+  },
+  {
+    "role": "user",
+    "text": "Thì một câu chuyện thôi. Kể cả một chút thứ gì?",
+    "timestamp": "2025-08-19T03:37:32.271009"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ vâng ạ cháu hiểu rồi. Bác cứ kể đi ạ cháu luôn sẵn lòng lắng nghe bác ạ.À chào bác ạ. Bác muốn cháu kể chuyện gì ạ? Bác cứ nói rõ ra nhé, cháu sẵn lòng lắng nghe đây ạ.",
+    "timestamp": "2025-08-19T03:37:32.272427"
+  },
+  {
+    "role": "user",
+    "text": "Dạ. Kể câu chuyện về học trò đấy.",
+    "timestamp": "2025-08-19T03:38:39.151953"
+  },
+  {
+    "role": "assistant",
+    "text": "À cháu hiểu rồi. Bác muốn nghe một câu chuyện về học trò đúng không ạ? Thế thì cháu kể bác nghe câu chuyện này nhé.\n\nNgày xửa ngày xưa, có một cậu bé tên là An, An rất ham học nhưng nhà lại nghèo lắm. Mỗi ngày, An phải đi bộ thật xa để đến trường. Đường đi thì gập ghềnh, nắng mưa thất thường, nhưng An không bao giờ nản lòng. Cậu bé luôn mang theo một quyển sách cũ đã sờn rách và tranh thủ đọc bất cứ khi nào có thời gian rảnh.\n\nAn học rất giỏi, luôn đứng đầu lớp và được thầy yêu bạn mến. Thầy giáo thường khen An là một cậu bé có ý chí và nghị lực phi thường. Dù hoàn cảnh khó khăn, An vẫn luôn cố gắng hết mình để theo đuổi ước mơ học tập.\n\nSau này, An lớn lên và trở thành một người thầy giáo giỏi giang, mang kiến thức và niềm đam mê học hỏi đến cho biết bao thế hệ học trò khác. An luôn nhớ về những ngày tháng khó khăn của mình và dùng câu chuyện đó để động viên các em học sinh hãy luôn cố gắng, không ngừng vươn lên.\n\nBác thấy câu chuyện này thế nào ạ? Cháu hy vọng câu chuyện về cậu bé An đã mang lại cho bác một chút niềm vui và cảm hứng ạ.",
+    "timestamp": "2025-08-19T03:38:39.152863"
+  },
+  {
+    "role": "user",
+    "text": "ง",
+    "timestamp": "2025-08-19T03:38:54.218157"
+  },
+  {
+    "role": "assistant",
+    "text": "Dạ, bác cứ nói đi ạ. Cháu vẫn đang lắng nghe bác đây ạ. Bác muốn kể thêm chuyện gì hay muốn cháu giải thích gì không ạ?",
+    "timestamp": "2025-08-19T03:38:54.219776"
   }
 ]

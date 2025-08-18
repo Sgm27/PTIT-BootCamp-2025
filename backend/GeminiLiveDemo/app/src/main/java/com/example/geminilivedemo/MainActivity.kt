@@ -425,8 +425,8 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                         currentFrameB64 = imageB64
                         Log.d("MainActivity", "Captured image stored, length: ${imageB64.length}")
                         
-                        // Display the captured image on the main screen
-                        uiManager.displayCapturedImage(imageB64)
+                        // Note: We no longer display captured images on the main screen
+                        // as it's now a video avatar. The image will be sent to AI directly.
                         
                         // Check WebSocket connection before sending
                         if (webSocketManager.isConnected()) {
@@ -442,7 +442,7 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 }
             }
             else -> {
-                currentFrameB64 = cameraManager.handleCameraResult(requestCode, resultCode, data, uiManager.getImageView())
+                currentFrameB64 = cameraManager.handleCameraResult(requestCode, resultCode, data, null)
             }
         }
     }

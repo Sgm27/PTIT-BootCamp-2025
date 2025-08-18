@@ -7,6 +7,7 @@ import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.widget.*
+import android.widget.VideoView
 import androidx.appcompat.app.AppCompatActivity
 
 
@@ -29,7 +30,7 @@ class UIManager(private val activity: AppCompatActivity) {
     private var callback: UICallback? = null
     
     // UI Components
-    private lateinit var imageView: ImageView
+    private lateinit var avatarVideoView: VideoView
     private lateinit var captureButton: FrameLayout
     private lateinit var startButton: Button
     private lateinit var stopButton: Button
@@ -63,6 +64,7 @@ class UIManager(private val activity: AppCompatActivity) {
     private var isAIPlaying = false
     private var isAIResponding = false
     private var isBackgroundServiceRunning = false
+    private var isCurrentlyPlayingTalking = false // Track current video state
     
     fun setCallback(callback: UICallback) {
         this.callback = callback
@@ -70,7 +72,7 @@ class UIManager(private val activity: AppCompatActivity) {
     
     fun initializeViews() {
         // Initialize all UI components
-        imageView = activity.findViewById(R.id.imageView)
+        avatarVideoView = activity.findViewById(R.id.avatarVideoView)
         captureButton = activity.findViewById(R.id.captureButton)
         startButton = activity.findViewById(R.id.startButton)
         stopButton = activity.findViewById(R.id.stopButton)
@@ -100,8 +102,8 @@ class UIManager(private val activity: AppCompatActivity) {
         
         setupClickListeners()
         
-        // Set default avatar
-        setDefaultAvatar()
+        // Set default avatar video
+        setDefaultAvatarVideo()
         
         // Initialize status bar
         initializeStatusBar()
@@ -201,24 +203,7 @@ class UIManager(private val activity: AppCompatActivity) {
         }
     }
     
-    fun displayCapturedImage(base64Image: String) {
-        // Kiểm tra xem các UI components đã được khởi tạo chưa
-        if (!::imageView.isInitialized) {
-            Log.d("UIManager", "ImageView not initialized yet, skipping displayCapturedImage")
-            return
-        }
-        
-        activity.runOnUiThread {
-            try {
-                val imageBytes = Base64.decode(base64Image, Base64.NO_WRAP)
-                val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-                imageView.setImageBitmap(bitmap)
-                Log.d("UIManager", "Displayed captured image on ImageView")
-            } catch (e: Exception) {
-                Log.e("UIManager", "Error displaying captured image", e)
-            }
-        }
-    }
+
     
     fun setConnectionStatus(connected: Boolean) {
         isConnected = connected
@@ -226,11 +211,15 @@ class UIManager(private val activity: AppCompatActivity) {
     
     fun setSpeakingStatus(speaking: Boolean) {
         isSpeaking = speaking
+        // Không chuyển đổi video khi user đang nói - chỉ khi AI phát âm thanh
+        // updateAvatarVideo()
     }
     
     fun setAIPlayingStatus(playing: Boolean) {
         isAIPlaying = playing
         updateMicButtonState()
+        // Chỉ chuyển đổi video khi trạng thái phát âm thanh thay đổi
+        updateAvatarVideo()
     }
     
     fun setAIRespondingStatus(responding: Boolean) {
@@ -239,6 +228,12 @@ class UIManager(private val activity: AppCompatActivity) {
             setAISpeaking()
         } else if (!isAIPlaying && !isSpeaking) {
             setAIIdle()
+        }
+        // Chỉ chuyển đổi video khi AI thực sự phát âm thanh
+        if (responding && isAIPlaying) {
+            updateAvatarVideo()
+        } else if (!responding && !isAIPlaying) {
+            updateAvatarVideo()
         }
     }
     
@@ -269,7 +264,7 @@ class UIManager(private val activity: AppCompatActivity) {
         // Background service status is no longer displayed in UI
     }
     
-    fun getImageView(): ImageView = imageView
+    fun getVideoView(): VideoView = avatarVideoView
     
     fun showToast(message: String) {
         activity.runOnUiThread {
@@ -282,15 +277,99 @@ class UIManager(private val activity: AppCompatActivity) {
         Log.d("UIManager", "Connection status updated: $connected")
     }
     
-    private fun setDefaultAvatar() {
+    private fun setDefaultAvatarVideo() {
         // Kiểm tra xem các UI components đã được khởi tạo chưa
-        if (!::imageView.isInitialized) {
-            Log.d("UIManager", "ImageView not initialized yet, skipping setDefaultAvatar")
+        if (!::avatarVideoView.isInitialized) {
+            Log.d("UIManager", "AvatarVideoView not initialized yet, skipping setDefaultAvatarVideo")
             return
         }
         
         activity.runOnUiThread {
-            imageView.setImageResource(R.drawable.friend_avatar)
+            isCurrentlyPlayingTalking = false // Khởi tạo với video waiting
+            playWaitingAvatar()
+        }
+    }
+    
+    private fun playWaitingAvatar() {
+        if (!::avatarVideoView.isInitialized) {
+            Log.d("UIManager", "AvatarVideoView not initialized yet, skipping playWaitingAvatar")
+            return
+        }
+        
+        try {
+            val videoPath = "android.resource://${activity.packageName}/raw/waiting_avatar"
+            avatarVideoView.setVideoURI(android.net.Uri.parse(videoPath))
+            avatarVideoView.setOnPreparedListener { mediaPlayer ->
+                mediaPlayer.isLooping = true
+                mediaPlayer.setVolume(0f, 0f) // Tắt âm thanh
+            }
+            avatarVideoView.setOnCompletionListener { mediaPlayer ->
+                // Tự động phát lại khi kết thúc
+                mediaPlayer.start()
+            }
+            avatarVideoView.start()
+            Log.d("UIManager", "Started playing waiting avatar video")
+        } catch (e: Exception) {
+            Log.e("UIManager", "Error playing waiting avatar video", e)
+        }
+    }
+    
+    private fun playTalkingAvatar() {
+        if (!::avatarVideoView.isInitialized) {
+            Log.d("UIManager", "AvatarVideoView not initialized yet, skipping playTalkingAvatar")
+            return
+        }
+        
+        try {
+            val videoPath = "android.resource://${activity.packageName}/raw/talking_avatar"
+            avatarVideoView.setVideoURI(android.net.Uri.parse(videoPath))
+            avatarVideoView.setOnPreparedListener { mediaPlayer ->
+                mediaPlayer.isLooping = true
+                mediaPlayer.setVolume(0f, 0f) // Tắt âm thanh
+            }
+            avatarVideoView.setOnCompletionListener { mediaPlayer ->
+                // Tự động phát lại khi kết thúc
+                mediaPlayer.start()
+            }
+            avatarVideoView.start()
+            Log.d("UIManager", "Started playing talking avatar video")
+        } catch (e: Exception) {
+            Log.e("UIManager", "Error playing talking avatar video", e)
+        }
+    }
+    
+    fun switchToTalkingAvatar() {
+        if (isAIResponding || isAIPlaying) {
+            playTalkingAvatar()
+        }
+    }
+    
+    fun switchToWaitingAvatar() {
+        if (!isAIResponding && !isAIPlaying && !isSpeaking) {
+            playWaitingAvatar()
+        }
+    }
+    
+    private fun updateAvatarVideo() {
+        // Chỉ chuyển đổi video khi thực sự cần thiết
+        val shouldPlayTalking = isAIPlaying // Chỉ khi AI thực sự đang phát âm thanh
+        
+        // Tránh chuyển đổi video không cần thiết
+        if (shouldPlayTalking == isCurrentlyPlayingTalking) {
+            return // Video đã đang phát đúng trạng thái
+        }
+        
+        // Thêm delay nhỏ để tránh chuyển đổi quá nhanh
+        activity.runOnUiThread {
+            if (shouldPlayTalking) {
+                // AI đang phát âm thanh - phát video talking
+                playTalkingAvatar()
+                isCurrentlyPlayingTalking = true
+            } else {
+                // AI không phát âm thanh - phát video waiting
+                playWaitingAvatar()
+                isCurrentlyPlayingTalking = false
+            }
         }
     }
     
@@ -385,6 +464,10 @@ class UIManager(private val activity: AppCompatActivity) {
             aiStatusText.text = "AI: Rảnh"
             aiStatusText.setTextColor(activity.getColor(R.color.text_secondary))
         }
+        // Chỉ chuyển đổi video nếu AI không đang phát âm thanh
+        if (!isAIPlaying) {
+            updateAvatarVideo()
+        }
     }
 
     fun setAIListening() {
@@ -400,6 +483,8 @@ class UIManager(private val activity: AppCompatActivity) {
             aiStatusText.text = "AI: Đang lắng nghe"
             aiStatusText.setTextColor(activity.getColor(R.color.primary_600))
         }
+        // Không chuyển đổi video khi AI lắng nghe - giữ nguyên video hiện tại
+        // updateAvatarVideo()
     }
 
     fun setAISpeaking() {
@@ -414,6 +499,10 @@ class UIManager(private val activity: AppCompatActivity) {
             aiStatusIcon.setColorFilter(activity.getColor(R.color.accent_600))
             aiStatusText.text = "AI: Đang nói"
             aiStatusText.setTextColor(activity.getColor(R.color.accent_600))
+        }
+        // Chỉ chuyển đổi video nếu AI thực sự đang phát âm thanh
+        if (isAIPlaying) {
+            updateAvatarVideo()
         }
     }
 
@@ -430,5 +519,7 @@ class UIManager(private val activity: AppCompatActivity) {
             aiStatusText.text = "AI: Đang suy nghĩ"
             aiStatusText.setTextColor(activity.getColor(R.color.text_secondary))
         }
+        // Không chuyển đổi video khi AI suy nghĩ - giữ nguyên video hiện tại
+        // updateAvatarVideo()
     }
 }

@@ -65,7 +65,7 @@ class CameraManager(private val activity: Activity) {
         }
     }
     
-    fun handleCameraResult(requestCode: Int, resultCode: Int, data: Intent?, imageView: ImageView): String? {
+    fun handleCameraResult(requestCode: Int, resultCode: Int, data: Intent?, imageView: ImageView?): String? {
         if (requestCode == Constants.CAMERA_REQUEST_CODE && resultCode == Activity.RESULT_OK) {
             val file = File(currentPhotoPath ?: return null)
 
@@ -90,9 +90,11 @@ class CameraManager(private val activity: Activity) {
             // Step 3: Create Base64 string
             val currentFrameB64 = Base64.encodeToString(byteArrayOutputStream.toByteArray(), Base64.DEFAULT or Base64.NO_WRAP)
 
-            // Show preview (using further scaled version if needed)
-            val previewBitmap = scaleBitmapForPreview(scaledBitmap)
-            imageView.setImageBitmap(previewBitmap)
+            // Show preview (using further scaled version if needed) - only if imageView is provided
+            if (imageView != null) {
+                val previewBitmap = scaleBitmapForPreview(scaledBitmap)
+                imageView.setImageBitmap(previewBitmap)
+            }
 
             // Clean up resources
             scaledBitmap.recycle()

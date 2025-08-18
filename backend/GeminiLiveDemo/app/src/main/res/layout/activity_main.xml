@@ -168,14 +168,12 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@id/bottomNavigation">
 
-        <!-- Avatar Image -->
-        <ImageView
-            android:id="@+id/imageView"
+        <!-- Avatar Video -->
+        <VideoView
+            android:id="@+id/avatarVideoView"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="centerCrop"
-            android:src="@drawable/friend_avatar"
-            android:contentDescription="Avatar" />
+            android:layout_gravity="center" />
 
     </FrameLayout>
 
