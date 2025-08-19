@@ -114,6 +114,9 @@ class UIManager(private val activity: AppCompatActivity) {
         
         // Start with waiting avatar
         playWaitingAvatar()
+        
+        // Initialize mic button state
+        updateMicButtonState()
     }
     
     private fun setupClickListeners() {
@@ -219,6 +222,9 @@ class UIManager(private val activity: AppCompatActivity) {
         Log.d("UIManager", "setAIPlayingStatus called: playing=$playing")
         isAIPlaying = playing
         
+        // Update mic button state when AI playing status changes
+        updateMicButtonState()
+        
         // Only update video if we're not currently switching
         if (!isVideoSwitching.get()) {
             updateAvatarVideo()
@@ -248,6 +254,9 @@ class UIManager(private val activity: AppCompatActivity) {
         } else if (!responding && !isAIPlaying) {
             updateAvatarVideo()
         }
+        
+        // Update mic button state when AI responding status changes
+        updateMicButtonState()
     }
     
     private fun updateMicButtonState() {

@@ -4,6 +4,10 @@ import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager as SysAudioManager
 import android.util.Log
 import com.example.geminilivedemo.data.ScheduleManager
 import com.example.geminilivedemo.data.Schedule
@@ -15,6 +19,8 @@ class VoiceNotificationService : Service() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var textToSpeech: TextToSpeech
     private lateinit var scheduleManager: ScheduleManager
+    private lateinit var systemAudioManager: SysAudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
     
     companion object {
         private const val TAG = "VoiceNotificationService"
@@ -35,6 +41,7 @@ class VoiceNotificationService : Service() {
         Log.d(TAG, "VoiceNotificationService created")
         
         scheduleManager = ScheduleManager(this)
+        systemAudioManager = getSystemService(AUDIO_SERVICE) as SysAudioManager
         initializeTextToSpeech()
         
         // Start monitoring schedules
@@ -54,6 +61,7 @@ class VoiceNotificationService : Service() {
         
         textToSpeech.shutdown()
         serviceScope.cancel()
+        abandonAudioFocus()
     }
     
     private fun initializeTextToSpeech() {
@@ -65,6 +73,31 @@ class VoiceNotificationService : Service() {
                     textToSpeech.language = Locale.getDefault()
                 }
                 Log.d(TAG, "TextToSpeech initialized successfully")
+                textToSpeech.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        GlobalPlaybackState.isPlaying = true
+                        Log.d(TAG, "TTS onStart: $utteranceId")
+                    }
+
+                    override fun onDone(utteranceId: String?) {
+                        Log.d(TAG, "TTS onDone: $utteranceId")
+                        GlobalPlaybackState.isPlaying = false
+                        abandonAudioFocus()
+                    }
+
+                    @Deprecated("Deprecated in Java")
+                    override fun onError(utteranceId: String?) {
+                        Log.w(TAG, "TTS onError: $utteranceId")
+                        GlobalPlaybackState.isPlaying = false
+                        abandonAudioFocus()
+                    }
+
+                    override fun onError(utteranceId: String?, errorCode: Int) {
+                        Log.w(TAG, "TTS onError($errorCode): $utteranceId")
+                        GlobalPlaybackState.isPlaying = false
+                        abandonAudioFocus()
+                    }
+                })
             } else {
                 Log.e(TAG, "TextToSpeech initialization failed")
             }
@@ -118,6 +151,12 @@ class VoiceNotificationService : Service() {
     }
     
     private fun sendImmediateVoiceNotification(schedule: Schedule) {
+        if (GlobalPlaybackState.isPlaying) {
+            Log.d(TAG, "Another audio is playing, skipping immediate TTS to avoid overlap")
+            return
+        }
+        requestAudioFocus()
+        GlobalPlaybackState.isPlaying = true
         val notificationText = "Đã đến giờ: ${schedule.title}. ${schedule.message}"
         
         textToSpeech.speak(
@@ -136,6 +175,12 @@ class VoiceNotificationService : Service() {
     }
     
     private fun sendAdvanceVoiceNotification(schedule: Schedule, timeUntilSchedule: Long) {
+        if (GlobalPlaybackState.isPlaying) {
+            Log.d(TAG, "Another audio is playing, skipping advance TTS to avoid overlap")
+            return
+        }
+        requestAudioFocus()
+        GlobalPlaybackState.isPlaying = true
         val minutes = timeUntilSchedule / 60
         val notificationText = "Nhắc nhở: ${schedule.title} sẽ diễn ra trong $minutes phút nữa. ${schedule.message}"
         
@@ -151,6 +196,12 @@ class VoiceNotificationService : Service() {
     
     // Public method to send custom voice notification
     fun sendCustomVoiceNotification(title: String, message: String) {
+        if (GlobalPlaybackState.isPlaying) {
+            Log.d(TAG, "Another audio is playing, skipping custom TTS to avoid overlap")
+            return
+        }
+        requestAudioFocus()
+        GlobalPlaybackState.isPlaying = true
         val notificationText = "$title. $message"
         
         textToSpeech.speak(
@@ -165,6 +216,12 @@ class VoiceNotificationService : Service() {
     
     // Method to test voice notification
     fun testVoiceNotification() {
+        if (GlobalPlaybackState.isPlaying) {
+            Log.d(TAG, "Another audio is playing, skipping test TTS to avoid overlap")
+            return
+        }
+        requestAudioFocus()
+        GlobalPlaybackState.isPlaying = true
         val testText = "Xin chào! Đây là thông báo thử nghiệm từ ứng dụng Kết nối yêu thương."
         
         textToSpeech.speak(
@@ -175,5 +232,33 @@ class VoiceNotificationService : Service() {
         )
         
         Log.d(TAG, "Sent test voice notification")
+    }
+
+    private fun requestAudioFocus() {
+        try {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+            audioFocusRequest = AudioFocusRequest.Builder(SysAudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(attributes)
+                .setAcceptsDelayedFocusGain(false)
+                .setOnAudioFocusChangeListener { /* no-op */ }
+                .build()
+            val result = systemAudioManager.requestAudioFocus(audioFocusRequest!!)
+            Log.d(TAG, "Audio focus request result: $result")
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to request audio focus", e)
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        try {
+            audioFocusRequest?.let {
+                systemAudioManager.abandonAudioFocusRequest(it)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to abandon audio focus", e)
+        }
     }
 } 

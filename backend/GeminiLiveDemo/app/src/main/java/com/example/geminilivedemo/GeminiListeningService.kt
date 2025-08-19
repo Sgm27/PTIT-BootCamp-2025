@@ -142,6 +142,10 @@ class GeminiListeningService : Service() {
                 audioManager?.pauseRecordingForVoiceNotification()
                 
                 voiceData.audioBase64?.let { audioBase64 ->
+                    if (GlobalPlaybackState.isPlaying) {
+                        Log.d("GeminiService", "Another audio is playing, skip enqueue to avoid overlap")
+                        return
+                    }
                     Log.d("GeminiService", "Playing voice notification audio")
                     audioManager?.ingestAudioChunkToPlay(audioBase64)
                     
@@ -197,6 +201,10 @@ class GeminiListeningService : Service() {
                     Log.d("GeminiService", "AI text response: $text")
                 }
                 response.audioData?.let { audioData ->
+                    if (GlobalPlaybackState.isPlaying) {
+                        Log.d("GeminiService", "Another audio is playing, skip AI enqueue to avoid overlap")
+                        return
+                    }
                     Log.d("GeminiService", "AI audio response received, playing audio")
                     // Actually play the audio using AudioManager
                     audioManager?.ingestAudioChunkToPlay(audioData)

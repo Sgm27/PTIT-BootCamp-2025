@@ -274,6 +274,10 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             override fun onVoiceNotificationGenerated(voiceData: VoiceNotificationData) {
                 Log.d("MainActivity", "Voice notification generated via HTTP API")
                 voiceData.audioBase64?.let { audioBase64 ->
+                    if (GlobalPlaybackState.isPlaying) {
+                        Log.d("MainActivity", "Another audio is playing, skip HTTP enqueue to avoid overlap")
+                        return
+                    }
                     audioManager.ingestAudioChunkToPlay(audioBase64)
                 }
                 uiManager.displayMessage("SYSTEM: Voice notification - ${voiceData.notificationText}")
@@ -307,6 +311,10 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
                 audioManager.pauseRecordingForVoiceNotification()
                 
                 voiceData.audioBase64?.let { audioBase64 ->
+                    if (GlobalPlaybackState.isPlaying) {
+                        Log.d("MainActivity", "Another audio is playing, skip enqueue to avoid overlap")
+                        return
+                    }
                     Log.d("MainActivity", "Playing voice notification audio")
                     audioManager.ingestAudioChunkToPlay(audioBase64)
                     

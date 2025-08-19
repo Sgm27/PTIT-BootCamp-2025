@@ -6,6 +6,9 @@ import android.Manifest
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.AudioTrack
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager as SysAudioManager
 import android.util.Base64
 import android.util.Log
 import androidx.core.app.ActivityCompat
@@ -44,6 +47,8 @@ class AudioManager(private val context: Context) {
     
     private val audioQueue = mutableListOf<ByteArray>()
     private var audioTrack: AudioTrack? = null
+    private var systemAudioManager: SysAudioManager = context.getSystemService(Context.AUDIO_SERVICE) as SysAudioManager
+    private var audioFocusRequest: AudioFocusRequest? = null
     
     // Voice Activity Detection parameters - More permissive settings
     private var silenceThreshold = 200  // Lower threshold for easier voice detection
@@ -253,6 +258,8 @@ class AudioManager(private val context: Context) {
 
                 if (!isPlayingAudio) {
                     isPlayingAudio = true
+                    GlobalPlaybackState.isPlaying = true
+                    requestAudioFocus()
                     Log.d("AudioManager", "Audio playback started")
                     // Switch to main thread for callback
                     withContext(Dispatchers.Main) {
@@ -266,6 +273,7 @@ class AudioManager(private val context: Context) {
             
             // Audio playback finished
             isPlayingAudio = false
+            GlobalPlaybackState.isPlaying = false
             lastPlaybackEndTime = System.currentTimeMillis()
             
             Log.d("AudioManager", "Audio playback loop finished")
@@ -274,6 +282,8 @@ class AudioManager(private val context: Context) {
             withContext(Dispatchers.Main) {
                 callback.onAudioPlaybackStopped()
             }
+
+            abandonAudioFocus()
             
             Log.d("AudioManager", "AI finished speaking, cooldown started")
             
@@ -320,6 +330,36 @@ class AudioManager(private val context: Context) {
             }
             audioTrack?.stop()
             Log.d("AudioManager", "Audio playback finished")
+        }
+    }
+
+    private fun requestAudioFocus() {
+        try {
+            val attributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANCE_ACCESSIBILITY)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                .build()
+
+            audioFocusRequest = AudioFocusRequest.Builder(SysAudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+                .setAudioAttributes(attributes)
+                .setAcceptsDelayedFocusGain(false)
+                .setOnAudioFocusChangeListener { /* no-op */ }
+                .build()
+
+            val result = systemAudioManager.requestAudioFocus(audioFocusRequest!!)
+            Log.d("AudioManager", "Audio focus request result: $result")
+        } catch (e: Exception) {
+            Log.w("AudioManager", "Failed to request audio focus", e)
+        }
+    }
+
+    private fun abandonAudioFocus() {
+        try {
+            audioFocusRequest?.let {
+                systemAudioManager.abandonAudioFocusRequest(it)
+            }
+        } catch (e: Exception) {
+            Log.w("AudioManager", "Failed to abandon audio focus", e)
         }
     }
     
