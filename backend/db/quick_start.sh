@@ -41,7 +41,6 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
     echo "🧹 Removing old volumes..."
     docker volume rm healthcare_postgres_data 2>/dev/null || true
     docker volume rm healthcare_pgadmin_data 2>/dev/null || true
-    docker volume rm healthcare_redis_data 2>/dev/null || true
 fi
 
 # Start the containers
@@ -92,11 +91,7 @@ echo "   - URL: http://localhost:8080"
 echo "   - Email: admin@healthcare.com"
 echo "   - Password: healthcare123"
 echo ""
-echo "📝 Redis Cache:"
-echo "   - Host: localhost"
-echo "   - Port: 6379"
-echo ""
-echo "🔧 Next Steps:"
+echo " Next Steps:"
 echo "   1. Go to backend directory: cd .."
 echo "   2. Install Python dependencies: pip install -r requirements.txt"
 echo "   3. Start the server: python run_server.py"

@@ -32,10 +32,6 @@ aiofiles==23.2.1
 pillow==10.1.0
 opencv-python==4.8.1.78
 
-# Redis for caching (optional)
-redis==5.0.1
-aioredis==2.0.1
-
 # Scheduling and background tasks
 apscheduler==3.10.4
 

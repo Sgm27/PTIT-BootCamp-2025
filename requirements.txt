@@ -32,10 +32,6 @@ aiofiles
 pillow
 opencv-python
 
-# Redis for caching (optional)
-redis
-aioredis
-
 # Development and debugging
 pytest
 black
