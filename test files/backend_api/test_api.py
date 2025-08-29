@@ -9,7 +9,7 @@ def test_conversation_api():
     # Try localhost first, then remote
     urls = [
         f'http://localhost:8000/api/conversations/{user_id}',
-        f'http://13.216.164.63:8000/api/conversations/{user_id}'
+        f'http://13.215.139.225:8000/api/conversations/{user_id}'
     ]
     
     for url in urls:

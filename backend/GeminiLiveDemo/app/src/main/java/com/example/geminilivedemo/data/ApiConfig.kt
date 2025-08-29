@@ -72,7 +72,7 @@ object ApiConfig {
     
     // Database Configuration (EC2 AWS - chỉ dùng cho backend, không dùng trực tiếp từ Android)
     object Database {
-        const val HOST = "13.216.164.63"  // EC2 AWS - chỉ backend connect
+        const val HOST = "13.215.139.225"  // EC2 AWS - chỉ backend connect
         const val PORT = 5432
         const val NAME = "healthcare_ai"
         const val USER = "postgres"

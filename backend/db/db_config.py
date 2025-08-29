@@ -11,12 +11,15 @@ from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.pool import QueuePool
 import psycopg2
 from contextlib import contextmanager
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 logger = logging.getLogger(__name__)
 
 # Database Configuration
 DB_CONFIG = {
-    'host': os.getenv('DB_HOST', '13.216.164.63'),
+    'host': os.getenv('DB_HOST', '13.215.139.225'),
     'port': int(os.getenv('DB_PORT', 5432)),
     'database': os.getenv('DB_NAME', 'healthcare_ai'),
     'user': os.getenv('DB_USER', 'postgres'),

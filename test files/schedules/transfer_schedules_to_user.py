@@ -8,7 +8,7 @@ from datetime import datetime
 
 # Database Configuration
 DB_CONFIG = {
-    'host': '13.216.164.63',
+    'host': '13.215.139.225',
     'port': 5432,
     'database': 'healthcare_ai',
     'user': 'postgres',

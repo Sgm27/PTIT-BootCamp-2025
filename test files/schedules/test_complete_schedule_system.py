@@ -13,7 +13,7 @@ import time
 # Configuration
 API_BASE = "https://backend-bootcamp.sonktx.online"
 DB_CONFIG = {
-    'host': '13.216.164.63',
+    'host': '13.215.139.225',
     'port': 5432,
     'database': 'healthcare_ai',
     'user': 'postgres',
