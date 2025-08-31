@@ -676,11 +676,6 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
     private fun handleToolCall(toolCall: ToolCallData) {
         Log.d("MainActivity", "Handling tool call: ${toolCall.functionName}")
         
-        // Display tool call message to user
-        if (::uiManager.isInitialized) {
-            uiManager.displayMessage("SYSTEM: AI đang thực hiện: ${toolCall.functionName}")
-        }
-        
         // Log tool call for debugging
         Log.i("MainActivity", "Tool call received - Function: ${toolCall.functionName}, ID: ${toolCall.functionId}")
     }
@@ -691,20 +686,12 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
     private fun handleScreenNavigation(navigation: ScreenNavigationData) {
         Log.d("MainActivity", "Handling screen navigation: ${navigation.action}")
         
-        // Display navigation message to user
-        if (::uiManager.isInitialized) {
-            uiManager.displayMessage("SYSTEM: ${navigation.message}")
-        }
-        
         // Execute navigation based on action
         when (navigation.action) {
             "switch_to_main_screen" -> {
                 Log.i("MainActivity", "Switching to main screen")
                 // Navigate to main screen (current activity)
-                runOnUiThread {
-                    // Show success message
-                    Toast.makeText(this, "Đã chuyển về màn hình chính", Toast.LENGTH_SHORT).show()
-                }
+                // No toast needed as user is already on main screen
             }
             "switch_to_medicine_scan_screen" -> {
                 Log.d("MainActivity", "Switching to medicine scan screen - keeping audio active")
@@ -713,9 +700,6 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             }
             else -> {
                 Log.w("MainActivity", "Unknown navigation action: ${navigation.action}")
-                runOnUiThread {
-                    Toast.makeText(this, "Hành động không được hỗ trợ: ${navigation.action}", Toast.LENGTH_SHORT).show()
-                }
             }
         }
     }

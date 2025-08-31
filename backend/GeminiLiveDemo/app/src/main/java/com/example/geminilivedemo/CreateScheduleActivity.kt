@@ -143,7 +143,6 @@ class CreateScheduleActivity : AppCompatActivity() {
     private fun processPrescriptionImage(imageUri: Uri) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                Toast.makeText(this@CreateScheduleActivity, "Đang trích xuất từ đơn thuốc...", Toast.LENGTH_SHORT).show()
                 val base64Image = withContext(Dispatchers.IO) {
                     val inputStream: InputStream? = contentResolver.openInputStream(imageUri)
                     val bytes = inputStream?.readBytes()

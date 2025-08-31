@@ -394,10 +394,6 @@ class MedicineInfoActivity : AppCompatActivity() {
                 override fun onAudioRecordingStarted() {
                     Log.d(TAG, "Audio recording started")
                     updateVoiceChatUI(true)
-                    // Show recording status on main thread
-                    runOnUiThread {
-                        Toast.makeText(this@MedicineInfoActivity, "Đang ghi âm...", Toast.LENGTH_SHORT).show()
-                    }
                 }
                 
                 override fun onAudioRecordingStopped() {
@@ -406,26 +402,14 @@ class MedicineInfoActivity : AppCompatActivity() {
                     if (webSocketManager.isWebSocketConnected()) {
                         webSocketManager.sendEndOfStreamMessage()
                     }
-                    // Show processing status on main thread
-                    runOnUiThread {
-                        Toast.makeText(this@MedicineInfoActivity, "Đang xử lý...", Toast.LENGTH_SHORT).show()
-                    }
                 }
                 
                 override fun onAudioPlaybackStarted() {
                     Log.d(TAG, "Audio playback started - AI is speaking")
-                    // Show AI speaking status on main thread
-                    runOnUiThread {
-                        Toast.makeText(this@MedicineInfoActivity, "AI đang trả lời...", Toast.LENGTH_SHORT).show()
-                    }
                 }
                 
                 override fun onAudioPlaybackStopped() {
                     Log.d(TAG, "Audio playback stopped - AI finished speaking")
-                    // Show ready status on main thread
-                    runOnUiThread {
-                        Toast.makeText(this@MedicineInfoActivity, "Sẵn sàng lắng nghe", Toast.LENGTH_SHORT).show()
-                    }
                 }
             })
             
@@ -444,16 +428,10 @@ class MedicineInfoActivity : AppCompatActivity() {
         webSocketManager.setCallback(object : WebSocketManager.WebSocketCallback {
             override fun onConnected() {
                 Log.d(TAG, "WebSocket connected")
-                runOnUiThread {
-                    Toast.makeText(this@MedicineInfoActivity, "Đã kết nối với Gemini", Toast.LENGTH_SHORT).show()
-                }
             }
             
             override fun onDisconnected() {
                 Log.d(TAG, "WebSocket disconnected")
-                runOnUiThread {
-                    Toast.makeText(this@MedicineInfoActivity, "Mất kết nối với Gemini", Toast.LENGTH_SHORT).show()
-                }
             }
             
             override fun onError(exception: Exception?) {
@@ -520,9 +498,6 @@ class MedicineInfoActivity : AppCompatActivity() {
         // Check if WebSocket is connected
         if (!webSocketManager.isWebSocketConnected()) {
             Log.w(TAG, "WebSocket not connected, attempting to reconnect...")
-            runOnUiThread {
-                Toast.makeText(this, "Đang kết nối lại với Gemini...", Toast.LENGTH_SHORT).show()
-            }
             
             // Try to reconnect
             webSocketManager.connect()
@@ -606,7 +581,7 @@ class MedicineInfoActivity : AppCompatActivity() {
     
     private fun saveMedicine() {
         // TODO: Implement save medicine functionality
-        Toast.makeText(this, "Tính năng lưu thuốc sẽ được phát triển", Toast.LENGTH_SHORT).show()
+        Log.d(TAG, "Save medicine feature not yet implemented")
     }
     
     private fun shareMedicine() {

@@ -172,7 +172,7 @@ class ProfileActivity : AppCompatActivity() {
             findViewById<android.widget.LinearLayout>(R.id.btnMedicalHistory)?.setOnClickListener {
                 try {
                     // TODO: Open medical history activity
-                    Toast.makeText(this, "Tính năng đang phát triển", Toast.LENGTH_SHORT).show()
+                    Log.d("ProfileActivity", "Medical history feature not yet implemented")
                 } catch (e: Exception) {
                     Log.e("ProfileActivity", "Error opening medical history", e)
                 }
@@ -198,7 +198,7 @@ class ProfileActivity : AppCompatActivity() {
             findViewById<android.widget.LinearLayout>(R.id.btnHelpSupport)?.setOnClickListener {
                 try {
                     // TODO: Open help and support activity
-                    Toast.makeText(this, "Tính năng đang phát triển", Toast.LENGTH_SHORT).show()
+                    Log.d("ProfileActivity", "Help and support feature not yet implemented")
                 } catch (e: Exception) {
                     Log.e("ProfileActivity", "Error opening help and support", e)
                 }
@@ -208,7 +208,7 @@ class ProfileActivity : AppCompatActivity() {
             findViewById<android.widget.LinearLayout>(R.id.btnPrivacyPolicy)?.setOnClickListener {
                 try {
                     // TODO: Open privacy policy activity
-                    Toast.makeText(this, "Tính năng đang phát triển", Toast.LENGTH_SHORT).show()
+                    Log.d("ProfileActivity", "Privacy policy feature not yet implemented")
                 } catch (e: Exception) {
                     Log.e("ProfileActivity", "Error opening privacy policy", e)
                 }
