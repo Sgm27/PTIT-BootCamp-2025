@@ -19,7 +19,7 @@ async def test_production_api():
     logger.info("🧪 Testing Production API Endpoint")
     
     # Production API URL
-    api_url = "https://backend-bootcamp.sonktx.online/api/analyze-medicine-gemini"
+    api_url = "https://backend.vcaremind.io.vn/api/analyze-medicine-gemini"
     
     # Test with a sample image (if available)
     test_image_path = Path("thuoc-panadol.jpg")

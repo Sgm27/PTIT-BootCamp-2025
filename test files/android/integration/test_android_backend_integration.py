@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 
 # API Configuration matching Android app
-BASE_URL = "https://backend-bootcamp.sonktx.online"
+BASE_URL = "https://backend.vcaremind.io.vn"
 API_ENDPOINTS = {
     "register": f"{BASE_URL}/api/auth/register",
     "login": f"{BASE_URL}/api/auth/login", 

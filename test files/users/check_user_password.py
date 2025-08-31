@@ -8,7 +8,7 @@ import json
 
 def check_user_password():
     """Check if user son123@gmail.com exists and test passwords"""
-    base_url = "https://backend-bootcamp.sonktx.online"
+    base_url = "https://backend.vcaremind.io.vn"
     auth_url = f"{base_url}/api/auth/login"
     headers = {
         "Content-Type": "application/json",
@@ -83,7 +83,7 @@ def check_user_password():
 
 def create_test_user():
     """Create test user if it doesn't exist"""
-    base_url = "https://backend-bootcamp.sonktx.online"
+    base_url = "https://backend.vcaremind.io.vn"
     register_url = f"{base_url}/api/auth/register"
     headers = {
         "Content-Type": "application/json",

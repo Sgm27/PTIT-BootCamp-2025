@@ -8,7 +8,7 @@ import json
 def test_api_connection():
     """Test API connection and conversation endpoint"""
     
-    base_url = "https://backend-bootcamp.sonktx.online"
+    base_url = "https://backend.vcaremind.io.vn"
     user_id = "f5db7d59-1df3-4b83-a066-bbb95d7a28a0"
     
     print("=== Testing API Connection ===")

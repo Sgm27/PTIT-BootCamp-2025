@@ -6,12 +6,12 @@ object ApiConfig {
     private const val ENVIRONMENT = "production" // "development" | "production" | "local"
     
     // Production Configuration (Backend API deployed on domain)
-    private const val PROD_BASE_URL = "https://backend-bootcamp.sonktx.online/"
-    private const val PROD_WS_URL = "wss://backend-bootcamp.sonktx.online/gemini-live"
+    private const val PROD_BASE_URL = "https://backend.vcaremind.io.vn/"
+    private const val PROD_WS_URL = "wss://backend.vcaremind.io.vn/gemini-live"
     
     // Development Configuration (Backend API on domain, not EC2 direct)
-    private const val DEV_BASE_URL = "https://backend-bootcamp.sonktx.online/"
-    private const val DEV_WS_URL = "wss://backend-bootcamp.sonktx.online/gemini-live"
+    private const val DEV_BASE_URL = "https://backend.vcaremind.io.vn/"
+    private const val DEV_WS_URL = "wss://backend.vcaremind.io.vn/gemini-live"
     
     // Local Development (for emulator/device testing with local backend)
     private const val LOCAL_BASE_URL = "http://10.0.2.2:8000/" // Emulator

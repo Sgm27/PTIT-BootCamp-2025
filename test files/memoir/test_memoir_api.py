@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # API Configuration
-BASE_URL = "https://backend-bootcamp.sonktx.online"
+BASE_URL = "https://backend.vcaremind.io.vn"
 USER_ID = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"  # User from previous test
 
 class MemoirAPITester:

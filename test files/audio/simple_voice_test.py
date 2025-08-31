@@ -11,7 +11,7 @@ class VoiceNotificationTester:
     """Class để test tất cả các loại voice notifications với user authentication"""
     
     def __init__(self):
-        self.base_url = "https://backend-bootcamp.sonktx.online"
+        self.base_url = "https://backend.vcaremind.io.vn"
         self.auth_url = f"{self.base_url}/api/auth/login"
         self.voice_url = f"{self.base_url}/api/generate-voice-notification"
         self.headers = {

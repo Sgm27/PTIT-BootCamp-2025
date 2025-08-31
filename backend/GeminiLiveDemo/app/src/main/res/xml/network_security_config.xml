@@ -10,7 +10,7 @@
     
     <!-- Production domain - allow all certificates for testing -->
     <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">backend-bootcamp.sonktx.online</domain>
+        <domain includeSubdomains="true">backend.vcaremind.io.vn</domain>
         <trust-anchors>
             <!-- Trust system certificates -->
             <certificates src="system"/>

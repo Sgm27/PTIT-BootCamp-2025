@@ -7,7 +7,7 @@ import json
 from datetime import datetime
 
 # API Configuration
-API_BASE_URL = "https://backend-bootcamp.sonktx.online"
+API_BASE_URL = "https://backend.vcaremind.io.vn"
 TEST_USER_ID = "f5db7d59-1df3-4b83-a066-bbb95d7a28a0"
 
 def test_get_conversations():

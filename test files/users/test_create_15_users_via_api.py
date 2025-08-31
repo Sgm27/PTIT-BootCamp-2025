@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import random
 
 # Production API URL
-BASE_URL = "https://backend-bootcamp.sonktx.online/"
+BASE_URL = "https://backend.vcaremind.io.vn/"
 REGISTER_ENDPOINT = f"{BASE_URL}api/auth/register"
 
 def generate_test_user_data(index):

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 
 def test_conversation_api():
     """Test conversation API endpoints"""
-    base_url = "https://backend-bootcamp.sonktx.online"
+    base_url = "https://backend.vcaremind.io.vn"
     test_user_id = "f5db7d59-1df3-4b83-a066-bbb95d7a28a0"  # Test user từ documents
     
     print("🔍 Testing Conversation API")
@@ -48,7 +48,7 @@ def test_conversation_api():
 
 def add_test_conversations():
     """Thêm dữ liệu test conversations nếu cần"""
-    base_url = "https://backend-bootcamp.sonktx.online"
+    base_url = "https://backend.vcaremind.io.vn"
     test_user_id = "f5db7d59-1df3-4b83-a066-bbb95d7a28a0"
     
     print(f"\n2. ➕ Adding Test Conversations")
@@ -127,7 +127,7 @@ def add_test_conversations():
 
 def test_conversation_detail():
     """Test conversation detail endpoint"""
-    base_url = "https://backend-bootcamp.sonktx.online"
+    base_url = "https://backend.vcaremind.io.vn"
     test_user_id = "f5db7d59-1df3-4b83-a066-bbb95d7a28a0"
     
     print(f"\n3. 🔍 Test Conversation Detail")

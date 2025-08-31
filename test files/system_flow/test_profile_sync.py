@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 
 # Configuration
-BASE_URL = "https://backend-bootcamp.sonktx.online"
+BASE_URL = "https://backend.vcaremind.io.vn"
 # BASE_URL = "http://localhost:8000"  # For local testing
 
 def test_profile_sync():

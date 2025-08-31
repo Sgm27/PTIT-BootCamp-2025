@@ -7,7 +7,7 @@ import com.example.geminilivedemo.data.ApiConfig
 
 object Constants {
     // Use URLs from ApiConfig to ensure consistency
-    val URL = ApiConfig.WEBSOCKET_URL  // Will be wss://backend-bootcamp.sonktx.online/gemini-live for production
+    val URL = ApiConfig.WEBSOCKET_URL  // Will be wss://backend.vcaremind.io.vn/gemini-live for production
     val VOICE_NOTIFICATION_API = "${ApiConfig.BASE_URL}${ApiConfig.Endpoints.VOICE_NOTIFICATION}"
     
     const val CAMERA_REQUEST_CODE = 100

@@ -7,7 +7,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 
 # Configuration
-API_BASE = "https://backend-bootcamp.sonktx.online"
+API_BASE = "https://backend.vcaremind.io.vn"
 DB_CONFIG = {
     'host': '13.215.139.225',
     'port': 5432,
