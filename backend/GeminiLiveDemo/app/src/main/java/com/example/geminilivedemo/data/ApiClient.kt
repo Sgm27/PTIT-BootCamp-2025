@@ -570,8 +570,12 @@ class ApiClient {
         suspend fun getUserSchedules(userId: String? = null, context: android.content.Context? = null): ApiResult<JSONObject> {
             return withContext(Dispatchers.IO) {
                 try {
-                    // Always use the target user ID for son123@gmail.com if no specific userId provided
-                    val targetUserId = userId ?: "6dbbe787-9645-4203-94c1-3e5b1e9ca54c" // son123@gmail.com user ID
+                    // Get the current logged-in user ID or use provided userId
+                    val targetUserId = userId ?: run {
+                        context?.let { ctx ->
+                            UserPreferences(ctx).getUserId()
+                        } ?: throw IllegalArgumentException("No user ID provided and no context available to get logged-in user")
+                    }
                     
                     Log.d("ApiClient", "Getting user schedules for user: $targetUserId")
                     

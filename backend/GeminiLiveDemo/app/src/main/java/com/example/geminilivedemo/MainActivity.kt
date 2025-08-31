@@ -353,7 +353,10 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
         // Setup UIManager callbacks
         uiManager.setCallback(object : UIManager.UICallback {
             override fun onCaptureButtonClicked() {
-                permissionHelper.checkCameraPermission()
+                Log.d("MainActivity", "Capture button clicked - opening Scanner Activity")
+                isSwitchingToOtherActivity = true
+                val intent = Intent(this@MainActivity, ScannerActivity::class.java)
+                startActivityForResult(intent, UIManager.SCANNER_REQUEST_CODE)
             }
             
             override fun onMicButtonClicked() {
@@ -380,7 +383,10 @@ class MainActivity : AppCompatActivity(), GlobalConnectionManager.ConnectionStat
             }
             
             override fun onScannerButtonClicked() {
-                // This is handled directly in UIManager now
+                Log.d("MainActivity", "Scanner button clicked - opening Scanner Activity")
+                isSwitchingToOtherActivity = true
+                val intent = Intent(this@MainActivity, ScannerActivity::class.java)
+                startActivityForResult(intent, UIManager.SCANNER_REQUEST_CODE)
             }
             
             override fun onNotificationButtonClicked() {

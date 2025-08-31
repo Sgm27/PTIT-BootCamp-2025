@@ -31,7 +31,7 @@ def test_api_with_auth():
     print("\n2. Testing schedules endpoint with user_id parameter...")
     try:
         # Use the elderly user ID we know exists
-        elderly_user_id = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"
+        elderly_user_id = "dd8d892b-fa77-4a71-9520-71baf601c3ba"
         
         # Try different ways to pass user_id
         urls_to_test = [

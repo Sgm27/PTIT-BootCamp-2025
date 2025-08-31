@@ -17,7 +17,7 @@ async def test_notification_service():
         notification_service = NotificationDBService()
         
         # Test data
-        user_id = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"  # son123@gmail.com
+        user_id = "dd8d892b-fa77-4a71-9520-71baf601c3ba"  # son123@gmail.com
         scheduled_time = datetime.now() + timedelta(hours=1)
         
         print(f"Creating notification for user: {user_id}")

@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 # API Configuration
 BASE_URL = "https://backend.vcaremind.io.vn"
-USER_ID = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"  # User from previous test
+USER_ID = "dd8d892b-fa77-4a71-9520-71baf601c3ba"  # User from previous test
 
 class MemoirAPITester:
     """Test class for memoir API endpoints"""

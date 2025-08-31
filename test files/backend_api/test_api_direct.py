@@ -12,7 +12,7 @@ def test_api_direct():
     print("=== Testing API Endpoint Directly ===")
     
     BASE_URL = "http://localhost:8000"
-    TEST_USER_ID = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"
+    TEST_USER_ID = "dd8d892b-fa77-4a71-9520-71baf601c3ba"
     
     try:
         # Step 1: Get current schedules

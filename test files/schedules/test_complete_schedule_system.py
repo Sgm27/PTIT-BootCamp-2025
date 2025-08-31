@@ -191,7 +191,7 @@ def test_android_api_compatibility():
     print("\n📱 Testing Android API compatibility...")
     
     # Test public endpoint with user ID (as Android app would call)
-    test_user_id = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"  # User from database
+    test_user_id = "dd8d892b-fa77-4a71-9520-71baf601c3ba"  # User from database
     
     try:
         response = requests.get(f"{API_BASE}/api/public/schedules/{test_user_id}", timeout=10)

@@ -32,7 +32,7 @@ def test_fastapi_endpoint():
         
         # Test notification ID
         notification_id = "adfcaa97-3471-4112-adce-366f7c18cf2e"
-        user_id = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"
+        user_id = "dd8d892b-fa77-4a71-9520-71baf601c3ba"
         
         print(f"1. Testing delete endpoint with:")
         print(f"   - Notification ID: {notification_id}")

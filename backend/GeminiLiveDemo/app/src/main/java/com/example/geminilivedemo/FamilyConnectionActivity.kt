@@ -251,8 +251,16 @@ class FamilyConnectionActivity : AppCompatActivity() {
             
             Log.d(TAG, "Intent extras - userId: '$currentUserId', userType: '$currentUserType', userName: '$currentUserName'")
             
-            // Always use the target user ID for son123@gmail.com
-            val targetUserId = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c" // son123@gmail.com user ID
+            // Get the current logged-in user ID from UserPreferences
+            val userPreferences = com.example.geminilivedemo.data.UserPreferences(this)
+            val targetUserId = userPreferences.getUserId()
+            
+            if (targetUserId.isNullOrEmpty()) {
+                Log.e(TAG, "No user logged in")
+                Toast.makeText(this, "Bạn cần đăng nhập để sử dụng tính năng này", Toast.LENGTH_SHORT).show()
+                finish()
+                return
+            }
             
             if (currentUserId.isEmpty() || currentUserType.isEmpty()) {
                 Log.e(TAG, "Missing user information from intent")
@@ -1294,8 +1302,15 @@ class FamilyConnectionActivity : AppCompatActivity() {
             
             CoroutineScope(Dispatchers.Main).launch {
                 try {
-                    // Use hard-coded user ID for authentication
-                    val targetUserId = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c" // son123@gmail.com user ID
+                    // Get the current logged-in user ID from UserPreferences
+                    val userPreferences = com.example.geminilivedemo.data.UserPreferences(this@FamilyConnectionActivity)
+                    val targetUserId = userPreferences.getUserId()
+                    
+                    if (targetUserId.isNullOrEmpty()) {
+                        Log.e(TAG, "No user logged in")
+                        Toast.makeText(this@FamilyConnectionActivity, "Bạn cần đăng nhập để xóa lịch", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
                     
                     val result = withContext(Dispatchers.IO) {
                         ApiClient.deleteSchedule(schedule.id, this@FamilyConnectionActivity)
@@ -1347,8 +1362,15 @@ class FamilyConnectionActivity : AppCompatActivity() {
             
             CoroutineScope(Dispatchers.Main).launch {
                 try {
-                    // Use hard-coded user ID for authentication
-                    val targetUserId = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c" // son123@gmail.com user ID
+                    // Get the current logged-in user ID from UserPreferences
+                    val userPreferences = com.example.geminilivedemo.data.UserPreferences(this@FamilyConnectionActivity)
+                    val targetUserId = userPreferences.getUserId()
+                    
+                    if (targetUserId.isNullOrEmpty()) {
+                        Log.e(TAG, "No user logged in")
+                        Toast.makeText(this@FamilyConnectionActivity, "Bạn cần đăng nhập để cập nhật lịch", Toast.LENGTH_SHORT).show()
+                        return@launch
+                    }
                     
                     val result = withContext(Dispatchers.IO) {
                         ApiClient.markScheduleComplete(schedule.id, this@FamilyConnectionActivity)

@@ -18,7 +18,7 @@ DB_CONFIG = {
 
 def test_user_schedules():
     """Test user schedules API"""
-    user_id = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"  # son123@gmail.com
+    user_id = "dd8d892b-fa77-4a71-9520-71baf601c3ba"  # son123@gmail.com
     
     print(f"🔍 Testing schedules for user: {user_id}")
     

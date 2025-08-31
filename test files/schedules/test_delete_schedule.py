@@ -14,7 +14,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Test configuration
 BASE_URL = "http://localhost:8000"
-TEST_USER_ID = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c"  # son123@gmail.com user ID
+TEST_USER_ID = "dd8d892b-fa77-4a71-9520-71baf601c3ba"  # son123@gmail.com user ID
 
 def test_delete_schedule():
     """Test the delete schedule endpoint"""

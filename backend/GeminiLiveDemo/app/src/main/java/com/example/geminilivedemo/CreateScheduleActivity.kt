@@ -26,6 +26,7 @@ import com.example.geminilivedemo.data.ApiResult
 import com.example.geminilivedemo.data.ScheduleManager
 import com.example.geminilivedemo.data.Schedule
 import com.example.geminilivedemo.data.CreateScheduleRequest
+import com.example.geminilivedemo.data.UserPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,6 +37,7 @@ import java.util.*
 
 class CreateScheduleActivity : AppCompatActivity() {
     
+    private lateinit var userPreferences: UserPreferences
     private lateinit var titleText: TextView
     private lateinit var scheduleNameInput: TextInputEditText
     private lateinit var selectDateButton: MaterialButton
@@ -65,6 +67,7 @@ class CreateScheduleActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.dialog_create_schedule)
         
+        userPreferences = UserPreferences(this)
         initializeViews()
         setupClickListeners()
         setupCategorySelection()
@@ -362,9 +365,15 @@ class CreateScheduleActivity : AppCompatActivity() {
     ) {
         CoroutineScope(Dispatchers.Main).launch {
             try {
-                // Use the target user ID for son123@gmail.com
-                val targetUserId = "6dbbe787-9645-4203-94c1-3e5b1e9ca54c" // son123@gmail.com user ID
-                val currentUserName = intent.getStringExtra("current_user_name") ?: "Family Member"
+                // Get the current logged-in user ID from UserPreferences
+                val targetUserId = userPreferences.getUserId()
+                if (targetUserId.isNullOrEmpty()) {
+                    Log.e(TAG, "No user logged in")
+                    Toast.makeText(this@CreateScheduleActivity, "Bạn cần đăng nhập để tạo lịch", Toast.LENGTH_SHORT).show()
+                    return@launch
+                }
+                
+                val currentUserName = intent.getStringExtra("current_user_name") ?: userPreferences.getFullName() ?: "Family Member"
                 
                 Log.d(TAG, "Creating schedule with:")
                 Log.d(TAG, "  - Target User ID: $targetUserId")
