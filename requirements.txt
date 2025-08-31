@@ -39,11 +39,3 @@ flake8
 
 # Scheduler for daily tasks
 apscheduler
-
-# Additional dependencies found in the codebase
-typing
-datetime
-pathlib
-secrets
-enum
-contextlib 
