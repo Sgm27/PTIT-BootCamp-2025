@@ -37,15 +37,11 @@ const Download = () => {
               </h3>
               
               <div className="w-48 h-48 mx-auto mb-6 p-4 bg-white rounded-lg border">
-                {/* QR Code placeholder - you can replace with actual QR code image */}
-                <div className="w-full h-full bg-gray-900 rounded grid grid-cols-8 gap-1">
-                  {Array.from({ length: 64 }).map((_, i) => (
-                    <div 
-                      key={i} 
-                      className={`${Math.random() > 0.5 ? 'bg-black' : 'bg-white'} rounded-sm`}
-                    />
-                  ))}
-                </div>
+                <img 
+                  src="/asset/qr.png" 
+                  alt="QR Code để tải VCareMind" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               
               <p className="text-muted-foreground">

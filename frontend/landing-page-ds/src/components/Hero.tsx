@@ -1,9 +1,13 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Play, Download, QrCode } from "lucide-react";
-import heroImage from "@/assets/vcaremind-hero.jpg";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Play, Download, QrCode, X } from "lucide-react";
+import { useState } from "react";
+import waitingAvatarVideo from "/asset/waiting_avatar.mp4";
 
 const Hero = () => {
+  const [isVideoOpen, setIsVideoOpen] = useState(false);
+
   return (
     <section className="relative pt-20 pb-16 overflow-hidden">
       <div className="absolute inset-0 bg-gradient-hero" />
@@ -40,14 +44,35 @@ const Hero = () => {
                 Tải xuống miễn phí
               </Button>
               
-              <Button 
-                variant="outline" 
-                size="lg"
-                onClick={() => window.open('https://drive.google.com/file/d/1v9giq6Zs4A-Q7WYelHXY1ZfGNq__d1oo/edit', '_blank')}
-              >
-                <Play className="w-5 h-5" />
-                Xem video giới thiệu
-              </Button>
+              <Dialog open={isVideoOpen} onOpenChange={setIsVideoOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                  >
+                    <Play className="w-5 h-5" />
+                    Xem video giới thiệu
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl w-full p-0">
+                  <div className="relative">
+                    <button
+                      onClick={() => setIsVideoOpen(false)}
+                      className="absolute top-4 right-4 z-10 p-2 bg-black/50 text-white rounded-full hover:bg-black/70 transition-colors"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <div className="aspect-video w-full">
+                      <iframe
+                        src="https://drive.google.com/file/d/1v9giq6Zs4A-Q7WYelHXY1ZfGNq__d1oo/preview"
+                        className="w-full h-full rounded-lg"
+                        allow="autoplay"
+                        title="Video giới thiệu VCareMind"
+                      />
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
             
             <div className="flex items-center gap-6 pt-4">
@@ -66,12 +91,15 @@ const Hero = () => {
             </div>
           </div>
           
-          <div className="relative">
-            <div className="relative">
-              <img 
-                src={heroImage} 
-                alt="VCareMind - Trợ lý ảo chăm sóc người cao tuổi"
-                className="w-full rounded-2xl shadow-healthcare animate-float"
+          <div className="relative flex justify-center">
+            <div className="relative w-fit">
+              <video 
+                src={waitingAvatarVideo} 
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="h-[500px] w-auto rounded-2xl shadow-healthcare object-cover"
               />
             </div>
             

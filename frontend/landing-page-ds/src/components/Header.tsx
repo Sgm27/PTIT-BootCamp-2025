@@ -1,14 +1,16 @@
 import { Button } from "@/components/ui/button";
-import { Brain, Menu } from "lucide-react";
+import { Menu } from "lucide-react";
 
 const Header = () => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border/50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-healthcare rounded-lg flex items-center justify-center">
-            <Brain className="w-6 h-6 text-white" />
-          </div>
+          <img 
+            src="/asset/logo.png" 
+            alt="VCareMind Logo" 
+            className="w-10 h-10 rounded-lg object-contain"
+          />
           <span className="text-xl font-bold text-foreground">VCareMind</span>
         </div>
         

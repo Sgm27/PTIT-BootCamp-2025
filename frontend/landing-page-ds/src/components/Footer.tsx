@@ -1,4 +1,4 @@
-import { Brain, Mail, Phone, MapPin } from "lucide-react";
+import { Mail, Phone, MapPin } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -8,9 +8,11 @@ const Footer = () => {
           {/* Brand */}
           <div className="space-y-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-healthcare rounded-lg flex items-center justify-center">
-                <Brain className="w-6 h-6 text-white" />
-              </div>
+              <img 
+                src="/asset/logo.png" 
+                alt="VCareMind Logo" 
+                className="w-10 h-10 rounded-lg object-contain"
+              />
               <span className="text-xl font-bold">VCareMind</span>
             </div>
             <p className="text-background/70 leading-relaxed">
@@ -64,7 +66,7 @@ const Footer = () => {
         <div className="border-t border-background/20 mt-12 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-background/70 text-sm">
-              © 2024 VCareMind. Bảo lưu mọi quyền.
+              © 2025 VCareMind. Bảo lưu mọi quyền.
             </div>
             
             <div className="flex items-center gap-6 text-sm text-background/70">
